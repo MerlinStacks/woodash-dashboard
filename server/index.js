@@ -139,17 +139,24 @@ const initDB = async () => {
 initDB();
 
 // PROXY: WooCommerce API with Redis Cache
-app.get('/api/proxy/*', async (req, res) => {
+app.all('/api/proxy/*', async (req, res) => {
     const endpoint = req.params[0]; // e.g., 'products', 'orders'
     const query = new URLSearchParams(req.query).toString();
     const cacheKey = `wc:${endpoint}:${query}`;
 
+    // Caching Rules: Only GET, and Exclude specific namespaces (real-time status/actions)
+    const isCacheable = req.method === 'GET' &&
+        !endpoint.startsWith('overseek') &&
+        !endpoint.startsWith('wc-dash');
+
     try {
         // 1. Check Cache
-        const cached = await redisClient.get(cacheKey);
-        if (cached) {
-            console.log(`Cache Hit: ${cacheKey}`);
-            return res.json(JSON.parse(cached));
+        if (isCacheable) {
+            const cached = await redisClient.get(cacheKey);
+            if (cached) {
+                console.log(`Cache Hit: ${cacheKey}`);
+                return res.json(JSON.parse(cached));
+            }
         }
 
         // 2. Fetch from WooCommerce
@@ -168,21 +175,29 @@ app.get('/api/proxy/*', async (req, res) => {
             wcUrl = `${storeUrl}/wp-json/wc/v3/${endpoint}?${query}`;
         }
 
-        console.log(`Target: ${wcUrl}`);
+        console.log(`Proxy ${req.method}: ${wcUrl}`);
 
-        const response = await axios.get(wcUrl, {
-            headers: { 'Authorization': authHeader }
+        const response = await axios({
+            method: req.method,
+            url: wcUrl,
+            headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json'
+            },
+            data: req.body
         });
 
         const data = response.data;
         const totalPages = response.headers['x-wp-totalpages'];
 
         // 3. Cache Result (TTL: 5 minutes default)
-        await redisClient.set(cacheKey, JSON.stringify({ data, totalPages }), { EX: 300 });
+        if (isCacheable) {
+            await redisClient.set(cacheKey, JSON.stringify({ data, totalPages }), { EX: 300 });
+        }
 
-        // 4. Archival Storage (Postgres) - Fire and Forget
+        // 4. Archival Storage (Postgres) - Fire and Forget (Only for GET Orders for now)
         try {
-            if (endpoint === 'orders' && Array.isArray(data)) {
+            if (req.method === 'GET' && endpoint === 'orders' && Array.isArray(data)) {
                 // Async save to Postgres
                 (async () => {
                     try {
@@ -211,12 +226,47 @@ app.get('/api/proxy/*', async (req, res) => {
             console.warn('[Archival] PG Warning:', pgErr.message);
         }
 
-        console.log(`Cache Miss: ${cacheKey}`);
-        res.json({ data, totalPages });
+        if (isCacheable) console.log(`Cache Miss: ${cacheKey}`);
+
+        // Return standard response structure
+        // Note: For POST/PUT, WC usually returns the object directly.
+        // Our Frontend expects { data, totalPages } wrapper from Proxy only if it's a list?
+        // Actually, Step 674 api.js implies response.data is returned directly. 
+        // Previously we returned `res.json({ data, totalPages })`. 
+        // We should maintain this wrapper for consistency OR only strictly for LIST endpoints.
+        // But to avoid breaking frontend, we should include the wrapper structure if it IS a list capability, 
+        // typically indicated by totalPages header.
+
+        if (totalPages !== undefined || Array.isArray(data)) {
+            res.json({ data, totalPages });
+        } else {
+            // For single object (create order response), just return data?
+            // But Wait: api.js `fetchProducts` expects `response.data`.
+            // Wait, `fetchProducts` calls `client.get`. `createWCClient` returns `axios` instance.
+            // `axios` response has `.data`.
+            // If Proxy returns `{ data: [..], totalPages: N }`.
+            // Then `response.data` in frontend is `{ data: [..], ... }`.
+            // The old code returned `res.json({ data, totalPages })`.
+            // Let's stick to that IF it's a GET request?
+            // If I do `POST`, WC returns `{ id: 123 ... }`.
+            // Proxy returns `{ data: {id:123}, totalPages: undefined }`.
+            // Frontend gets `{ data: {id:123} }`.
+            // Usually `response.data` is the payload.
+            // So Frontend logic `response.data` -> `{ data: ... }`.
+            // We need to match what frontend expects.
+
+            // Simplest approach: Always wrap.
+            res.json({ data, totalPages });
+        }
 
     } catch (err) {
         console.error("Proxy Error:", err.message);
-        res.status(500).json({ error: err.message });
+        // Forward status code from upstream if available
+        if (err.response) {
+            res.status(err.response.status).json(err.response.data);
+        } else {
+            res.status(500).json({ error: err.message });
+        }
     }
 });
 
