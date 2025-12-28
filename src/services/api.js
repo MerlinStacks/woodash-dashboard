@@ -298,138 +298,76 @@ export const deleteWPUser = async (settings, id, reassignId) => {
     return response.data;
 };
 
-export const fetchCarts = async (settings) => {
+// Helper for Smart Failover (Modern -> Legacy -> Modern+QS -> Legacy+QS)
+const executeHelperRequest = async (settings, method, pathSuffix, data = null) => {
     if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
-    const client = createWCClient(
-        settings.storeUrl,
-        settings.consumerKey,
-        settings.consumerSecret,
-        settings.authMethod
-    );
-    try {
-        const response = await client.get('overseek/v1/carts');
-        return response.data;
-    } catch (e) {
-        if (e.response && e.response.status === 404) {
-            // Fallback for legacy plugin
-            const response = await client.get('wc-dash/v1/carts');
-            return response.data;
+
+    const makeClient = (auth) => createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, auth);
+
+    const strategies = [
+        { auth: settings.authMethod || 'auto', prefix: 'overseek/v1' },     // 1. Standard Modern
+        { auth: settings.authMethod || 'auto', prefix: 'wc-dash/v1' },      // 2. Standard Legacy
+        { auth: 'query_string', prefix: 'overseek/v1' },          // 3. QS Modern (Fixes auth header stripping)
+        { auth: 'query_string', prefix: 'wc-dash/v1' }            // 4. QS Legacy
+    ];
+
+    let lastError = null;
+    const triedKeys = new Set();
+
+    for (const strat of strategies) {
+        // Avoid duplicate attempts if user's setting is already query_string
+        const key = `${strat.auth}|${strat.prefix}`;
+        if (triedKeys.has(key)) continue;
+        triedKeys.add(key);
+
+        try {
+            const client = makeClient(strat.auth);
+            const path = `${strat.prefix}/${pathSuffix}`;
+            const res = method === 'GET' ? await client.get(path) : await client.post(path, data);
+            return res.data;
+        } catch (e) {
+            lastError = e;
+            // Continue trying other strategies on error
+            // console.warn(`Strategy ${key} failed:`, e.message);
         }
-        throw e;
     }
+    throw lastError;
+};
+
+export const fetchCarts = async (settings) => {
+    return executeHelperRequest(settings, 'GET', 'carts');
 };
 
 export const sendEmail = async (settings, data) => {
-    if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
-    const client = createWCClient(
-        settings.storeUrl,
-        settings.consumerKey,
-        settings.consumerSecret,
-        settings.authMethod
-    );
-    try {
-        const response = await client.post('overseek/v1/email/send', data);
-        return response.data;
-    } catch (e) {
-        if (e.response && e.response.status === 404) {
-            const response = await client.post('wc-dash/v1/email/send', data);
-            return response.data;
-        }
-        throw e;
-    }
+    return executeHelperRequest(settings, 'POST', 'email/send', data);
 };
 
 export const fetchSMTP = async (settings) => {
-    if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
-    const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    try {
-        const response = await client.get('overseek/v1/settings/smtp');
-        return response.data;
-    } catch (e) {
-        if (e.response && e.response.status === 404) {
-            const response = await client.get('wc-dash/v1/settings/smtp');
-            return response.data;
-        }
-        throw e;
-    }
+    return executeHelperRequest(settings, 'GET', 'settings/smtp');
 };
 
 export const saveSMTP = async (settings, data) => {
-    if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
-    const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    try {
-        const response = await client.post('overseek/v1/settings/smtp', data);
-        return response.data;
-    } catch (e) {
-        if (e.response && e.response.status === 404) {
-            const response = await client.post('wc-dash/v1/settings/smtp', data);
-            return response.data;
-        }
-        throw e;
-    }
+    return executeHelperRequest(settings, 'POST', 'settings/smtp', data);
 };
 
 export const fetchVisitorCount = async (settings) => {
-    if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
-    const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    try {
-        const response = await client.get('overseek/v1/visitors');
-        return response.data;
-    } catch (e) {
-        if (e.response && e.response.status === 404) {
-            const response = await client.get('wc-dash/v1/visitors');
-            return response.data;
-        }
-        throw e;
-    }
+    return executeHelperRequest(settings, 'GET', 'visitors');
 };
 
 export const fetchVisitorLog = async (settings) => {
-    if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
-    const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    try {
-        const response = await client.get('overseek/v1/visitor-log');
-        return response.data;
-    } catch (e) {
-        if (e.response && e.response.status === 404) {
-            const response = await client.get('wc-dash/v1/visitor-log');
-            return response.data;
-        }
-        throw e;
-    }
+    return executeHelperRequest(settings, 'GET', 'visitor-log');
 };
 
 export const fetchSystemStatus = async (settings) => {
-    if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
     try {
-        const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-        try {
-            const response = await client.get('overseek/v1/status');
-            return response.data;
-        } catch (e) {
-            if (e.response && e.response.status === 404) {
-                const response = await client.get('wc-dash/v1/status');
-                return response.data;
-            }
-            throw e;
-        }
+        return await executeHelperRequest(settings, 'GET', 'status');
     } catch (e) {
         return null;
     }
 };
+
 export const installDB = async (settings) => {
-    if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
-    const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    try {
-        const response = await client.post('overseek/v1/install-db');
-        return response.data;
-    } catch (e) {
-        if (e.response && e.response.status === 404) {
-            const response = await client.post('wc-dash/v1/install-db');
-            return response.data;
-        }
-        throw e;
-    }
+    return executeHelperRequest(settings, 'POST', 'install-db');
 };
 
 export const createTestVisit = async (settings) => {
