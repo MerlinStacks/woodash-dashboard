@@ -5,7 +5,7 @@ import { useSettings } from '../context/SettingsContext';
 import {
     Layout, Type, Image as ImageIcon, DollarSign, FileText,
     Trash2, GripVertical, Plus, AlignLeft, AlignCenter, AlignRight,
-    GripHorizontal, MapPin, Search, Info, Printer
+    GripHorizontal, MapPin, Search, Info, Printer, Save
 } from 'lucide-react';
 import { InvoiceBlockRenderer } from '../components/InvoiceRenderer';
 import { PREVIEW_DATA as SHARED_PREVIEW_DATA } from '../components/InvoiceRenderer'; // We might not be able to export this easily if not exported
