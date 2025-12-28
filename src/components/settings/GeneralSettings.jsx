@@ -3,7 +3,10 @@ import { Lock, Server } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchProducts } from '../../services/api';
 
+import { useSync } from '../../context/SyncContext';
+
 const GeneralSettings = ({ settings, updateSettings }) => {
+    const { startSync, status: syncStatus } = useSync();
     const [formData, setFormData] = useState({
         storeUrl: '',
         consumerKey: '',
@@ -119,6 +122,13 @@ const GeneralSettings = ({ settings, updateSettings }) => {
         }
     };
 
+    const handleFullResync = () => {
+        if (window.confirm("This will re-download ALL data (Products, Orders, Customers). This may take several minutes. Continue?")) {
+            startSync(true); // forceFull = true
+            toast.info("Full resync started in background...");
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSaving(true);
@@ -195,11 +205,20 @@ const GeneralSettings = ({ settings, updateSettings }) => {
                 </div>
                 <p className="help-text">Products with margin below this % will be highlighted in red.</p>
             </div>
-            <div className="form-actions mt-8">
+            <div className="form-actions mt-8" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <button type="button" onClick={handleTestConnection} disabled={loading || isSaving} className="btn" style={{ background: 'rgba(255,255,255,0.05)' }}>
                     {loading ? 'Testing...' : 'Test Connection'}
                 </button>
-                <button type="submit" disabled={isSaving} className="btn btn-primary">
+                <button
+                    type="button"
+                    onClick={handleFullResync}
+                    disabled={syncStatus === 'running'}
+                    className="btn"
+                    style={{ background: 'rgba(234, 179, 8, 0.1)', color: '#eab308', border: '1px solid rgba(234, 179, 8, 0.3)' }}
+                >
+                    {syncStatus === 'running' ? 'Syncing...' : 'Resync All Data'}
+                </button>
+                <button type="submit" disabled={isSaving} className="btn btn-primary" style={{ marginLeft: 'auto' }}>
                     {isSaving ? 'Saving...' : 'Save Configuration'}
                 </button>
             </div>
