@@ -29,7 +29,8 @@ const Carts = () => {
             }
         } catch (error) {
             console.error(error);
-            toast.error("Failed to load carts. Make sure Helper Plugin is active.");
+            const msg = error.response ? `Server Error ${error.response.status}` : error.message;
+            toast.error(`Failed to load carts: ${msg}`);
             setCarts([]);
         } finally {
             setLoading(false);
