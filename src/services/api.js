@@ -32,6 +32,9 @@ const getClientConfig = (url, key, secret, authMethod) => {
             consumer_secret: cleanSecret
         };
     }
+    // Inject Store URL for Proxy
+    config.headers['x-store-url'] = cleanUrl;
+
     return { baseURL: cleanUrl, config };
 };
 
@@ -51,7 +54,7 @@ const createWCClient = (url, key, secret, authMethod = 'auto') => {
     }
 
     const { baseURL, config } = getClientConfig(url, key, secret, authMethod);
-    config.baseURL = `${baseURL}/wp-json/wc/v3`;
+    config.baseURL = `/api/proxy`;
 
     // Create new instance
     const client = axios.create(config);
