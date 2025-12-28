@@ -45,7 +45,7 @@ const Inventory = () => {
     }, [searchTerm, filterType]);
 
     // Data Queries
-    const { data: { items: sortedItems, totalItems } = { items: [], totalItems: 0 }, isLoading } = useLiveQuery(async () => {
+    const queryResult = useLiveQuery(async () => {
         if (!activeAccount) return { items: [], totalItems: 0 };
 
         // 1. Fetch needed components
@@ -198,6 +198,9 @@ const Inventory = () => {
         return { items: finalItems, totalItems: count };
 
     }, [activeAccount, searchTerm, filterType, currentPage, itemsPerPage, sortConfig]);
+
+    const { items: sortedItems, totalItems } = queryResult || { items: [], totalItems: 0 };
+    const isLoading = !queryResult;
 
     const requestSort = (key) => {
         let direction = 'asc';
