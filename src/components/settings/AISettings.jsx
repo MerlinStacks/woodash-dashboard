@@ -44,7 +44,7 @@ const AISettings = ({ settings, updateSettings }) => {
         try {
             const headers = {
                 'HTTP-Referer': window.location.origin,
-                'X-Title': 'WooDash'
+                'X-Title': 'OverSeek'
             };
             // Use API key if available
             if (formData.aiApiKey) {

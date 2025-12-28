@@ -20,7 +20,7 @@ services:
     restart: always
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://user:password@db:5432/woodash?schema=public
+      - DATABASE_URL=postgresql://user:password@db:5432/overseek?schema=public
       - PORT=4000
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -36,7 +36,7 @@ services:
     environment:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=woodash
+      - POSTGRES_DB=overseek
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

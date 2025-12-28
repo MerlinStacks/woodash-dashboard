@@ -1,14 +1,14 @@
 <?php
 /**
- * Plugin Name: Woo Dashboard Helper
- * Description: Exposes Cart Abandonment data, Visitor Logs, and SMTP Settings to the React Dashboard.
- * Version: 2.1
- * Author: Dashboard
+ * Plugin Name: OverSeek Helper
+ * Description: Exposes Cart Abandonment data, Visitor Logs, and SMTP Settings to the OverSeek Dashboard.
+ * Version: 2.2
+ * Author: OverSeek
  */
 
 if (!defined('ABSPATH')) exit;
 
-class WooDashHelper {
+class OverSeekHelper {
     public function __construct() {
         // 1. Critical: Handle CORS and Auth immediately
         add_action('init', [$this, 'handle_cors'], 0); // Priority 0 to run before others
@@ -48,7 +48,7 @@ class WooDashHelper {
         $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
         
         // Allowed origins filter
-        $allowed_origins = apply_filters('wc_dash_allowed_origins', [
+        $allowed_origins = apply_filters('overseek_allowed_origins', [
             'http://localhost:5173',
             'http://localhost:3000',
             'http://127.0.0.1:5173',
@@ -82,7 +82,7 @@ class WooDashHelper {
 
     public function install_db_v2() {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'wc_dash_visits';
+        $table_name = $wpdb->prefix . 'overseek_visits';
         $charset_collate = $wpdb->get_charset_collate();
 
         $sql = "CREATE TABLE IF NOT EXISTS $table_name (
@@ -101,13 +101,13 @@ class WooDashHelper {
 
         $wpdb->query($sql);
 
-        update_option('wc_dash_db_version', '2.5');
+        update_option('overseek_db_version', '2.5');
         return true;
     }
 
     public function register_routes() {
         // Force Install/Repair DB
-        register_rest_route('wc-dash/v1', '/install-db', [
+        register_rest_route('overseek/v1', '/install-db', [
             'methods' => 'POST',
             'callback' => function() {
                 $this->install_db_v2();
@@ -117,54 +117,54 @@ class WooDashHelper {
         ]);
         
         // Manual Test Visit
-        register_rest_route('wc-dash/v1', '/test-visit', [
+        register_rest_route('overseek/v1', '/test-visit', [
             'methods' => 'POST',
             'callback' => [$this, 'create_test_visit'],
             'permission_callback' => function() { return current_user_can('manage_woocommerce'); }
         ]);
 
         // Status Debug
-        register_rest_route('wc-dash/v1', '/status', [
+        register_rest_route('overseek/v1', '/status', [
             'methods' => 'GET',
             'callback' => [$this, 'get_system_status'],
             'permission_callback' => function() { return current_user_can('manage_woocommerce'); }
         ]);
 
         // Carts
-        register_rest_route('wc-dash/v1', '/carts', [
+        register_rest_route('overseek/v1', '/carts', [
             'methods' => 'GET',
             'callback' => [$this, 'get_carts'],
             'permission_callback' => function() { return current_user_can('manage_woocommerce'); }
         ]);
 
         // Email
-        register_rest_route('wc-dash/v1', '/email/send', [
+        register_rest_route('overseek/v1', '/email/send', [
             'methods' => 'POST',
             'callback' => [$this, 'send_email'],
             'permission_callback' => function() { return current_user_can('manage_woocommerce'); }
         ]);
 
         // SMTP
-        register_rest_route('wc-dash/v1', '/settings/smtp', [
+        register_rest_route('overseek/v1', '/settings/smtp', [
             'methods' => 'GET',
             'callback' => [$this, 'get_smtp_settings'],
             'permission_callback' => function() { return current_user_can('manage_woocommerce'); }
         ]);
-        register_rest_route('wc-dash/v1', '/settings/smtp', [
+        register_rest_route('overseek/v1', '/settings/smtp', [
             'methods' => 'POST',
             'callback' => [$this, 'update_smtp_settings'],
             'permission_callback' => function() { return current_user_can('manage_woocommerce'); }
         ]);
 
         // Visitor Log
-        register_rest_route('wc-dash/v1', '/visitor-log', [
+        register_rest_route('overseek/v1', '/visitor-log', [
             'methods' => 'GET',
             'callback' => [$this, 'get_visitor_log'],
             'permission_callback' => function() { return current_user_can('manage_woocommerce'); }
         ]);
         
         // Count for legacy/simple view
-        register_rest_route('wc-dash/v1', '/visitors', [
+        register_rest_route('overseek/v1', '/visitors', [
             'methods' => 'GET',
             'callback' => [$this, 'get_visitor_count'],
             'permission_callback' => function() { return current_user_can('manage_woocommerce'); }
@@ -193,7 +193,7 @@ class WooDashHelper {
         if (is_robots() || is_feed() || is_trackback() || $this->is_bot()) return;
 
         // Hybrid Tracking: Cookie > Fingerprint
-        $cookie_name = 'wc_dash_vid';
+        $cookie_name = 'overseek_vid';
         $visit_id = '';
         $is_new_visit = false;
 
@@ -248,10 +248,10 @@ class WooDashHelper {
 
     private function update_visit_log($visit_id, $new_action, $is_new_visit = false) {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'wc_dash_visits';
+        $table_name = $wpdb->prefix . 'overseek_visits';
         
         // Ensure table matches correct version
-        if (get_option('wc_dash_db_version') !== '2.5') {
+        if (get_option('overseek_db_version') !== '2.5') {
            $this->install_db_v2(); 
         }
 
@@ -312,7 +312,7 @@ class WooDashHelper {
         $ua = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
         $fallback_id = 'fp_' . md5($ip . $ua . date('Y-m-d'));
         
-        $visit_id = isset($_COOKIE['wc_dash_vid']) ? sanitize_key($_COOKIE['wc_dash_vid']) : $fallback_id;
+        $visit_id = isset($_COOKIE['overseek_vid']) ? sanitize_key($_COOKIE['overseek_vid']) : $fallback_id;
         
         $product = wc_get_product($product_id);
         $action = [
@@ -329,7 +329,7 @@ class WooDashHelper {
         $ua = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
         $fallback_id = 'fp_' . md5($ip . $ua . date('Y-m-d'));
 
-        $visit_id = isset($_COOKIE['wc_dash_vid']) ? sanitize_key($_COOKIE['wc_dash_vid']) : $fallback_id;
+        $visit_id = isset($_COOKIE['overseek_vid']) ? sanitize_key($_COOKIE['overseek_vid']) : $fallback_id;
         
         $order = wc_get_order($order_id);
         $action = [
@@ -345,12 +345,12 @@ class WooDashHelper {
     
     public function get_system_status($request) {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'wc_dash_visits';
+        $table_name = $wpdb->prefix . 'overseek_visits';
         $exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name;
         $row_count = $exists ? $wpdb->get_var("SELECT COUNT(*) FROM $table_name") : 0;
         
         return rest_ensure_response([
-            'db_version' => get_option('wc_dash_db_version'),
+            'db_version' => get_option('overseek_db_version'),
             'table_exists' => $exists,
             'table_name' => $table_name,
             'row_count' => $row_count,
@@ -362,7 +362,7 @@ class WooDashHelper {
 
     public function get_visitor_log($request) {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'wc_dash_visits';
+        $table_name = $wpdb->prefix . 'overseek_visits';
 
         if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
             return rest_ensure_response([]);
@@ -396,10 +396,6 @@ class WooDashHelper {
         $users_map = [];
         if (!empty($customer_ids)) {
             $customer_ids = array_unique($customer_ids);
-            // In WP, get_users can be heavy, but get_userdata is cached. 
-            // Better to just loop get_userdata if IDs are few, or query DB if many.
-            // With limit 100, looping get_userdata is actually often fine due to WP object cache.
-            // But let's pre-query to be safe if no cache.
             $users = get_users(['include' => $customer_ids, 'fields' => ['ID', 'display_name', 'user_email']]);
             foreach ($users as $u) {
                 $users_map[$u->ID] = $u->display_name;
@@ -419,9 +415,6 @@ class WooDashHelper {
             if (empty($visit->customer_name) && !empty($visit->actions)) {
                 foreach ($visit->actions as $action) {
                     if (isset($action->type) && $action->type === 'order' && isset($action->order_id)) {
-                        // wc_get_order is cached by WC, so repeated calls for same order are cheap. 
-                        // If 100 unique orders, it might be 100 DB queries if not warm. 
-                        // Acceptable for this dashboard scale.
                         $order = wc_get_order($action->order_id);
                         if ($order) {
                             $visit->customer_name = $order->get_billing_first_name() . ' ' . $order->get_billing_last_name();
@@ -436,7 +429,7 @@ class WooDashHelper {
     
     public function get_visitor_count($request) {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'wc_dash_visits';
+        $table_name = $wpdb->prefix . 'overseek_visits';
         // Count visits active in last 10 mins
         $count = $wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE last_activity > DATE_SUB(NOW(), INTERVAL 3 MINUTE)");
         return rest_ensure_response(['count' => $count, 'timestamp' => time()]);
@@ -484,7 +477,7 @@ class WooDashHelper {
     }
 
     public function configure_smtp($phpmailer) {
-        $smtp = get_option('wc_dash_smtp_settings', []);
+        $smtp = get_option('overseek_smtp_settings', []);
         if (!empty($smtp['enabled']) && $smtp['enabled'] === 'yes') {
             $phpmailer->isSMTP();
             $phpmailer->Host = $smtp['host'];
@@ -499,7 +492,7 @@ class WooDashHelper {
     }
 
     public function get_smtp_settings($request) {
-        $settings = get_option('wc_dash_smtp_settings', ['enabled' => 'no', 'host' => '', 'port' => '587', 'username' => '', 'password' => '', 'encryption' => 'tls', 'from_email' => get_option('admin_email'), 'from_name' => get_option('blogname')]);
+        $settings = get_option('overseek_smtp_settings', ['enabled' => 'no', 'host' => '', 'port' => '587', 'username' => '', 'password' => '', 'encryption' => 'tls', 'from_email' => get_option('admin_email'), 'from_name' => get_option('blogname')]);
         return rest_ensure_response($settings);
     }
 
@@ -514,7 +507,7 @@ class WooDashHelper {
             'from_email' => sanitize_email($request->get_param('from_email')),
             'from_name' => sanitize_text_field($request->get_param('from_name')),
         ];
-        update_option('wc_dash_smtp_settings', $settings);
+        update_option('overseek_smtp_settings', $settings);
         return rest_ensure_response(['success' => true, 'message' => 'SMTP settings saved']);
     }
 
@@ -556,4 +549,4 @@ class WooDashHelper {
         return false;
     }
 }
-new WooDashHelper();
+new OverSeekHelper();

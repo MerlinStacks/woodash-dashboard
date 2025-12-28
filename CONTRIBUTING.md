@@ -1,14 +1,14 @@
-# Contributing to WooDash
+# Contributing to OverSeek
 
 First off, thanks for taking the time to contribute! 🎉
 
-The following is a set of guidelines for contributing to WooDash. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
+The following is a set of guidelines for contributing to OverSeek. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
 
 ## How Can I Contribute?
 
 ### Reporting Bugs
 
-This section guides you through submitting a bug report for WooDash. Following these guidelines helps maintainers and the community understand your report, reproduce the behavior, and find related reports.
+This section guides you through submitting a bug report for OverSeek. Following these guidelines helps maintainers and the community understand your report, reproduce the behavior, and find related reports.
 
 -   **Use a clear and descriptive title** for the issue to identify the problem.
 -   **Describe the exact steps which reproduce the problem** in as much detail as possible.
@@ -18,17 +18,17 @@ This section guides you through submitting a bug report for WooDash. Following t
 
 ### Suggesting Enhancements
 
-This section guides you through submitting an enhancement suggestion for WooDash, covering completely new features and minor improvements to existing functionality.
+This section guides you through submitting an enhancement suggestion for OverSeek, covering completely new features and minor improvements to existing functionality.
 
 -   **Use a clear and descriptive title** for the issue to identify the suggestion.
 -   **Provide a step-by-step description of the suggested enhancement** in as much detail as possible.
--   **Explain why this enhancement would be useful** to most WooDash users.
+-   **Explain why this enhancement would be useful** to most OverSeek users.
 
 ### Pull Requests
 
 The process described here has several goals:
 
--   Maintain WooDash's quality
+-   Maintain OverSeek's quality
 -   Fix problems that are important to users
 -   Engage the community in working toward the best possible dashboard
 

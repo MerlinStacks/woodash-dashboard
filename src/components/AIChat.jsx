@@ -202,7 +202,7 @@ const AIChat = () => {
     ];
 
     const generateSystemPrompt = (context) => `
-You are a smart Store Assistant for WooDash.
+You are a smart Store Assistant for OverSeek.
 Current Date: ${new Date().toISOString()}
 
 Context:
@@ -255,7 +255,7 @@ Rules:
                             'Authorization': `Bearer ${settings.aiApiKey}`,
                             'Content-Type': 'application/json',
                             'HTTP-Referer': window.location.origin,
-                            'X-Title': 'WooDash'
+                            'X-Title': 'OverSeek'
                         },
                         body: JSON.stringify({
                             model: settings.aiModel || 'google/gemini-2.0-flash-exp:free',

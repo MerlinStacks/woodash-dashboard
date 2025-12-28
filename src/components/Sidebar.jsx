@@ -196,8 +196,8 @@ const Sidebar = ({ collapsed, toggleCollapsed, mobileOpen, closeMobile }) => {
     return (
         <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
             <div className="logo-container">
-                <div className="logo-icon">W</div>
-                <span className="logo-text">WooDash</span>
+                <div className="logo-icon">O</div>
+                <span className="logo-text">OverSeek</span>
                 {mobileOpen && (
                     <button
                         onClick={closeMobile}

@@ -1,11 +1,11 @@
-# WooDash - Modern WooCommerce Intelligence Dashboard
+# OverSeek - Modern WooCommerce Intelligence Dashboard
 
-![WooDash Banner](https://via.placeholder.com/1200x400?text=WooDash+Dashboard+Preview)
+![OverSeek Banner](https://via.placeholder.com/1200x400?text=OverSeek+Dashboard+Preview)
 
-**WooDash** is a high-performance, real-time analytics and management dashboard for WooCommerce. Built with a "Local-First" architecture, it provides instant insights, real-time presence collaboration, and advanced reporting without slowing down your live store.
+**OverSeek** is a high-performance, real-time analytics and management dashboard for WooCommerce. Built with a "Local-First" architecture, it provides instant insights, real-time presence collaboration, and advanced reporting without slowing down your live store.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docker Image Size](https://img.shields.io/docker/image-size/merlinstacks/woodash-dashboard/latest)](https://hub.docker.com/)
+[![Docker Image Size](https://img.shields.io/docker/image-size/merlinstacks/overseek-dashboard/latest)](https://hub.docker.com/)
 [![React](https://img.shields.io/badge/react-%2320232a.svg?style=flat&logo=react&logoColor=%2361DAFB)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
 
@@ -39,7 +39,7 @@
 version: '3.8'
 services:
   app:
-    image: woodash:latest
+    image: overseek:latest
     ports:
       - "5173:80"
 ```
@@ -48,8 +48,8 @@ services:
 
 1.  **Clone the repo:**
     ```bash
-    git clone https://github.com/MerlinStacks/woodash-dashboard.git
-    cd woodash-dashboard
+    git clone https://github.com/MerlinStacks/overseek-dashboard.git
+    cd overseek-dashboard
     ```
 
 2.  **Start dependencies (DB & Redis):**

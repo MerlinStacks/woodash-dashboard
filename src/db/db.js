@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
 
-export const db = new Dexie('WooDashDB');
+export const db = new Dexie('OverSeekDB');
 
 // Version 19 (Previous)
 db.version(19).stores({

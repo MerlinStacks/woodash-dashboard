@@ -28,7 +28,7 @@ const Login = () => {
         }}>
             <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2rem', margin: '16px' }}>
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>WooDash</h1>
+                    <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>OverSeek</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Sign in to continue</p>
                 </div>
 

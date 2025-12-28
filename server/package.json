@@ -1,7 +1,7 @@
 {
-    "name": "woodash-api",
+    "name": "overseek-api",
     "version": "1.0.0",
-    "description": "Backend API for WooDash",
+    "description": "Backend API for OverSeek",
     "main": "index.js",
     "scripts": {
         "start": "node index.js",
