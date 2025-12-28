@@ -48,8 +48,8 @@ services:
 
 1.  **Clone the repo:**
     ```bash
-    git clone https://github.com/MerlinStacks/overseek-dashboard.git
-    cd overseek-dashboard
+    git clone https://github.com/MerlinStacks/overseek.git
+    cd overseek
     ```
 
 2.  **Start dependencies (DB & Redis):**
