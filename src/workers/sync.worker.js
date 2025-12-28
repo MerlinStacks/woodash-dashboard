@@ -42,9 +42,12 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
     const authHeader = getAuthHeader(consumerKey, consumerSecret);
     const headers = {
         'Authorization': authHeader,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-store-url': storeUrl.replace(/\/$/, '') // Inject for Proxy
     };
-    const apiBase = `${storeUrl.replace(/\/$/, '')}/wp-json/wc/v3`;
+
+    // Use Local Proxy
+    const apiBase = `/api/proxy`;
 
     const newSyncTimes = { ...lastSyncTimes };
     const startTimeIso = new Date().toISOString();
@@ -177,9 +180,8 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
                                         .replace('{customer_name}', customerName);
 
                                     // Send Email via API (using fetch)
-                                    // Endpoint: .../wp-json/wc-dash/v1/email/send
-                                    // We need to go up from /wc/v3 or use absolute URL construction
-                                    const emailEndpoint = `${config.storeUrl}/wp-json/wc-dash/v1/email/send`;
+                                    // Helper Plugin Endpoint (via Proxy traversal)
+                                    const emailEndpoint = `/api/proxy/../../overseek/v1/email/send`;
 
                                     await fetch(emailEndpoint, {
                                         method: 'POST',
