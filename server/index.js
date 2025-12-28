@@ -119,6 +119,25 @@ app.post('/admin/ping', async (req, res) => {
     }
 });
 
+// --- Database Initialization ---
+const initDB = async () => {
+    try {
+        const client = await pool.connect();
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS orders (
+                id BIGINT PRIMARY KEY,
+                data JSONB,
+                synced_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        console.log('PostgreSQL initialized: "orders" table ready.');
+        client.release();
+    } catch (err) {
+        console.error('Failed to initialize PostgreSQL:', err.message);
+    }
+};
+initDB();
+
 // PROXY: WooCommerce API with Redis Cache
 app.get('/api/proxy/*', async (req, res) => {
     const endpoint = req.params[0]; // e.g., 'products', 'orders'
@@ -134,9 +153,8 @@ app.get('/api/proxy/*', async (req, res) => {
         }
 
         // 2. Fetch from WooCommerce
-        // Headers must be passed from client (Basic Auth) or configured here if using Env
         const authHeader = req.headers['authorization'];
-        const storeUrl = req.headers['x-store-url']; // Helper header or Env
+        const storeUrl = req.headers['x-store-url'];
 
         if (!storeUrl || !authHeader) {
             return res.status(400).json({ error: 'Missing Store Config Headers' });
@@ -158,11 +176,29 @@ app.get('/api/proxy/*', async (req, res) => {
         // 4. Archival Storage (Postgres) - Fire and Forget
         try {
             if (endpoint === 'orders' && Array.isArray(data)) {
-                // Future Improvement: Implement full schema mapping here.
-                // For now, we validate the connection is ready for heavy lifting.
-                const client = await pool.connect();
-                // console.log(`[Archival] PG Connected. Ready to store ${data.length} orders.`);
-                client.release();
+                // Async save to Postgres
+                (async () => {
+                    try {
+                        const client = await pool.connect();
+                        const query = `
+                            INSERT INTO orders (id, data, synced_at) 
+                            VALUES ($1, $2, NOW()) 
+                            ON CONFLICT (id) DO UPDATE SET data = $2, synced_at = NOW();
+                        `;
+
+                        let count = 0;
+                        for (const order of data) {
+                            if (order.id) {
+                                await client.query(query, [order.id, JSON.stringify(order)]);
+                                count++;
+                            }
+                        }
+                        client.release();
+                        console.log(`[Archival] Successfully archived ${count} orders to Postgres.`);
+                    } catch (e) {
+                        console.error('[Archival] Save failed:', e.message);
+                    }
+                })();
             }
         } catch (pgErr) {
             console.warn('[Archival] PG Warning:', pgErr.message);
