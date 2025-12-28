@@ -306,17 +306,17 @@ export const fetchCarts = async (settings) => {
         settings.consumerSecret,
         settings.authMethod
     );
-    // Custom endpoint from helper plugin. 
-    // Note: createWCClient appends /wc/v3, but our custom route is at /wc-dash/v1.
-    // We need to override the baseURL or just use absolute path if axios allows, 
-    // or easier: create a custom client or hack the url.
-
-    // Hack: The baseURL in client is .../wp-json/wc/v3. 
-    // We want .../wp-json/wc-dash/v1.
-    // So we can pass a relative path that goes up: ../../wc-dash/v1/carts
-
-    const response = await client.get('overseek/v1/carts');
-    return response.data;
+    try {
+        const response = await client.get('overseek/v1/carts');
+        return response.data;
+    } catch (e) {
+        if (e.response && e.response.status === 404) {
+            // Fallback for legacy plugin
+            const response = await client.get('wc-dash/v1/carts');
+            return response.data;
+        }
+        throw e;
+    }
 };
 
 export const sendEmail = async (settings, data) => {
@@ -327,55 +327,109 @@ export const sendEmail = async (settings, data) => {
         settings.consumerSecret,
         settings.authMethod
     );
-    // Custom endpoint
-    const response = await client.post('overseek/v1/email/send', data);
-    return response.data;
+    try {
+        const response = await client.post('overseek/v1/email/send', data);
+        return response.data;
+    } catch (e) {
+        if (e.response && e.response.status === 404) {
+            const response = await client.post('wc-dash/v1/email/send', data);
+            return response.data;
+        }
+        throw e;
+    }
 };
 
 export const fetchSMTP = async (settings) => {
     if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
     const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    const response = await client.get('overseek/v1/settings/smtp');
-    return response.data;
+    try {
+        const response = await client.get('overseek/v1/settings/smtp');
+        return response.data;
+    } catch (e) {
+        if (e.response && e.response.status === 404) {
+            const response = await client.get('wc-dash/v1/settings/smtp');
+            return response.data;
+        }
+        throw e;
+    }
 };
 
 export const saveSMTP = async (settings, data) => {
     if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
     const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    const response = await client.post('overseek/v1/settings/smtp', data);
-    return response.data;
+    try {
+        const response = await client.post('overseek/v1/settings/smtp', data);
+        return response.data;
+    } catch (e) {
+        if (e.response && e.response.status === 404) {
+            const response = await client.post('wc-dash/v1/settings/smtp', data);
+            return response.data;
+        }
+        throw e;
+    }
 };
 
 export const fetchVisitorCount = async (settings) => {
     if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
     const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    const response = await client.get('overseek/v1/visitors');
-    return response.data;
+    try {
+        const response = await client.get('overseek/v1/visitors');
+        return response.data;
+    } catch (e) {
+        if (e.response && e.response.status === 404) {
+            const response = await client.get('wc-dash/v1/visitors');
+            return response.data;
+        }
+        throw e;
+    }
 };
 
 export const fetchVisitorLog = async (settings) => {
     if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
     const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    const response = await client.get('overseek/v1/visitor-log');
-    return response.data;
+    try {
+        const response = await client.get('overseek/v1/visitor-log');
+        return response.data;
+    } catch (e) {
+        if (e.response && e.response.status === 404) {
+            const response = await client.get('wc-dash/v1/visitor-log');
+            return response.data;
+        }
+        throw e;
+    }
 };
 
 export const fetchSystemStatus = async (settings) => {
     if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
-    // Use try-catch here as it is a debug endpoint
     try {
         const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-        const response = await client.get('overseek/v1/status');
-        return response.data;
+        try {
+            const response = await client.get('overseek/v1/status');
+            return response.data;
+        } catch (e) {
+            if (e.response && e.response.status === 404) {
+                const response = await client.get('wc-dash/v1/status');
+                return response.data;
+            }
+            throw e;
+        }
     } catch (e) {
-        return null; // Endpoint might not exist on older versions
+        return null;
     }
 };
 export const installDB = async (settings) => {
     if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
     const client = createWCClient(settings.storeUrl, settings.consumerKey, settings.consumerSecret, settings.authMethod);
-    const response = await client.post('overseek/v1/install-db');
-    return response.data;
+    try {
+        const response = await client.post('overseek/v1/install-db');
+        return response.data;
+    } catch (e) {
+        if (e.response && e.response.status === 404) {
+            const response = await client.post('wc-dash/v1/install-db');
+            return response.data;
+        }
+        throw e;
+    }
 };
 
 export const createTestVisit = async (settings) => {
