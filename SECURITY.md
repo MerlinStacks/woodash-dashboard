@@ -15,7 +15,7 @@ We take the security of OverSeek seriously. If you believe you have found a secu
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them via email to security@merlinstacks.com (replace with real email). You should receive a response within 24 hours. If for some reason you do not, please follow up via email to ensure we received your original message.
+Instead, please report them via pm and we will then investigate further.. You should receive a response within 24 hours. If for some reason you do not, please follow up via pm to ensure we received your original message.
 
 Include the following details in your report:
 

@@ -33,6 +33,13 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const checkSession = async () => {
+            // Ensure Admin role exists (Seeding for fresh installs)
+            const allRoles = await db.roles.toArray();
+            if (!allRoles.some(r => r.name.toLowerCase() === 'admin')) {
+                console.log("Seeding Admin Role...");
+                await db.roles.add({ name: 'Admin', permissions: ['*'] });
+            }
+
             const storedId = sessionStorage.getItem('dashboard_user_id');
             if (storedId) {
                 const foundUser = await db.dashboard_users.get(parseInt(storedId));
