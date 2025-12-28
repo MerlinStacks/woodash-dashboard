@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -16,6 +17,11 @@ redisClient.connect().catch(console.error);
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Database Connection
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL
+});
 
 // --- Simple In-Memory Log Buffer ---
 const LOG_BUFFER = [];
