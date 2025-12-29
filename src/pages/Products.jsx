@@ -58,6 +58,16 @@ const Products = () => {
                 );
         }
 
+        // 1b. Exclude Variants (Keep only Parent Products)
+        collection = collection.filter(p => {
+            // Exclude if parent_id exists and is not 0
+            if (p.parent_id && p.parent_id !== 0) return false;
+            // Exclude if type is variation
+            if (p.type === 'variation') return false;
+
+            return true;
+        });
+
         // 2. Status Filter
         if (statusFilter !== 'all') {
             collection = collection.filter(p => {
