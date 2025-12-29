@@ -1,12 +1,17 @@
 <?php
 /**
- * Plugin Name: OverSeek Helper
+ * Plugin Name: OverSeek Helper (vs DEBUG)
  * Description: Exposes Cart Abandonment data, Visitor Logs, and SMTP Settings to the OverSeek Dashboard.
- * Version: 2.5
+ * Version: 2.6
  * Author: OverSeek
  */
 
 if (!defined('ABSPATH')) exit;
+
+// DEBUG: Global Scope Check
+if (isset($_GET['os_check']) && $_GET['os_check'] === 'die') {
+    die('OVERSEEK FILE IS LOADED! Global Scope.');
+}
 
 if (class_exists('OverSeek_Helper_Latest')) {
     return;
@@ -15,11 +20,6 @@ if (class_exists('OverSeek_Helper_Latest')) {
 class OverSeek_Helper_Latest {
 
     public function __construct() {
-        // DEBUG: Proof of Life Check
-        if (isset($_GET['os_check'])) {
-            die('OVERSEEK PLUGIN IS ALIVE! Class: ' . __CLASS__);
-        }
-
         // 1. Critical: Handle CORS and Auth immediately
         add_action('init', [$this, 'handle_cors'], 0);
         
@@ -27,14 +27,14 @@ class OverSeek_Helper_Latest {
         add_action('rest_api_init', [$this, 'register_routes']);
         add_action('phpmailer_init', [$this, 'configure_smtp']);
 
-        // DEBUG: Visual Confirmations
-        add_action('wp_head', function() { echo "\n<!-- OVERSEEK PLUGIN: ACTIVE (v2.5) -->\n"; });
-        add_action('admin_notices', function() {
-            echo '<div class="notice notice-success is-dismissible"><p><strong>OverSeek Helper</strong> is ACTIVE and running.</p></div>';
-        });
-
         // 3. Visitor Tracking
         add_action('template_redirect', [$this, 'track_visit']);
+
+        // 4. DIRECT ACCESS FALLBACK (Bypasses REST API & Permalinks)
+        add_action('template_redirect', [$this, 'handle_direct_request']);
+        
+        // 5. Log Events
+        add_action('admin_init', [$this, 'install_db_v2']);
         
         // 4. Log Events
         add_action('admin_init', [$this, 'install_db_v2']);
@@ -183,6 +183,35 @@ class OverSeek_Helper_Latest {
                 'callback' => [$this, 'get_visitor_count'],
                 'permission_callback' => [$this, 'auth_check']
             ]);
+        }
+    }
+    
+    // DIRECT ACCESS HANDLER
+    public function handle_direct_request() {
+        if (!isset($_GET['overseek_direct'])) return;
+
+        $action = $_GET['overseek_direct'];
+        
+        // Basic Security/CORS for direct access
+        header('Access-Control-Allow-Origin: *');
+        header('Content-Type: application/json');
+
+        if ($action === 'status') {
+             // Re-use system status logic manually
+             echo json_encode([
+                 'status' => 'ok', 
+                 'method' => 'direct_bypass',
+                 'plugin_version' => '2.6'
+             ]);
+             exit;
+        }
+        
+        if ($action === 'visitors') {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'overseek_visits';
+            $count = $wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE last_activity > DATE_SUB(NOW(), INTERVAL 5 MINUTE)");
+            echo json_encode(['count' => $count]);
+            exit;
         }
     }
     
