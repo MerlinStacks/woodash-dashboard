@@ -62,8 +62,12 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
     const newSyncTimes = { ...lastSyncTimes };
     const startTimeIso = new Date().toISOString();
 
-    // Helper: Enrich with account_id
-    const enrich = (items) => items.map(i => ({ ...i, account_id: accountId }));
+    // Helper: Enrich with account_id and ensure parent_id is numeric
+    const enrich = (items) => items.map(i => ({
+        ...i,
+        account_id: accountId,
+        parent_id: i.parent_id ? parseInt(i.parent_id, 10) : 0
+    }));
 
     // Helper: Fetch Loop
     const syncEntity = async (endpoint, entityName, table, lastSyncKey, transformFn = null, basePct = 0, weight = 10) => {
