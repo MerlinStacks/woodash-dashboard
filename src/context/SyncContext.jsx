@@ -114,6 +114,7 @@ export const SyncProvider = ({ children }) => {
                 options: {
                     products: options.products !== false,
                     orders: options.orders !== false,
+                    reviews: options.reviews !== false,
                 }
             });
             log('Sync initiated on server...', 'info');
