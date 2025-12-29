@@ -307,8 +307,10 @@ const executeHelperRequest = async (settings, method, pathSuffix, data = null) =
     const strategies = [
         { auth: settings.authMethod || 'auto', prefix: 'overseek/v1' },     // 1. Standard Modern
         { auth: settings.authMethod || 'auto', prefix: 'wc-dash/v1' },      // 2. Standard Legacy
-        { auth: 'query_string', prefix: 'overseek/v1' },          // 3. QS Modern (Fixes auth header stripping)
-        { auth: 'query_string', prefix: 'wc-dash/v1' }            // 4. QS Legacy
+        { auth: settings.authMethod || 'auto', prefix: 'woodash/v1' },      // 3. Alternate Legacy
+        { auth: 'query_string', prefix: 'overseek/v1' },          // 4. QS Modern
+        { auth: 'query_string', prefix: 'wc-dash/v1' },           // 5. QS Legacy
+        { auth: 'query_string', prefix: 'woodash/v1' }            // 6. QS Alternate
     ];
 
     let lastError = null;

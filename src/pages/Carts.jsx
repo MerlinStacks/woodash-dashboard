@@ -29,7 +29,14 @@ const Carts = () => {
             }
         } catch (error) {
             console.error(error);
-            const msg = error.response ? `Server Error ${error.response.status}` : error.message;
+            let msg = error.message;
+            if (error.response) {
+                if (error.response.status === 404) {
+                    msg = "Helper Plugin Missing or Inactive (404)";
+                } else {
+                    msg = `Server Error ${error.response.status}`;
+                }
+            }
             toast.error(`Failed to load carts: ${msg}`);
             setCarts([]);
         } finally {
