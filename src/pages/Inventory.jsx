@@ -371,11 +371,21 @@ const RecipeModal = ({ product, onClose }) => {
             }
             setSearching(true);
             if (activeAccount) {
-                // Limit to 20 suggestions
-                const results = await db.products.where('[account_id+name]')
-                    .between([activeAccount.id, compSearch], [activeAccount.id, compSearch + '\uffff'], true, true)
-                    .limit(20)
-                    .toArray();
+                // API Search for Components (Thin Client)
+                try {
+                    const { data } = await axios.get('/api/db/products', {
+                        params: {
+                            search: compSearch,
+                            limit: 20,
+                            account_id: activeAccount.id
+                        }
+                    });
+                    // Filter self
+                    const results = data.data.filter(r => r.id !== product.id);
+                    setSearchResults(results);
+                } catch (e) {
+                    console.error("Component Search Error:", e);
+                }
 
                 // Remove self
                 setSearchResults(results.filter(r => r.id !== product.id));
