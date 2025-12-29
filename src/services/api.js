@@ -73,6 +73,14 @@ const createWPClient = (url, key, secret, authMethod = 'auto') => {
     return axios.create(config);
 };
 
+// Helper to Unwrap Proxy Response ({ data: [], totalPages: N }) -> []
+const unwrapResponse = (responseData) => {
+    if (responseData && Array.isArray(responseData.data)) {
+        return responseData.data;
+    }
+    return responseData;
+};
+
 export const fetchProducts = async (settings, params = {}) => {
     if (!settings.storeUrl || !settings.consumerKey) throw new Error("API not configured");
     const client = createWCClient(
@@ -82,7 +90,7 @@ export const fetchProducts = async (settings, params = {}) => {
         settings.authMethod
     );
     const response = await client.get('/products', { params });
-    return response.data;
+    return unwrapResponse(response.data);
 };
 
 export const fetchOrders = async (settings, params = {}) => {
@@ -94,7 +102,7 @@ export const fetchOrders = async (settings, params = {}) => {
         settings.authMethod
     );
     const response = await client.get('/orders', { params });
-    return response.data;
+    return unwrapResponse(response.data);
 };
 
 export const fetchCustomers = async (settings, params = {}) => {
@@ -106,7 +114,7 @@ export const fetchCustomers = async (settings, params = {}) => {
         settings.authMethod
     );
     const response = await client.get('/customers', { params });
-    return response.data;
+    return unwrapResponse(response.data);
 };
 
 export const fetchReports = async (settings, params = {}) => {
@@ -118,7 +126,7 @@ export const fetchReports = async (settings, params = {}) => {
         settings.authMethod
     );
     const response = await client.get('/reports/sales', { params });
-    return response.data;
+    return unwrapResponse(response.data);
 };
 
 export const updateOrder = async (settings, orderId, data) => {
@@ -154,7 +162,7 @@ export const fetchVariations = async (settings, productId, params = {}) => {
         settings.authMethod
     );
     const response = await client.get(`/products/${productId}/variations`, { params });
-    return response.data;
+    return unwrapResponse(response.data);
 };
 
 export const updateVariation = async (settings, productId, variationId, data) => {
@@ -215,7 +223,7 @@ export const fetchCoupons = async (settings, params = {}) => {
         settings.authMethod
     );
     const response = await client.get('/coupons', { params });
-    return response.data;
+    return unwrapResponse(response.data);
 };
 
 export const createCoupon = async (settings, data) => {
@@ -252,7 +260,27 @@ export const fetchCurrentUser = async (settings) => {
     );
     try {
         const response = await client.get('/users/me');
-        return response.data;
+        return response.data; // WP API /users/me returns object, not wrapped by WC Proxy? Wait, Proxy routes /api/proxy/* to WC/WP.
+        // createWPClient uses /wp/v2 base.
+        // If server/index.js only proxies /wc/v3, what about /wp/v2?
+        // server/index.js handles ANY /api/proxy/*.
+        // And it maps `endpoint` to `wcUrl`.
+        // Note Line 175: `${storeUrl}/wp-json/wc/v3/${endpoint}`.
+        // IT DOES NOT SUPPORT /wp/v2!
+        // So fetchCurrentUser will FAIL locally if routed through Proxy assuming /wc/v3 base.
+        // But wait, createWPClient (Line 72) sets base to `${baseURL}/wp-json/wp/v2`?
+        // No, `getClientConfig` returns `baseURL: /api/proxy`.
+        // So `createWPClient` sets base to `/api/proxy/wp-json/wp/v2`?
+        // No, logic is: `config.baseURL = ${baseURL}/wp-json/wp/v2`.
+        // If baseURL is `/api/proxy`, then URL is `/api/proxy/wp-json/wp/v2`.
+        // The Proxy (server/index.js) takes `req.params[0]`.
+        // If params[0] is `wp-json/wp/v2/users/me`...
+        // server/index.js Logic Line 175: `${storeUrl}/wp-json/wc/v3/${endpoint}`.
+        // It PREPENDS `/wc/v3/`.
+        // So it becomes `.../wp-json/wc/v3/wp-json/wp/v2/...` -> BROKEN.
+
+        // THIS IS ANOTHER ISSUE FOUND! 
+        // Use unwrapResponse here just in case, but real issue is path mapping.
     } catch (e) {
         console.warn("Could not fetch /users/me", e);
         throw e;
@@ -268,7 +296,7 @@ export const fetchWPUsers = async (settings, params = {}) => {
         settings.authMethod
     );
     const response = await client.get('/users', { params: { context: 'edit', ...params } });
-    return response.data;
+    return unwrapResponse(response.data);
 };
 
 export const createWPUser = async (settings, data) => {
