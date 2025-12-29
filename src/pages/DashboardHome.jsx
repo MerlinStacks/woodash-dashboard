@@ -161,7 +161,10 @@ const DashboardHome = () => {
                     ]);
                     if (Array.isArray(logsData)) {
                         const threeMinsAgo = new Date(Date.now() - 3 * 60 * 1000);
-                        const activeVisitors = logsData.filter(v => {
+                        const activeVisitors = logsData.map(v => ({
+                            ...v,
+                            actions: Array.isArray(v.actions) ? v.actions : []
+                        })).filter(v => {
                             const lastActive = new Date(v.last_activity.replace(' ', 'T'));
                             return lastActive > threeMinsAgo;
                         });

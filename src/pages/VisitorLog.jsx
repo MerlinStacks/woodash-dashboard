@@ -433,7 +433,12 @@ const VisitorLog = () => {
         try {
             const data = await fetchVisitorLog(settings);
             if (Array.isArray(data)) {
-                setVisits(data);
+                // Sanitize actions to ensure they are arrays
+                const safeData = data.map(v => ({
+                    ...v,
+                    actions: Array.isArray(v.actions) ? v.actions : []
+                }));
+                setVisits(safeData);
             } else {
                 setVisits([]);
             }

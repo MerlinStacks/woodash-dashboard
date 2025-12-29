@@ -198,7 +198,7 @@ const ProductDetails = () => {
                 stock_status: product.stock_status,
                 stock_quantity: product.stock_quantity,
                 manage_stock: product.manage_stock,
-                cost_price: product.cost_price || 0, // New field
+                cost_price: product.cost_price || 0,
                 // Dimensions & Weight
                 weight: product.weight || '',
                 dim_length: product.dimensions?.length || '',
@@ -211,13 +211,13 @@ const ProductDetails = () => {
                 tax_class: product.tax_class || '',
                 bin_location: product.bin_location || '',
                 supplier_id: product.supplier_id || '',
-                focus_keyword: product.meta_data?.find(m => m.key === '_seo_focus_keyword')?.value || ''
+                focus_keyword: product.meta_data?.find(m => m.key === '_seo_focus_keyword')?.value || '',
+                // Gold Price Feature
+                is_gold_priced: product.meta_data?.find(m => m.key === '_is_gold_priced')?.value === 'yes'
             });
 
             // Auto-detect keyword if missing from meta
             if (!product.meta_data?.find(m => m.key === '_seo_focus_keyword')?.value) {
-                // Simple heuristic: Take the first 3 words of the title as a starting point, or the whole name if short.
-                // This gives the user immediate feedback rather than an empty box.
                 const potentialKw = product.name ? product.name.split(' ').slice(0, 3).join(' ') : '';
                 setEditForm(prev => ({ ...prev, focus_keyword: potentialKw }));
             }
@@ -232,6 +232,26 @@ const ProductDetails = () => {
             }
         }
     }, [product, settings]);
+
+    // Gold Price Calculation Effect
+    useEffect(() => {
+        if (isEditing && editForm.is_gold_priced && activeAccount?.features?.goldPrice) {
+            const goldPrice = parseFloat(settings.goldPrice) || 0;
+            const weight = parseFloat(editForm.weight) || 0;
+            // Simple calculation: Cost = Weight * GoldPrice
+            // Assuming units align (e.g., weight in oz, price in $/oz)
+            if (goldPrice > 0 && weight > 0) {
+                const calculatedCost = (weight * goldPrice).toFixed(2);
+                setEditForm(prev => {
+                    // Only update if changed to prevent loops (though dependency array handles it)
+                    if (prev.cost_price !== calculatedCost) {
+                        return { ...prev, cost_price: calculatedCost };
+                    }
+                    return prev;
+                });
+            }
+        }
+    }, [isEditing, editForm.is_gold_priced, editForm.weight, settings.goldPrice, activeAccount?.features?.goldPrice]);
 
     if (!product) return <div className="p-8">Loading product...</div>;
 
@@ -258,11 +278,14 @@ const ProductDetails = () => {
 
             // Add meta_data for cost, bin location, and supplier
             dataToSend.meta_data = [
-                { key: '_alg_wc_cog_cost', value: editForm.cost_price },
-                { key: '_bin_location', value: editForm.bin_location },
-                { key: '_supplier_id', value: editForm.supplier_id },
-                { key: '_seo_focus_keyword', value: editForm.focus_keyword }
-            ];
+                // Add meta_data for cost, bin location, supplier, and gold price flag
+                dataToSend.meta_data = [
+                    { key: '_alg_wc_cog_cost', value: editForm.cost_price },
+                    { key: '_bin_location', value: editForm.bin_location },
+                    { key: '_supplier_id', value: editForm.supplier_id },
+                    { key: '_seo_focus_keyword', value: editForm.focus_keyword },
+                    { key: '_is_gold_priced', value: editForm.is_gold_priced ? 'yes' : 'no' }
+                ];
 
             // Reconstruct dimensions
             dataToSend.dimensions = {
@@ -274,6 +297,7 @@ const ProductDetails = () => {
             delete dataToSend.dim_length;
             delete dataToSend.dim_width;
             delete dataToSend.dim_height;
+            delete dataToSend.is_gold_priced; // Remove helper flag from root
 
             const updatedData = await updateProduct(settings, productId, dataToSend);
 
@@ -284,6 +308,7 @@ const ProductDetails = () => {
             const costMeta = updatedData.meta_data?.find(m => m.key === '_alg_wc_cog_cost');
             const binMeta = updatedData.meta_data?.find(m => m.key === '_bin_location');
             const supplyMeta = updatedData.meta_data?.find(m => m.key === '_supplier_id');
+            const gpMeta = updatedData.meta_data?.find(m => m.key === '_is_gold_priced');
             const flatProduct = {
                 ...updatedData,
                 account_id: activeAccount.id, // Ensure account_id is set
@@ -451,7 +476,28 @@ const ProductDetails = () => {
                                         onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                                     />
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', alignItems: 'end' }}>
+                                    {/* Gold Price Toggle (Line 1) */}
+                                    <div style={{ gridColumn: activeAccount?.features?.goldPrice ? '1 / -1' : 'auto' }}>
+                                        {activeAccount?.features?.goldPrice && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', padding: '10px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '6px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    id="goldPriceToggle"
+                                                    checked={editForm.is_gold_priced}
+                                                    onChange={e => setEditForm({ ...editForm, is_gold_priced: e.target.checked })}
+                                                    style={{ width: '16px', height: '16px', accentColor: '#f59e0b' }}
+                                                />
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <label htmlFor="goldPriceToggle" style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#f59e0b', cursor: 'pointer' }}>Gold Priced Item</label>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                        Costs auto-calculate based on weight ({editForm.weight || 0} {storeUnits.weight}) and daily gold price ({formatCurrency(settings.goldPrice || 0)}).
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div>
                                         <label className="form-label">Regular Price ($)</label>
                                         <input
@@ -473,8 +519,9 @@ const ProductDetails = () => {
                                         <input
                                             type="number" className="form-input"
                                             value={editForm.cost_price}
+                                            readOnly={editForm.is_gold_priced}
                                             onChange={(e) => setEditForm({ ...editForm, cost_price: e.target.value })}
-                                            style={{ borderColor: '#6366f1' }}
+                                            style={{ borderColor: '#6366f1', background: editForm.is_gold_priced ? 'rgba(255,255,255,0.05)' : undefined, opacity: editForm.is_gold_priced ? 0.8 : 1 }}
                                         />
                                     </div>
                                 </div>

@@ -195,7 +195,7 @@ const syncManager = require('./sync');
 
 // --- Sync API (Server-Side) ---
 app.post('/api/sync/start', (req, res) => {
-    const { storeUrl, consumerKey, consumerSecret, accountId, options } = req.body;
+    const { storeUrl, consumerKey, consumerSecret, authMethod, accountId, options } = req.body;
 
     // Basic Validation
     if (!storeUrl || !consumerKey || !consumerSecret || !accountId) {
@@ -204,7 +204,7 @@ app.post('/api/sync/start', (req, res) => {
 
     // Trigger Background Sync
     syncManager.startSync(
-        { storeUrl, consumerKey, consumerSecret, accountId, options },
+        { storeUrl, consumerKey, consumerSecret, authMethod, accountId, options },
         { pool, redisClient }
     );
 

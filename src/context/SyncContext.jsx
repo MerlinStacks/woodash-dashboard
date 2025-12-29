@@ -114,6 +114,7 @@ export const SyncProvider = ({ children }) => {
                 storeUrl: settings.storeUrl,
                 consumerKey: settings.consumerKey,
                 consumerSecret: settings.consumerSecret,
+                authMethod: settings.authMethod, // Pass auth method
                 accountId: activeAccount.id,
                 options: {
                     products: options.products !== false,

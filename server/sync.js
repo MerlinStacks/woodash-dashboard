@@ -11,7 +11,7 @@ let currentStatus = {
 
 const getStatus = () => currentStatus;
 
-const startSync = ({ storeUrl, consumerKey, consumerSecret, accountId, options }, dependencies) => {
+const startSync = ({ storeUrl, consumerKey, consumerSecret, authMethod, accountId, options }, dependencies) => {
     if (currentStatus.running) {
         return; // Already running
     }
@@ -30,14 +30,63 @@ const startSync = ({ storeUrl, consumerKey, consumerSecret, accountId, options }
     // Run in Background (Fire and Forget)
     (async () => {
         try {
-            const authPrefix = 'Basic ' + Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
-            const api = axios.create({
-                baseURL: `${storeUrl.replace(/\/$/, '')}/wp-json/wc/v3`,
-                headers: {
-                    'Authorization': authPrefix
-                },
-                timeout: 60000 // 60s timeout per req
-            });
+            // Helper to create client
+            // Helper to create client
+            const https = require('https');
+            const createClient = (method) => {
+                const config = {
+                    baseURL: `${storeUrl.replace(/\/$/, '')}/wp-json/wc/v3`,
+                    timeout: 120000,
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'application/json'
+                    },
+                    httpsAgent: new https.Agent({
+                        rejectUnauthorized: false
+                    })
+                };
+                if (method === 'query_string') {
+                    config.params = { consumer_key: consumerKey, consumer_secret: consumerSecret };
+                } else {
+                    config.headers['Authorization'] = 'Basic ' + Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
+                }
+                return axios.create(config);
+            };
+
+            // Smart Auth Discovery
+            let api = null;
+            let finalAuthMethod = authMethod;
+
+            if (authMethod === 'query_string') {
+                api = createClient('query_string');
+            } else if (authMethod === 'basic') {
+                api = createClient('basic');
+            } else {
+                // Auto: Try Basic first, then Query String
+                try {
+                    currentStatus.details = 'Verifying connection (Basic Auth)...';
+                    const testClient = createClient('basic');
+                    await testClient.get('/products', { params: { per_page: 1 } });
+                    api = testClient;
+                    finalAuthMethod = 'basic';
+                    // console.log("Auth Discovery: Basic Auth succeeded");
+                } catch (e1) {
+                    // console.log("Auth Discovery: Basic Auth failed", e1.message);
+                    try {
+                        currentStatus.details = 'Verifying connection (Query String)...';
+                        const testClient = createClient('query_string');
+                        await testClient.get('/products', { params: { per_page: 1 } });
+                        api = testClient;
+                        finalAuthMethod = 'query_string';
+                        // console.log("Auth Discovery: Query String succeeded");
+                    } catch (e2) {
+                        throw new Error(`Connection failed: ${e1.message} (Basic) / ${e2.message} (Query String)`);
+                    }
+                }
+            }
+
+            // Fallback if direct selection was used without test (though UI should catch it)
+            if (!api) api = createClient(finalAuthMethod || 'basic');
 
             const saveBatch = async (table, items) => {
                 const client = await pool.connect();
@@ -198,8 +247,8 @@ const startSync = ({ storeUrl, consumerKey, consumerSecret, accountId, options }
         } catch (err) {
             console.error("Server Sync Error:", err);
             currentStatus.running = false;
-            currentStatus.error = err.message;
-            currentStatus.details = 'Failed';
+            currentStatus.error = err.response?.data?.message || err.message;
+            currentStatus.details = `Failed: ${err.response?.status || ''} ${err.code || ''}`;
         }
     })();
 };
