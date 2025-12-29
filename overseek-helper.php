@@ -29,20 +29,20 @@ class OverSeekHelper {
         add_action('admin_init', [$this, 'install_db_v2']);
         add_action('woocommerce_add_to_cart', [$this, 'log_cart_action'], 10, 6);
         add_action('woocommerce_thankyou', [$this, 'log_order_action'], 10, 1);
-
-        // 5. Self-Healing: Ensure Permalinks work
-        add_action('admin_init', [$this, 'check_rewrite_rules']);
-    }
-
-    public function check_rewrite_rules() {
-        if (!get_transient('overseek_flush_v2_4')) {
-            flush_rewrite_rules();
-            set_transient('overseek_flush_v2_4', true, DAY_IN_SECONDS);
-        }
     }
 
     public function handle_cors() {
-        if (strpos($_SERVER['REQUEST_URI'], '/wp-json/') === false) return;
+        // SAFETY: Only apply CORS modification to our specific API namespaces
+        // This ensures unrelated plugins or frontend routes remain untouched.
+        $uri = $_SERVER['REQUEST_URI'];
+        $is_relevant_route = (
+            strpos($uri, '/wp-json/overseek/') !== false || 
+            strpos($uri, '/wp-json/wc-dash/') !== false || 
+            strpos($uri, '/wp-json/woodash/') !== false ||
+            strpos($uri, '/wp-json/wc/') !== false // Needed for Order sync
+        );
+
+        if (!$is_relevant_route) return;
 
         // Restore Auth
         if (!isset($_SERVER['HTTP_AUTHORIZATION'])) {
@@ -62,7 +62,7 @@ class OverSeekHelper {
         $allowed_origins = apply_filters('overseek_allowed_origins', [
             'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'app://.' 
         ]);
-
+        
         $allow_origin = null;
         $is_local = strpos($origin, 'localhost') !== false || strpos($origin, '127.0.0.1') !== false;
         

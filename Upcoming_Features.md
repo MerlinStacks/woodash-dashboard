@@ -12,6 +12,11 @@
 - [ ] Ad revenue tracking [Meta Ads, Google Ads]
 - [ ] Integrate emails into the inbox
 - [ ] Improve WooCommerce plugin: Include Live Chat features with UI editorWordPress.
+
+Plugin Active but Routes Missing. Please Deactivate & Reactivate Plugin in WordPress.
 But we tried this and the error still appears
 
 The reviews are not syncing.
+
+Dark/Light mode don't really change everything.
+
