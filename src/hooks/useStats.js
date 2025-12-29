@@ -282,7 +282,7 @@ export const useStats = (rangeOption = { label: 'Last 30 Days', days: 30 }, comp
 
         // Calculate Comparison Stats
         const getChange = (curr, prev) => {
-            if (prev === 0) return curr > 0 ? 100 : 0;
+            if (prev === 0) return null; // Indicator for "No previous data"
             return ((curr - prev) / prev) * 100;
         };
 

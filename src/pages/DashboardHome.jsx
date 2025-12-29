@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { DollarSign, ShoppingCart, TrendingUp, TrendingDown, Eye, ArrowRight, ExternalLink, Activity, Bot, Facebook, Twitter, Instagram, Linkedin, Youtube, Globe, Pin, Info, Zap } from 'lucide-react';
+import { DollarSign, ShoppingCart, TrendingUp, TrendingDown, Eye, ArrowRight, ExternalLink, Activity, Bot, Facebook, Twitter, Instagram, Linkedin, Youtube, Globe, Pin, Info, Zap, Minus } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useStats } from '../hooks/useStats';
 import { fetchVisitorCount, fetchVisitorLog } from '../services/api';
@@ -87,8 +87,10 @@ const InfoWithTooltip = ({ visit }) => {
 
 const StatCard = ({ title, value, trend, icon: Icon, color, loading }) => {
     const isNegative = trend && typeof trend === 'string' && trend.includes('-');
-    const TrendIcon = isNegative ? TrendingDown : TrendingUp;
-    const trendClass = isNegative ? 'stat-trend trend-down' : 'stat-trend trend-up';
+    const isNeutral = trend === 'No prev data' || trend === 'No Data';
+
+    const TrendIcon = isNeutral ? Minus : (isNegative ? TrendingDown : TrendingUp);
+    const trendClass = isNeutral ? 'stat-trend trend-neutral' : (isNegative ? 'stat-trend trend-down' : 'stat-trend trend-up');
 
     return (
         <div className="glass-card stat-card">
@@ -222,7 +224,11 @@ const DashboardHome = () => {
     };
 
     const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-    const formatTrend = (val) => (val === undefined || !showCompare) ? 'No Data' : `${val >= 0 ? '+' : ''}${val.toFixed(1)}%`;
+    const formatTrend = (val) => {
+        if (!showCompare || val === undefined) return 'No Data';
+        if (val === null) return 'No prev data';
+        return `${val >= 0 ? '+' : ''}${val.toFixed(1)}%`;
+    };
 
     return (
         <div className="page-container">
