@@ -27,35 +27,35 @@ if (isset($_GET['overseek_direct'])) {
     function os_validate_direct_auth() {
         global $wpdb;
 
-        // 1. Get Headers
+        $key = '';
+        $secret = '';
+
+        // 1. Try Headers First
         $auth = isset($_SERVER['HTTP_AUTHORIZATION']) ? $_SERVER['HTTP_AUTHORIZATION'] : '';
         if (!$auth && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
             $auth = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
         }
 
-        if (!$auth || strpos($auth, 'Basic ') !== 0) {
-            // Allow if user is logged in as admin (Admin Cookie)? 
-            // We can't check is_user_logged_in() this early easily.
-            // Fail safe.
-            return false;
+        if ($auth && strpos($auth, 'Basic ') === 0) {
+            $creds = base64_decode(substr($auth, 6));
+            list($key, $secret) = explode(':', $creds);
         }
 
-        // 2. Decode
-        $creds = base64_decode(substr($auth, 6));
-        list($key, $secret) = explode(':', $creds);
+        // 2. Try Query/Body Parameters (Fallback for CORS/Header Stripping)
+        if (!$key && isset($_REQUEST['consumer_key'])) {
+            $key = $_REQUEST['consumer_key'];
+        }
+        // Secret usually not needed for Key Hash check, but good to have logic ready
+        // We only verify KEY existence/match in DB hash.
 
-        if (!$key || !$secret) return false;
+        if (!$key) return false;
 
         // 3. Hash Key (Standard WC Logic: SHA256 hmac with 'wc-api')
-        // We verify the KEY exists. Verifying secret manually is brittle if versions differ,
-        // but checking the Key Hash is standard.
         $key_hash = hash_hmac('sha256', $key, 'wc-api');
 
         $table = $wpdb->prefix . 'woocommerce_api_keys';
         
         // Prepare Query
-        // We check if a row exists with this Consumer Key Hash
-        // And permissions are not 'read' if we are doing 'write' (simple check: just valid key for now)
         $row = $wpdb->get_row($wpdb->prepare("SELECT key_id, permissions FROM $table WHERE consumer_key = %s LIMIT 1", $key_hash));
 
         if ($row) {
