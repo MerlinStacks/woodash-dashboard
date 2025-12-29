@@ -12,8 +12,18 @@ const fetchPage = async (url, params, headers) => {
     if (!res.ok) {
         throw new Error(`API Error ${res.status}: ${res.statusText}`);
     }
-    const totalPages = parseInt(res.headers.get('x-wp-totalpages') || '1', 10);
-    const data = await res.json();
+
+    const json = await res.json();
+
+    // Proxy returns { data: [...], totalPages: N }
+    // We check the body first because our Proxy wraps it.
+    const data = json.data || json;
+    const bodyTotal = json.totalPages ? parseInt(json.totalPages, 10) : 0;
+    const headerTotal = parseInt(res.headers.get('x-wp-totalpages') || '0', 10);
+
+    // Use whichever is available, default to 1 if neither (but usually Proxy gives totalPages)
+    const totalPages = bodyTotal || headerTotal || 1;
+
     return { data, totalPages };
 };
 
