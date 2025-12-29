@@ -20,7 +20,21 @@
 
 ## 2. Core Architecture
 
-### 2.1. The "Smart Proxy" (`server/index.js`)
+### 2.1. Dual Database Strategy (Split Brain)
+The application utilizes two distinct databases for different purposes:
+
+1.  **Browser Database (IndexedDB / Dexie.js):**
+    *   **Purpose:** Powers the **User Interface**, Search, Filters, and Automations.
+    *   **Content:** Full synchronization of Products, Orders, Customers.
+    *   **Optimization:** Uses lazy pagination and compound indexes to minimize RAM usage in the browser.
+    *   **Why:** Enables "Instant" interactions and Offline support.
+
+2.  **Server Database (PostgreSQL / Docker):**
+    *   **Purpose:** Long-term **Archival** and Disaster Recovery.
+    *   **Content:** **Orders Only** (Currently). The Proxy asynchronously inserts fetched orders here.
+    *   **Why:** Provides a data backup that survives browser cache clearing.
+
+### 2.2. The "Smart Proxy" (`server/index.js`)
 The App does not connect directly to WC API V3. It connects to `http://localhost:3001/api/proxy`.
 - **Role:** Bypass CORS, Cache repeated GET requests (Redis), and normalize Error responses.
 - **Auth Handling:**
@@ -30,7 +44,7 @@ The App does not connect directly to WC API V3. It connects to `http://localhost
     - Standard WC requests -> `/wp-json/wc/v3/...`
     - Custom Plugin requests -> `/wp-json/overseek/v1/...` (with fallback to `wc-dash/v1` or `woodash/v1`).
 
-### 2.2. The Sync Engine (`src/workers/sync.worker.js`)
+### 2.3. The Sync Engine (`src/workers/sync.worker.js`)
 Synchronization runs in a dedicated **Web Worker** to prevent UI freezing.
 - **Mode:** Full Sync (Pages 1...N) or Delta Sync (Modified After X).
 - **Weighted Progress:** Reports granular progress based on entity weight (Products 40% -> Orders 70% -> Customers 85% -> etc.).
@@ -39,7 +53,7 @@ Synchronization runs in a dedicated **Web Worker** to prevent UI freezing.
     - **Enrichment:** Adds `account_id` and ensures `parent_id` integrity (default 0) for all items.
     - **Automation:** Directly inspects Orders for status changes to trigger "Email Rules" defined in the UI.
 
-### 2.3. The Helper Plugin (`overseek-helper.php v2.4`)
+### 2.4. The Helper Plugin (`overseek-helper.php v2.4`)
 A lightweight, single-file plugin required on the WordPress site.
 - **Safe Mode:** Does NOT use `register_activation_hook` (avoids critical errors). Uses `admin_init` transient checks to flush permalinks.
 - **Universal Namespaces:** Registers routes under `overseek/v1`, `wc-dash/v1`, and `woodash/v1` simultaneously to ensure compatibility with any dashboard version.
@@ -73,6 +87,7 @@ A lightweight, single-file plugin required on the WordPress site.
 - **`Inventory.jsx`**: Advanced Product Manager.
     - **Recipe Logic**: Allows defining Bundles (Composition). Calculates "Potential Stock" based on child component stock.
     - **Variant Hiding**: Strict filtering to ensure specific Variants do not clutter the main list.
+    - **Performance**: Uses DB-Level Pagination (v25) to avoid Memory Crashes.
 - **`Carts.jsx`**: Live view of Abandoned Carts (via Helper Plugin).
 - **`Orders.jsx`**: Order Management with segmenting and batch actions.
 
@@ -98,4 +113,4 @@ A lightweight, single-file plugin required on the WordPress site.
 ## 6. Known Patterns & Gotchas
 - **"Variants Showing":** If variants appear in Inventory, check `p.type` is 'variation' and `p.parent_id > 0`. The UI filters strictly on these.
 - **"Sync Stuck":** Often due to Proxy returning wrapped JSON while Worker expects Array. (Fixed in v2 Worker).
-- **"Helper 404":** Often due to Host stripping Authorization header. Use "Query Param" auth mode in Settings.
+- **"Helper 404":** Often due to Host stripping Authorization header. Use "Query Param" auth mode in Settings. 
