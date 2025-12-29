@@ -151,6 +151,75 @@ const initDB = async () => {
 };
 initDB();
 
+// DATABASE API (Local Access to Postgres)
+app.get('/api/db/:table', async (req, res) => {
+    const { table } = req.params;
+    const { page = 1, limit = 50, search = '', hide_variants = 'false' } = req.query;
+
+    // Validate table
+    if (!['products', 'orders'].includes(table)) {
+        return res.status(400).json({ error: 'Invalid table' });
+    }
+
+    try {
+        const client = await pool.connect();
+
+        let queryStr = `SELECT data FROM ${table}`;
+        let countQueryStr = `SELECT COUNT(*) FROM ${table}`;
+        const params = [];
+        const whereClauses = [];
+
+        // Search Logic
+        if (search) {
+            params.push(`%${search}%`);
+            const idx = params.length;
+            if (table === 'products') {
+                whereClauses.push(`data->>'name' ILIKE $${idx}`);
+            } else {
+                whereClauses.push(`(data->>'id' ILIKE $${idx} OR data->'billing'->>'first_name' ILIKE $${idx})`);
+            }
+        }
+
+        // Variant Hiding (Products Only)
+        // Checks if 'parent_id' is '0' or NULL or 'null' (depending on JSON serialization)
+        // WC 'parent_id' is usually 0 for parents.
+        if (table === 'products' && hide_variants === 'true') {
+            whereClauses.push(`(data->>'parent_id' = '0' OR data->>'parent_id' IS NULL)`);
+        }
+
+        if (whereClauses.length > 0) {
+            const clause = ` WHERE ` + whereClauses.join(' AND ');
+            queryStr += clause;
+            countQueryStr += clause;
+        }
+
+        // Count First (reuse params)
+        const countRes = await client.query(countQueryStr, params);
+        const totalItems = parseInt(countRes.rows[0].count, 10);
+
+        // Pagination
+        const pLimit = parseInt(limit);
+        const pOffset = (parseInt(page) - 1) * pLimit;
+
+        params.push(pLimit, pOffset);
+        queryStr += ` ORDER BY id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
+
+        const result = await client.query(queryStr, params);
+
+        client.release();
+
+        res.json({
+            data: result.rows.map(r => r.data),
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: totalItems,
+            totalPages: Math.ceil(totalItems / pLimit)
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // PROXY: WooCommerce API with Redis Cache
 app.all('/api/proxy/*', async (req, res) => {
     const endpoint = req.params[0]; // e.g., 'products', 'orders'
