@@ -242,58 +242,74 @@ app.get('/api/db/:table', async (req, res) => {
 });
 
 // PROXY: WooCommerce API with Redis Cache
+// PROXY: WooCommerce API with Redis Cache
 app.all('/api/proxy/*', async (req, res) => {
-    const endpoint = req.params[0]; // e.g., 'products', 'orders'
-    const query = new URLSearchParams(req.query).toString();
-    const cacheKey = `wc:${endpoint}:${query}`;
-
-    // ... (Caching Rules - Unchanged)
-    const isCacheable = req.method === 'GET' &&
-        !endpoint.startsWith('overseek') &&
-        !endpoint.startsWith('wc-dash') &&
-        !endpoint.startsWith('woodash');
-
-    // ... (Safe Cache Helper - Unchanged) is defined in previous context, assumed robust.
-    // I will just focus on the Archival updates which are inside the route handler.
-
-    // (Existing Helper declarations skipped for brevity in replace block, assuming they persist if I target relevant lines properly or I include them if context requires.
-    // Actually, I should probably replace the whole block or target specifically the initDB and Archival section.
-    // The previous view_file shows initDB at 123.
-    // I will replace initDB and the Archival logic at 224.)
-
-    // ... 
-
-    // Let's assume the surrounding code is preserved and I just update the Archival Logic block.
-    // Wait, I need to update initDB too. Safe to do in one Replace if contiguous? No, they are far apart (Lines 123 sand 224).
-    // I'll use multi_replace.
-
-    // Actually, I'll use separate chunks.
-
-    // Chunk 1: initDB
-    // Chunk 2: Archival Logic
-
-    /* 
-       Chunk 1 Content: See top of this replacement.
-       Chunk 2 Content:
-    */
-
-    // 4. Archival Storage (Postgres) - Passive Sync
     try {
+        const endpoint = req.params[0]; // e.g., 'products', 'orders'
+        const query = new URLSearchParams(req.query).toString();
+        const cacheKey = `wc:${endpoint}:${query}`;
+
+        // Cache Rules
+        const isCacheable = req.method === 'GET' &&
+            !endpoint.startsWith('overseek') &&
+            !endpoint.startsWith('wc-dash') &&
+            !endpoint.startsWith('woodash');
+
+        // 1. Check Cache
+        if (isCacheable) {
+            try {
+                const cached = await redisClient.get(cacheKey);
+                if (cached) {
+                    return res.json(JSON.parse(cached));
+                }
+            } catch (e) {
+                console.warn('Redis Read Error:', e.message);
+            }
+        }
+
+        // 2. Prepare Request
+        // Worker sends 'x-store-url', otherwise fallback to ENV
+        const storeUrl = req.headers['x-store-url'] || process.env.WOOCOMMERCE_STORE_URL;
+        if (!storeUrl) {
+            throw new Error('Store URL not configured (header or env)');
+        }
+
+        // Handle relative vs absolute endpoint
+        const finalUrl = `${storeUrl.replace(/\/$/, '')}/wp-json/wc/v3/${endpoint}?${query}`;
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (req.headers.authorization) {
+            headers['Authorization'] = req.headers.authorization;
+        }
+
+        // 3. Fetch from WooCommerce
+        const response = await axios({
+            method: req.method,
+            url: finalUrl,
+            headers,
+            data: req.body
+        });
+
+        const data = response.data;
+        const totalPages = response.headers['x-wp-totalpages'];
+
+        // 4. Set Cache
+        if (isCacheable) {
+            redisClient.setEx(cacheKey, 3600, JSON.stringify({ data, totalPages })).catch(err => console.error('Redis Set Error:', err.message));
+        }
+
+        // 5. Archival Storage (Postgres) - Passive Sync
         if (req.method === 'GET' && (endpoint === 'orders' || endpoint === 'products') && Array.isArray(data)) {
-            // Async save to Postgres
             (async () => {
                 try {
                     const client = await pool.connect();
                     const tableName = endpoint === 'orders' ? 'orders' : 'products';
 
-                    // Injection safe? endpoint is tightly controlled? 
-                    // endpoint comes from URL param. We checked strictly 'orders' or 'products'. Safe.
-
                     const query = `
-                            INSERT INTO ${tableName} (id, data, synced_at) 
-                            VALUES ($1, $2, NOW()) 
-                            ON CONFLICT (id) DO UPDATE SET data = $2, synced_at = NOW();
-                        `;
+                        INSERT INTO ${tableName} (id, data, synced_at) 
+                        VALUES ($1, $2, NOW()) 
+                        ON CONFLICT (id) DO UPDATE SET data = $2, synced_at = NOW();
+                    `;
 
                     let count = 0;
                     for (const item of data) {
@@ -304,57 +320,30 @@ app.all('/api/proxy/*', async (req, res) => {
                     }
                     client.release();
                     console.log(`[Archival] Successfully archived ${count} items to '${tableName}'.`);
-                } catch (e) {
-                    console.error(`[Archival] Save to '${endpoint}' failed:`, e.message);
+                } catch (pgErr) {
+                    console.error('[Archival] Failed:', pgErr.message);
                 }
             })();
         }
-    } catch (pgErr) {
-        console.warn('[Archival] PG Warning:', pgErr.message);
+
+        // 6. Response
+        // Always wrap in { data, totalPages } if it looks like a list or pagination is present
+        // This maintains consistency with Frontend expectations
+        if (totalPages !== undefined || Array.isArray(data)) {
+            res.json({ data, totalPages });
+        } else {
+            // Single item response
+            res.json({ data, totalPages });
+        }
+
+    } catch (err) {
+        console.error("Proxy Error:", err.message);
+        if (err.response) {
+            res.status(err.response.status).json(err.response.data);
+        } else {
+            res.status(500).json({ error: err.message });
+        }
     }
-
-    if (isCacheable) console.log(`Cache Miss: ${cacheKey}`);
-
-    // Return standard response structure
-    // Note: For POST/PUT, WC usually returns the object directly.
-    // Our Frontend expects { data, totalPages } wrapper from Proxy only if it's a list?
-    // Actually, Step 674 api.js implies response.data is returned directly. 
-    // Previously we returned `res.json({ data, totalPages })`. 
-    // We should maintain this wrapper for consistency OR only strictly for LIST endpoints.
-    // But to avoid breaking frontend, we should include the wrapper structure if it IS a list capability, 
-    // typically indicated by totalPages header.
-
-    if (totalPages !== undefined || Array.isArray(data)) {
-        res.json({ data, totalPages });
-    } else {
-        // For single object (create order response), just return data?
-        // But Wait: api.js `fetchProducts` expects `response.data`.
-        // Wait, `fetchProducts` calls `client.get`. `createWCClient` returns `axios` instance.
-        // `axios` response has `.data`.
-        // If Proxy returns `{ data: [..], totalPages: N }`.
-        // Then `response.data` in frontend is `{ data: [..], ... }`.
-        // The old code returned `res.json({ data, totalPages })`.
-        // Let's stick to that IF it's a GET request?
-        // If I do `POST`, WC returns `{ id: 123 ... }`.
-        // Proxy returns `{ data: {id:123}, totalPages: undefined }`.
-        // Frontend gets `{ data: {id:123} }`.
-        // Usually `response.data` is the payload.
-        // So Frontend logic `response.data` -> `{ data: ... }`.
-        // We need to match what frontend expects.
-
-        // Simplest approach: Always wrap.
-        res.json({ data, totalPages });
-    }
-
-} catch (err) {
-    console.error("Proxy Error:", err.message);
-    // Forward status code from upstream if available
-    if (err.response) {
-        res.status(err.response.status).json(err.response.data);
-    } else {
-        res.status(500).json({ error: err.message });
-    }
-}
 });
 
 const http = require('http');
