@@ -29,15 +29,21 @@ const Carts = () => {
             }
         } catch (error) {
             console.error(error);
-            let msg = error.message;
-            if (error.response) {
-                if (error.response.status === 404) {
-                    msg = "Helper Plugin Missing or Inactive (404)";
+            // Try to extract backend error message (e.g., "Sessions table not found")
+            const backendMsg = error.response?.data?.message || error.response?.data?.error || error.message;
+
+            if (backendMsg && backendMsg.includes('404')) {
+                // If we also have a specific message, show it.
+                if (error.response?.data?.message || error.response?.data?.code === 'no_table') {
+                    // It's a structured error from our plugin
+                    const specific = error.response.data.message || "Database Error";
+                    toast.error(`Plugin Connected but Error: ${specific}`);
                 } else {
-                    msg = `Server Error ${error.response.status}`;
+                    toast.error("Helper Plugin Endpoint Not Found (404). Please Check System Status.");
                 }
+            } else {
+                toast.error(`Failed to load carts: ${backendMsg}`);
             }
-            toast.error(`Failed to load carts: ${msg}`);
             setCarts([]);
         } finally {
             setLoading(false);
