@@ -30,13 +30,16 @@ const startSync = ({ storeUrl, consumerKey, consumerSecret, authMethod, accountI
     // Run in Background (Fire and Forget)
     (async () => {
         try {
-            // Helper to create client
-            // Helper to create client
             const https = require('https');
+
+            // Helper to create client
             const createClient = (method) => {
+                // Robust URL cleaning: remove trailing slashes, remove /wp-json if user added it
+                let cleanUrl = storeUrl.replace(/\/$/, '').replace(/\/wp-json\/?$/, '');
+
                 const config = {
-                    baseURL: `${storeUrl.replace(/\/$/, '')}/wp-json/wc/v3`,
-                    timeout: 120000,
+                    baseURL: `${cleanUrl}/wp-json/wc/v3`,
+                    timeout: 120000, // 2 mins
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Accept': 'application/json'

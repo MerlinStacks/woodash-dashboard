@@ -185,11 +185,20 @@ export const SyncProvider = ({ children }) => {
                     lastSync = new Date(Date.now() - 86400000).toISOString();
                 }
 
-                const authString = btoa(`${settings.consumerKey}:${settings.consumerSecret}`);
-                const res = await axios.get(`${settings.storeUrl}/wp-json/wc/v3/orders`, {
+                const config = {
                     params: { after: lastSync, per_page: 20 },
-                    headers: { Authorization: `Basic ${authString}` }
-                });
+                    headers: {}
+                };
+
+                if (settings.authMethod === 'query_string') {
+                    config.params.consumer_key = settings.consumerKey;
+                    config.params.consumer_secret = settings.consumerSecret;
+                } else {
+                    const authString = btoa(`${settings.consumerKey}:${settings.consumerSecret}`);
+                    config.headers.Authorization = `Basic ${authString}`;
+                }
+
+                const res = await axios.get(`${settings.storeUrl}/wp-json/wc/v3/orders`, config);
 
                 if (res.data && res.data.length > 0) {
                     const processed = res.data.map(order => ({
