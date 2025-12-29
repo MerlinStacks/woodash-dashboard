@@ -163,6 +163,32 @@ const initDB = async () => {
 initDB();
 
 // DATABASE API (Local Access to Postgres)
+// Sync Manager
+const syncManager = require('./sync');
+
+// --- Sync API (Server-Side) ---
+app.post('/api/sync/start', (req, res) => {
+    const { storeUrl, consumerKey, consumerSecret, accountId, options } = req.body;
+
+    // Basic Validation
+    if (!storeUrl || !consumerKey || !consumerSecret || !accountId) {
+        return res.status(400).json({ error: "Missing required parameters (storeUrl, keys, accountId)" });
+    }
+
+    // Trigger Background Sync
+    syncManager.startSync(
+        { storeUrl, consumerKey, consumerSecret, accountId, options },
+        { pool, redisClient }
+    );
+
+    res.json({ message: "Sync process started.", status: syncManager.getStatus() });
+});
+
+app.get('/api/sync/status', (req, res) => {
+    res.json(syncManager.getStatus());
+});
+
+// --- Local Database API (Postgres) ---
 app.get('/api/db/:table', async (req, res) => {
     const { table } = req.params;
     const { page = 1, limit = 50, search = '', hide_variants = 'false', account_id } = req.query;
