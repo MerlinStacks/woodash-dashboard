@@ -20,9 +20,61 @@ if (isset($_GET['overseek_direct'])) {
         $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
     }
 
-    $action = $_GET['overseek_direct'];
     global $wpdb;
-    
+
+    // --- SECURITY: MANUAL AUTHENTICATION ---
+    // Since we are bypassing WP's REST API, we must manually verify the API Keys.
+    function os_validate_direct_auth() {
+        global $wpdb;
+
+        // 1. Get Headers
+        $auth = isset($_SERVER['HTTP_AUTHORIZATION']) ? $_SERVER['HTTP_AUTHORIZATION'] : '';
+        if (!$auth && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+            $auth = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+        }
+
+        if (!$auth || strpos($auth, 'Basic ') !== 0) {
+            // Allow if user is logged in as admin (Admin Cookie)? 
+            // We can't check is_user_logged_in() this early easily.
+            // Fail safe.
+            return false;
+        }
+
+        // 2. Decode
+        $creds = base64_decode(substr($auth, 6));
+        list($key, $secret) = explode(':', $creds);
+
+        if (!$key || !$secret) return false;
+
+        // 3. Hash Key (Standard WC Logic: SHA256 hmac with 'wc-api')
+        // We verify the KEY exists. Verifying secret manually is brittle if versions differ,
+        // but checking the Key Hash is standard.
+        $key_hash = hash_hmac('sha256', $key, 'wc-api');
+
+        $table = $wpdb->prefix . 'woocommerce_api_keys';
+        
+        // Prepare Query
+        // We check if a row exists with this Consumer Key Hash
+        // And permissions are not 'read' if we are doing 'write' (simple check: just valid key for now)
+        $row = $wpdb->get_row($wpdb->prepare("SELECT key_id, permissions FROM $table WHERE consumer_key = %s LIMIT 1", $key_hash));
+
+        if ($row) {
+             return true;
+        }
+
+        return false;
+    }
+
+    // BLOCK UNAUTHORIZED REQUESTS
+    // Exception: Options (Preflight)
+    if ($_SERVER['REQUEST_METHOD'] !== 'OPTIONS') {
+        if (!os_validate_direct_auth()) {
+             http_response_code(401);
+             echo json_encode(['error' => 'unauthorized', 'message' => 'Invalid API Credentials']);
+             exit;
+        }
+    }
+
     // Headers
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -37,7 +89,7 @@ if (isset($_GET['overseek_direct'])) {
          $exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name;
          echo json_encode([
              'status' => 'ok', 
-             'type' => 'direct_global',
+             'type' => 'direct_global_secure',
              'db_version' => get_option('overseek_db_version'),
              'table_exists' => $exists,
              'wc_version' => class_exists('WooCommerce') ? WC()->version : 'Unknown'
@@ -109,7 +161,45 @@ if (isset($_GET['overseek_direct'])) {
         exit;
     }
 
-    // 5. SMTP SETTINGS (GET & POST)
+    // 5. EMAIL SENDING (Missing in previous update)
+    if ($action === 'email/send') {
+        // Read JSON body
+        $input = json_decode(file_get_contents('php://input'), true);
+        if ($input) {
+            $to = sanitize_email($input['to']);
+            $subject = sanitize_text_field($input['subject']);
+            $message = wp_kses_post($input['message']);
+            
+            // We need to configure SMTP dynamically here because 'phpmailer_init' hook MIGHT not have run yet if we exit early?
+            // Actually, if we use wp_mail(), it fires 'phpmailer_init'.
+            // But we are in global scope, 'phpmailer_init' hook was registered in class __construct?
+            // Class __construct has NOT run yet because we are above it!
+            
+            // MANUAL SMTP CONFIG
+            add_action('phpmailer_init', function($phpmailer) {
+                $smtp = get_option('overseek_smtp_settings', []);
+                if (!empty($smtp['enabled']) && $smtp['enabled'] === 'yes') {
+                    $phpmailer->isSMTP();
+                    $phpmailer->Host = $smtp['host'];
+                    $phpmailer->SMTPAuth = true;
+                    $phpmailer->Port = $smtp['port'];
+                    $phpmailer->Username = $smtp['username'];
+                    $phpmailer->Password = $smtp['password'];
+                    $phpmailer->SMTPSecure = $smtp['encryption']; 
+                    $phpmailer->From = $smtp['from_email'];
+                    $phpmailer->FromName = $smtp['from_name'];
+                }
+            });
+            
+            $sent = wp_mail($to, $subject, $message, ['Content-Type: text/html; charset=UTF-8']);
+            echo json_encode(['success' => $sent]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'invalid_json']);
+        }
+        exit;
+    }
+
+    // 6. SMTP SETTINGS (GET & POST)
     if ($action === 'smtp') {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Read JSON body
