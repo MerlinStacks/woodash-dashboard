@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
-import { BarChart2, PieChart as PieIcon, TrendingUp, Activity, ArrowUp, ArrowDown, Zap, Mail } from 'lucide-react';
+import { BarChart2, PieChart as PieIcon, TrendingUp, Activity, ArrowUp, ArrowDown, Zap, Mail, Minus } from 'lucide-react';
 import { useStats } from '../hooks/useStats';
 import DateRangePicker from '../components/DateRangePicker';
 import './Analytics.css';
@@ -271,8 +271,9 @@ const Analytics = () => {
 
 const StatCard = ({ title, value, change, icon: Icon, color }) => {
     // Determine arrow and color based on change
-    const isPositive = change >= 0;
-    const arrowColor = isPositive ? 'text-green-400' : 'text-red-400';
+    const noPrevData = change === null;
+    const isPositive = !noPrevData && change >= 0;
+    const arrowColor = noPrevData ? 'text-gray-400' : (isPositive ? 'text-green-400' : 'text-red-400');
 
     return (
         <div className="glass-panel stat-card" style={{ position: 'relative', overflow: 'hidden' }}>
@@ -294,10 +295,10 @@ const StatCard = ({ title, value, change, icon: Icon, color }) => {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem' }}>
                 <span className={arrowColor} style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
-                    {isPositive ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-                    {Math.abs(change)}%
+                    {noPrevData ? <Minus size={14} /> : (isPositive ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                    {noPrevData ? 'No prev data' : `${Math.abs(change)}%`}
                 </span>
-                <span style={{ color: 'var(--text-muted)' }}>vs previous period</span>
+                <span style={{ color: 'var(--text-muted)' }}>{noPrevData ? '' : 'vs previous period'}</span>
             </div>
         </div>
     );
