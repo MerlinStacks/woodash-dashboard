@@ -13,64 +13,34 @@ if (isset($_GET['os_check']) && $_GET['os_check'] === 'die') {
     die('OVERSEEK FILE IS LOADED! Global Scope.');
 }
 
-// 4. DIRECT ACCESS FALLBACK (Global Scope - Ultimate Bypass)
-if (isset($_GET['overseek_direct'])) {
-    // Attempt early Auth restore for Basic Auth headers
+// 4. DIRECT ACCESS FALLBACK (Safe wp_loaded Execution)
+add_action('wp_loaded', function() {
+    // Only run if our parameter is present
+    if (!isset($_GET['overseek_direct'])) return;
+
+    // Restore Auth Headers if missing (common in some server configs)
     if (!isset($_SERVER['HTTP_AUTHORIZATION']) && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
         $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
     }
 
+    $action = $_GET['overseek_direct'];
     global $wpdb;
 
     // --- SECURITY: MANUAL AUTHENTICATION ---
-    // Since we are bypassing WP's REST API, we must manually verify the API Keys.
-    function os_validate_direct_auth() {
-        global $wpdb;
-
-        $key = '';
-        $secret = '';
-
-        // 1. Try Headers First
-        $auth = isset($_SERVER['HTTP_AUTHORIZATION']) ? $_SERVER['HTTP_AUTHORIZATION'] : '';
-        if (!$auth && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
-            $auth = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
-        }
-
-        if ($auth && strpos($auth, 'Basic ') === 0) {
-            $creds = base64_decode(substr($auth, 6));
-            list($key, $secret) = explode(':', $creds);
-        }
-
-        // 2. Try Query/Body Parameters (Fallback for CORS/Header Stripping)
-        if (!$key && isset($_REQUEST['consumer_key'])) {
-            $key = $_REQUEST['consumer_key'];
-        }
-        // Secret usually not needed for Key Hash check, but good to have logic ready
-        // We only verify KEY existence/match in DB hash.
-
-        if (!$key) return false;
-
-        // 3. Hash Key (Standard WC Logic: SHA256 hmac with 'wc-api')
-        $key_hash = hash_hmac('sha256', $key, 'wc-api');
-
-        $table = $wpdb->prefix . 'woocommerce_api_keys';
-        
-        // Prepare Query
-        $row = $wpdb->get_row($wpdb->prepare("SELECT key_id, permissions FROM $table WHERE consumer_key = %s LIMIT 1", $key_hash));
-
-        if ($row) {
-             return true;
-        }
     if (!function_exists('os_validate_direct_auth')) {
         function os_validate_direct_auth() {
             global $wpdb;
+
             $key = '';
             $secret = '';
 
             // 1. Try Headers First
             $auth = isset($_SERVER['HTTP_AUTHORIZATION']) ? $_SERVER['HTTP_AUTHORIZATION'] : '';
-            if (!$auth && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
-                $auth = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+            if (!$auth) {
+                // Fallback for Apache/FastCGI
+                if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+                    $auth = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+                }
             }
 
             if ($auth && strpos($auth, 'Basic ') === 0) {
@@ -78,27 +48,31 @@ if (isset($_GET['overseek_direct'])) {
                 list($key, $secret) = explode(':', $creds);
             }
 
-            // 2. Try Query/Body Parameters
+            // 2. Try Query/Body Parameters (Fallback if headers strictly blocked)
             if (!$key && isset($_REQUEST['consumer_key'])) {
                 $key = $_REQUEST['consumer_key'];
             }
 
             if (!$key) return false;
 
-            // 3. Hash Key
+            // 3. Hash Key (Standard WC Logic: SHA256 hmac with 'wc-api')
             $key_hash = hash_hmac('sha256', $key, 'wc-api');
+
             $table = $wpdb->prefix . 'woocommerce_api_keys';
             
+            // Check if key exists
             $row = $wpdb->get_row($wpdb->prepare("SELECT key_id, permissions FROM $table WHERE consumer_key = %s LIMIT 1", $key_hash));
+
             return (bool) $row;
         }
     }
 
-    // BLOCK UNAUTHORIZED REQUESTS
+    // BLOCK UNAUTHORIZED REQUESTS (Except OPTIONS for CORS)
     if ($_SERVER['REQUEST_METHOD'] !== 'OPTIONS') {
         if (!os_validate_direct_auth()) {
              http_response_code(401);
              header('Content-Type: application/json');
+             header('Access-Control-Allow-Origin: *'); 
              echo json_encode(['error' => 'unauthorized', 'message' => 'Invalid or Missing API Credentials']);
              exit;
         }
@@ -118,7 +92,7 @@ if (isset($_GET['overseek_direct'])) {
          $exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name;
          echo json_encode([
              'status' => 'ok', 
-             'type' => 'direct_wp_loaded_secure',
+             'type' => 'direct_wp_loaded_secure', // Signal that we are using the secure hook
              'db_version' => get_option('overseek_db_version'),
              'table_exists' => $exists,
              'wc_version' => class_exists('WooCommerce') ? WC()->version : 'Unknown'
@@ -129,7 +103,6 @@ if (isset($_GET['overseek_direct'])) {
     // 2. VISITORS COUNT
     if ($action === 'visitors') {
         $table_name = $wpdb->prefix . 'overseek_visits';
-        // Check table existence first to avoid crash
         if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
             echo json_encode(['count' => 0, 'error' => 'no_table']);
         } else {
@@ -174,12 +147,12 @@ if (isset($_GET['overseek_direct'])) {
                 }
                 
                 // Fetch customer guess if possible
-                $customer_id = $session->session_key; // Often contains ID or hash
+                $customer_id = $session->session_key; 
 
                 $carts[] = [
                     'session_key' => $session->session_key,
                     'total' => $total,
-                    'items' => $items, // Simplified output for safety
+                    'items' => $items,
                     'last_update' => date('Y-m-d H:i:s', $session->session_expiry)
                 ];
             }
@@ -192,19 +165,13 @@ if (isset($_GET['overseek_direct'])) {
 
     // 5. EMAIL SENDING
     if ($action === 'email/send') {
-        // Read JSON body
         $input = json_decode(file_get_contents('php://input'), true);
-        if ($input && function_exists('wp_mail')) { // Safe check
+        if ($input && function_exists('wp_mail')) {
             $to = sanitize_email($input['to']);
             $subject = sanitize_text_field($input['subject']);
             $message = wp_kses_post($input['message']);
             
-            // We need to configure SMTP dynamically here because 'phpmailer_init' hook MIGHT not have run yet if we exit early?
-            // Actually, if we use wp_mail(), it fires 'phpmailer_init'.
-            // But we are in global scope, 'phpmailer_init' hook was registered in class __construct?
-            // Class __construct has NOT run yet because we are above it!
-            
-            // MANUAL SMTP CONFIG
+            // Apply Custom SMTP settings if they exist
             add_action('phpmailer_init', function($phpmailer) {
                 $smtp = get_option('overseek_smtp_settings', []);
                 if (!empty($smtp['enabled']) && $smtp['enabled'] === 'yes') {
@@ -223,15 +190,14 @@ if (isset($_GET['overseek_direct'])) {
             $sent = wp_mail($to, $subject, $message, ['Content-Type: text/html; charset=UTF-8']);
             echo json_encode(['success' => $sent]);
         } else {
-            echo json_encode(['success' => false, 'error' => 'wp_mail_missing_or_invalid_json']);
+            echo json_encode(['success' => false, 'error' => 'invalid_input_or_wp_mail_error']);
         }
         exit;
     }
 
-    // 6. SMTP SETTINGS
+    // 6. SMTP SETTINGS (GET & POST)
     if ($action === 'smtp') {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Read JSON body
             $input = json_decode(file_get_contents('php://input'), true);
             if ($input) {
                 update_option('overseek_smtp_settings', $input);
@@ -247,8 +213,6 @@ if (isset($_GET['overseek_direct'])) {
 
     // 7. DB INSTALL
     if ($action === 'install-db') {
-        // We can't easily call class methods here without instantiation, so we instantiate the class temporarily or duplicate logic.
-        // Duplicating basic logic for robustness.
         $table_name = $wpdb->prefix . 'overseek_visits';
         $charset_collate = $wpdb->get_charset_collate();
         $sql = "CREATE TABLE IF NOT EXISTS $table_name (
@@ -290,13 +254,17 @@ class OverSeek_Helper_Latest {
         add_action('template_redirect', [$this, 'track_visit']);
 
         // 4. DIRECT ACCESS FALLBACK
-        add_action('init', [$this, 'handle_direct_request']);
-        add_action('template_redirect', [$this, 'handle_direct_request']);
+        // Note: The global hook above handles 'wp_loaded', but we keep these simple hooks
+        // just in case 'wp_loaded' is too late/early for some specific environment quirks.
+        // However, we should be careful about double-execution.
+        // The global hook is self-contained with exit; so if it runs, these won't do much harm,
+        // but to handle things cleaner, we can remove the logic from the class method used for direct access 
+        // OR just leave it as a tertiary backup (if global hook fails for some reason?).
+        // For Critical Error avoidance, let's keep the class method simpler or empty if the global hook is preferred.
+        // Actually, let's leave duplicate listeners as failsafes, but ensure they don't crash.
+        // The methods exist below.
+        add_action('init', [$this, 'handle_direct_request']); // Fallback
         
-        // 5. Log Events
-        add_action('admin_init', [$this, 'install_db_v2']);
-        
-        // 4. Log Events
         add_action('admin_init', [$this, 'install_db_v2']);
         add_action('woocommerce_add_to_cart', [$this, 'log_cart_action'], 10, 6);
         add_action('woocommerce_thankyou', [$this, 'log_order_action'], 10, 1);
@@ -304,13 +272,12 @@ class OverSeek_Helper_Latest {
 
     public function handle_cors() {
         // SAFETY: Only apply CORS modification to our specific API namespaces
-        // This ensures unrelated plugins or frontend routes remain untouched.
         $uri = $_SERVER['REQUEST_URI'];
         $is_relevant_route = (
             strpos($uri, '/wp-json/overseek/') !== false || 
             strpos($uri, '/wp-json/wc-dash/') !== false || 
             strpos($uri, '/wp-json/woodash/') !== false ||
-            strpos($uri, '/wp-json/wc/') !== false // Needed for Order sync
+            strpos($uri, '/wp-json/wc/') !== false
         );
 
         if (!$is_relevant_route) return;
@@ -344,7 +311,7 @@ class OverSeek_Helper_Latest {
         if ($allow_origin) {
             header("Access-Control-Allow-Origin: $allow_origin");
             header("Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE");
-            header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-WP-Nonce");
+            header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-WP-Nonce, x-store-url");
             header("Access-Control-Allow-Credentials: true");
         }
 
@@ -392,7 +359,7 @@ class OverSeek_Helper_Latest {
         foreach ($namespaces as $ns) {
             register_rest_route($ns, '/install-db', [
                 'methods' => 'POST',
-                'callback' => [$this, 'api_install_db'], // Named method
+                'callback' => [$this, 'api_install_db'], 
                 'permission_callback' => [$this, 'auth_check']
             ]);
             
@@ -446,32 +413,27 @@ class OverSeek_Helper_Latest {
         }
     }
     
-    // DIRECT ACCESS HANDLER
+    // DIRECT ACCESS HANDLER (Backstop in Class)
     public function handle_direct_request() {
+        // Often pre-empted by global hook, but acts as backup
         if (!isset($_GET['overseek_direct'])) return;
 
-        $action = $_GET['overseek_direct'];
+        // Same logic, simplified or just exit if we want to force global hook usage
+        // But for safety, let's just let it run if it reaches here (meaning global hook didn't exit)
+        // Which implies global hook MIGHT have failed? 
+        // Let's keep it minimal.
         
-        // Basic Security/CORS for direct access
+        $action = $_GET['overseek_direct'];
         header('Access-Control-Allow-Origin: *');
         header('Content-Type: application/json');
 
         if ($action === 'status') {
-             // Re-use system status logic manually
              echo json_encode([
                  'status' => 'ok', 
-                 'method' => 'direct_bypass',
-                 'plugin_version' => '2.6'
+                 'method' => 'direct_bypass_class', // Different tag for debugging
+                 'plugin_version' => '2.7'
              ]);
              exit;
-        }
-        
-        if ($action === 'visitors') {
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'overseek_visits';
-            $count = $wpdb->get_var("SELECT COUNT(*) FROM $table_name WHERE last_activity > DATE_SUB(NOW(), INTERVAL 5 MINUTE)");
-            echo json_encode(['count' => $count]);
-            exit;
         }
     }
     
@@ -562,12 +524,11 @@ class OverSeek_Helper_Latest {
     }
 
     public function log_cart_action($cart_item_key, $product_id, $quantity) {
-        // Simplified for brevity, maintains logic
-        $this->track_visit(); // Ensure visit exists
+        $this->track_visit();
     }
 
     public function log_order_action($order_id) {
-         // Simplified
+         // Placeholder for future logic
     }
 
     // --- API Handlers ---
