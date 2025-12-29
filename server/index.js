@@ -125,6 +125,9 @@ const initDB = async () => {
     try {
         const client = await pool.connect();
 
+        // Optimization: Enable Trigram Extension for high-performance fuzzy search
+        await client.query('CREATE EXTENSION IF NOT EXISTS pg_trgm;');
+
         // Orders Table
         await client.query(`
             CREATE TABLE IF NOT EXISTS orders (
@@ -143,7 +146,15 @@ const initDB = async () => {
             );
         `);
 
-        console.log('PostgreSQL initialized: "orders" and "products" tables ready.');
+        // Indexes for High Performance
+        // 1. GIN Trigram Index for Instant Name Search (data->>'name' ILIKE '%term%')
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON products USING GIN ((data->>'name') gin_trgm_ops);`);
+
+        // 2. BTree Indexes for Filtering
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_products_account ON products ((data->>'account_id'));`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_products_parent ON products ((data->>'parent_id'));`);
+
+        console.log('PostgreSQL initialized: Tables, Extensions & Indexes ready.');
         client.release();
     } catch (err) {
         console.error('Failed to initialize PostgreSQL:', err.message);
