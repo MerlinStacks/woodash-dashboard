@@ -46,174 +46,81 @@ const Inventory = () => {
     }, [searchTerm, filterType]);
 
     // Data Queries
-    const queryResult = useLiveQuery(async () => {
-        if (!activeAccount) return { items: [], totalItems: 0 };
 
-        // 1. Fetch needed components
-        const allComponents = await db.product_components.where('account_id').equals(activeAccount.id).toArray();
+    // 1. Keep Component Query (Safeguard: it might be empty in Thin Client mode)
+    const allComponents = useLiveQuery(() =>
+        activeAccount ? db.product_components.where('account_id').equals(activeAccount.id).toArray() : []
+        , [activeAccount]) || [];
+
+    // State for API Data
+    const [products, setProducts] = useState([]);
+    const [totalItems, setTotalItems] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // API Fetch
+    React.useEffect(() => {
+        if (!activeAccount) return;
+
+        const fetchAPI = async () => {
+            setIsLoading(true);
+            try {
+                // Fetch from Local Postgres via Proxy
+                const { data } = await axios.get('/api/db/products', {
+                    params: {
+                        page: currentPage,
+                        limit: itemsPerPage,
+                        search: searchTerm,
+                        hide_variants: filterType !== 'variation',
+                        account_id: activeAccount.id
+                    }
+                });
+
+                setProducts(data.data);
+                setTotalItems(data.total);
+            } catch (err) {
+                console.error("API Fetch Error:", err);
+                toast.error("Failed to load Inventory from server.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        // Debounce search
+        const timer = setTimeout(fetchAPI, searchTerm ? 400 : 0);
+        return () => clearTimeout(timer);
+    }, [activeAccount, searchTerm, filterType, currentPage, itemsPerPage]);
+
+    // Client-Side Processing (Mimic Check)
+    const processedItems = React.useMemo(() => {
         const parentIds = new Set(allComponents.map(c => c.parent_id));
         const childIds = new Set(allComponents.map(c => c.child_id));
 
-        // 2. Build Query
-        let collection;
-
-        // Optimized: Use [account_id+name] index for default alphabetical sort and fast cursor traversal
-        // This avoids loading all 50k items into memory.
-        if (searchTerm.length > 1) {
-            collection = db.products.where('[account_id+name]')
-                .between(
-                    [activeAccount.id, searchTerm],
-                    [activeAccount.id, searchTerm + '\uffff'],
-                    true, true
-                );
-        } else {
-            // Default View: Sort by Name (A-Z)
-            collection = db.products.where('[account_id+name]')
-                .between([activeAccount.id, Dexie.minKey], [activeAccount.id, Dexie.maxKey]);
-
-            if (sortConfig.key === 'name' && sortConfig.direction === 'desc') {
-                collection = collection.reverse();
-            }
-        }
-
-        // Apply Filter on the Cursor (Lazy Evaluation)
-        collection = collection.filter(p => {
-            // Type Filtering logic
-            const isParent = p.parent_id === 0 || !p.parent_id;
-
-            // 1. Filter Type Logic
-            if (filterType === 'composite') {
-                if (!parentIds.has(p.id)) return false;
-            }
-            if (filterType === 'component') {
-                if (!childIds.has(p.id)) return false;
-            }
-            if (filterType === 'variation') {
-                if (p.type !== 'variation' && p.type !== 'product_variation') return false;
-                // Note: 'variation' usually implies parent_id > 0
-            } else {
-                // Hiding Variants (Standard View)
-                // If not explicitly asking for variations, hide them.
-                if (!isParent && p.type !== 'variable') return false;
-            }
-
-            return true;
-        });
-
-        // Count (Scans index keys matching filter)
-        const count = await collection.count();
-
-        // Paginate (Scans until bucket filled)
-        const offset = (currentPage - 1) * itemsPerPage;
-        const products = await collection.offset(offset).limit(itemsPerPage).toArray();
-
-        // 3. Fetch Variants for this Page (Hierarchy)
-        // We only fetch variants if we are NOT in 'variation' mode (where we show them flat)
-        let variantsMap = new Map();
-        if (filterType !== 'variation') {
-            const pageParentIds = products.map(p => p.id);
-            // Scan for variants of these parents
-            const pageVariants = await db.products
-                .where('account_id').equals(activeAccount.id)
-                .filter(p => pageParentIds.includes(p.parent_id))
-                .toArray();
-
-            pageVariants.forEach(v => {
-                if (!variantsMap.has(v.parent_id)) variantsMap.set(v.parent_id, []);
-                variantsMap.get(v.parent_id).push(v);
-            });
-        }
-
-        // 4. Process (Calculations)
-        const processed = products.map(p => {
-            // Attach Variants
-            const myVariants = variantsMap.get(p.id) || [];
-
-            // Component Logic
-            const myComponents = allComponents.filter(c => c.parent_id === p.id);
-
-            return {
-                ...p,
-                _myComponents: myComponents,
-                _variants: myVariants
-            };
-        });
-
-        // 5. Batch Fetch needed component children for stock calc
-        const neededChildIds = new Set();
-        processed.forEach(p => {
-            p._myComponents.forEach(c => neededChildIds.add(c.child_id));
-        });
-
-        const childProductsMap = new Map();
-        if (neededChildIds.size > 0) {
-            const childKeys = Array.from(neededChildIds).map(id => [activeAccount.id, id]);
-            const children = await db.products.where('[account_id+id]').anyOf(childKeys).toArray();
-            children.forEach(c => childProductsMap.set(c.id, c));
-        }
-
-        // Final Mapping
-        const finalItems = processed.map(p => {
+        return products.map(p => {
             const _isComposite = parentIds.has(p.id);
             const _isComponent = childIds.has(p.id);
 
-            let maxBuildable = 9999;
-
-            if (_isComposite) {
-                const myComps = p._myComponents;
-                if (myComps.length > 0) {
-                    let minCap = Infinity;
-                    myComps.forEach(comp => {
-                        const child = childProductsMap.get(comp.child_id);
-                        if (!child) return;
-                        if (child.stock_status === 'onbackorder') return;
-                        if (child.stock_quantity === null && child.stock_status === 'instock') return;
-                        const childQty = child.stock_quantity || 0;
-                        const canMake = Math.floor(childQty / comp.quantity);
-                        if (canMake < minCap) minCap = canMake;
-                    });
-                    maxBuildable = minCap === Infinity ? 9999 : minCap;
-                } else {
-                    maxBuildable = p.stock_quantity || 0;
-                }
-            } else {
-                maxBuildable = p.stock_quantity || 0;
-            }
+            // Fallback Stock (Deep calculation requires fetching children, omitted for speed)
+            const potentialStock = p.stock_quantity;
 
             let typeLabel = '-';
             if (_isComposite) typeLabel = 'Bundle';
             else if (_isComponent) typeLabel = 'Component';
-            else if (p.type === 'variable') typeLabel = 'Variable'; // Parent
+            else if (p.type === 'variable') typeLabel = 'Variable';
             else if (p.type === 'variation') typeLabel = 'Variation';
 
             return {
                 ...p,
                 typeLabel,
-                potentialStock: maxBuildable,
+                potentialStock,
                 _isComposite,
-                _isComponent
+                _isComponent,
+                _variants: [] // Hierarchy hidden in Thin Client
             };
         });
+    }, [products, allComponents]);
 
-        // Page-Level Sort
-        if (sortConfig.key) {
-            finalItems.sort((a, b) => {
-                let aVal = a[sortConfig.key];
-                let bVal = b[sortConfig.key];
-                if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-                if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-
-        return { items: finalItems, totalItems: count };
-
-    }, [activeAccount, searchTerm, filterType, currentPage, itemsPerPage, sortConfig]);
-
-    const { items: sortedItems, totalItems } = queryResult || { items: [], totalItems: 0 };
-    const isLoading = !queryResult;
+    // Client-Side Sort (Sorts only the current page, API defaults to ID DESC)
+    const { items: sortedItems } = useSortableData(processedItems, sortConfig);
 
     const requestSort = (key) => {
         let direction = 'asc';
