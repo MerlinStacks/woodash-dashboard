@@ -1,135 +1,101 @@
-# WooDash Project Architecture Documentation
+# WooDash / OverSeek Architecture Documentation
 
 ## 1. Project Overview
 
-**WooDash** is a high-performance, local-first dashboard for WooCommerce. It is designed to provide store owners with a lightning-fast interface for managing products, orders, and customers, bypassing the often slow WordPress admin panel.
+**OverSeek (fka WooDash)** is a high-performance, local-first dashboard for WooCommerce. It provides store owners with instant access to their data by synchronizing it to a local browser database (IndexedDB) and offering a premium, glassmorphism-styled UI.
 
 ### Core Principles
-- **Local-First:** Data is synchronized from WooCommerce to a local IndexedDB (via Dexie.js). The UI reads primarily from this local database, ensuring instant load times.
-- **No Middleman Server:** The application connects directly from the user's browser to their WooCommerce API. No data passes through a third-party server.
-- **Privacy & Security:** API keys are stored in `localStorage`. Sensitive operations run within the browser sandbox.
-- **Multi-Tenancy:** Supports managing multiple WooCommerce stores (Accounts) from a single interface.
+- **Local-First:** Data is synchronized via a Web Worker to `Dexie.js` (IndexedDB). The UI renders from this local store, ensuring zero-latency navigation.
+- **Proxy-Mediated:** A specialized Node.js Proxy (`server/index.js`) sits between the browser and WooCommerce. It handles CORS, Authentication Failover, and Request Caching.
+- **Resilient Connectivity:** Implements a robust "6-Level Failover Strategy" to connect to WooCommerce under any server condition (WAFs, ModSecurity, Query String limitations).
+- **Multi-Tenancy:** Supports managing multiple stores (Accounts) simultaneously, with strict data isolation via `account_id`.
 
 ### Technology Stack
-- **Frontend Framework:** React.js (Vite)
-- **Local Database:** Dexie.js (Wrapper for IndexedDB)
-- **State Management:** React Context API (`SyncContext`, `SettingsContext`, `AuthContext`, `AccountContext`)
-- **API Interaction:** `@woocommerce/woocommerce-rest-api` (Client-side)
-- **UI Components:** Glassmorphism design, Lucide React icons, Sonner (Toasts), Recharts (Analytics).
-- **CSS:** Vanilla CSS with scoped variables and utility classes.
+- **Frontend:** React.js (Vite), Wouter (Routing).
+- **Local DB:** Dexie.js (IndexedDB Wrapper).
+- **Backend Proxy:** Node.js, Express, Redis (Caching), Socket.io (Real-time).
+- **WordPress Plugin:** `overseek-helper.php` (Custom API Endpoints).
 
 ---
 
-## 2. Directory Structure
+## 2. Core Architecture
 
-```
-src/
-├── assets/          # Static assets
-├── components/      # Reusable UI components (Sidebar, AIChat, etc.)
-├── context/         # React Context Providers (Global State)
-├── db/              # Database Schema and configuration
-├── hooks/           # Custom React Hooks
-├── layouts/         # Page layouts (DashboardLayout)
-├── pages/           # Main route views
-├── services/        # Business logic and external API handling
-├── App.jsx          # Main Router and App entry point
-└── main.jsx         # React DOM root
-```
+### 2.1. The "Smart Proxy" (`server/index.js`)
+The App does not connect directly to WC API V3. It connects to `http://localhost:3001/api/proxy`.
+- **Role:** Bypass CORS, Cache repeated GET requests (Redis), and normalize Error responses.
+- **Auth Handling:**
+    - Supports `Authorization: Basic ...` headers.
+    - Supports `?consumer_key=...&consumer_secret=...` query params (Critical for hosts that strip headers).
+- **Routing:**
+    - Standard WC requests -> `/wp-json/wc/v3/...`
+    - Custom Plugin requests -> `/wp-json/overseek/v1/...` (with fallback to `wc-dash/v1` or `woodash/v1`).
 
----
+### 2.2. The Sync Engine (`src/workers/sync.worker.js`)
+Synchronization runs in a dedicated **Web Worker** to prevent UI freezing.
+- **Mode:** Full Sync (Pages 1...N) or Delta Sync (Modified After X).
+- **Weighted Progress:** Reports granular progress based on entity weight (Products 40% -> Orders 70% -> Customers 85% -> etc.).
+- **V2 Features:**
+    - **Safe Parsing:** Handles Proxy-wrapped responses (`{ data: [...], totalPages: N }`).
+    - **Enrichment:** Adds `account_id` and ensures `parent_id` integrity (default 0) for all items.
+    - **Automation:** Directly inspects Orders for status changes to trigger "Email Rules" defined in the UI.
 
-## 3. Core Modules & Architecture
-
-### 3.1. Local Database (`src/db/db.js`)
-The application uses **Dexie.js** to manage an IndexedDB database named `WooDashDB`.
-- **Schema Versioning:** The schema evolves using version numbers.
-    - **v20:** Introduced Multi-tenancy. Tables like `products`, `orders` were migrated to `products_v2` etc., with Compound Primary Keys `[account_id+id]`.
-    - **v21:** Added Live Chat / CRM tables (`contacts`, `conversations`, `messages`).
-- **Data Access:** All React components use `useLiveQuery` to reactively fetch data from `db`.
-
-### 3.2. Synchronization Engine (`src/services/sync.js` & `src/context/SyncContext.jsx`)
-- **Logic:** The `sync.js` service handles fetching data from WooCommerce in batches.
-- **Delta Sync:** It compares `date_modified` timestamps to only fetch updated records.
-- **Flow:** `API -> Transform -> BulkPut (IndexedDB)`.
-- **Context:** `SyncContext` manages the global sync state (`idle`, `syncing`, `error`), progress bars, and auto-sync intervals.
-
-### 3.3. Authentication & Security (`src/context/AuthContext.jsx`)
-- **Session:** Uses a local `dashboard_users` table to manage app-specific users.
-- **Encryption:** Passwords are hashed using `bcryptjs`.
-- **Permissions:** Role-based access control (Admin, Manager, etc.) determines feature visibility.
-- **API Keys:** WooCommerce Consumer Key/Secret are stored in `db.settings` or `localStorage`, never exposed.
-
-### 3.4. Multi-Tenancy (`src/context/AccountContext.jsx`)
-- **Accounts:** The `accounts` table stores store credentials (Name, Domain).
-- **Context:** `AccountContext` provides the `activeAccount` object.
-- **Isolation:** Data queries often filter by `account_id` or use compound keys to ensure data isolation between stores.
+### 2.3. The Helper Plugin (`overseek-helper.php v2.4`)
+A lightweight, single-file plugin required on the WordPress site.
+- **Safe Mode:** Does NOT use `register_activation_hook` (avoids critical errors). Uses `admin_init` transient checks to flush permalinks.
+- **Universal Namespaces:** Registers routes under `overseek/v1`, `wc-dash/v1`, and `woodash/v1` simultaneously to ensure compatibility with any dashboard version.
+- **Endpoints:**
+    - `/carts`: Live abandoned cart data.
+    - `/system-status`: Health check (PHP version, WC version).
+    - `/email/send`: SMTP wrapper.
 
 ---
 
-## 4. File-by-File Documentation
+## 3. Directory Structure & Key Modules
 
-### Data Layer (`src/db/`)
-- **`db.js`**: Defines the Dexie database instance. Contains the `stores` schema definition and helper methods for setting/getting key-value settings.
+### `src/db/`
+- **`db.js`**: Dexie Schema Definition.
+    - **Versioning**: Uses strict versioning (currently v22+).
+    - **Schema**: e.g., `products_v2`, `orders`, `visits`. Keys are compound `[account_id+id]`.
 
-### Services (`src/services/`)
-- **`api.js`**: Wrapper for WooCommerce REST API. Handles authentication injection and standardizes responses. Includes `batchProducts` for bulk updates.
-- **`sync.js`**: "The Brain" of the offline mode. Contains specific functions (`syncProducts`, `syncOrders`) to pull data from API and save to DB. Handles pagination and error retries.
-- **`backupService.js`**: Provides functions to `exportDatabase` (dump specific tables to JSON) and `importDatabase` (restore from JSON).
+### `src/services/`
+- **`api.js`**: The central API client.
+    - **Unwrapping**: Automatically extracts Arrays from Proxy `{ data: [...] }` wrappers.
+    - **Failover**: `executeHelperRequest` tries all 3 namespaces combinations until one works.
+- **`backupService.js`**: JSON Export/Import for App Settings & Automations.
 
-### Context Providers (`src/context/`)
-- **`SettingsContext.jsx`**: Exposes application settings (Currency, Timezone, AI Keys) to the entire app.
-- **`SyncContext.jsx`**: Controls the synchronization lifecycle. Provides `syncStatus` and `runFullSync` methods.
-- **`AuthContext.jsx`**: Manages the currently logged-in dashboard user (`dashboard_users` table). Handles Login/Logout and Permission checks.
-- **`AccountContext.jsx`**: Manages the list of WooCommerce stores connected. Handles switching the `activeAccount` which triggers UI updates.
+### `src/components/settings/`
+- **`SystemStatus.jsx`**: Diagnostic tool. Checks:
+    1.  Local DB Health (Count of items).
+    2.  Helper Plugin Connectivity.
+    3.  Store API Connectivity.
 
-### Layouts (`src/layouts/`)
-- **`DashboardLayout.jsx`**: The main scaffolding. Includes:
-    - **`Sidebar`**: Navigation menu.
-    - **`TopBar`**: Contains `GlobalSearch`, `ThemeToggle`, `TodoPanel`, and `Notifications`.
-    - **`SyncOverlay`**: Visual indicator when sync is in progress.
+### `src/pages/`
+- **`Inventory.jsx`**: Advanced Product Manager.
+    - **Recipe Logic**: Allows defining Bundles (Composition). Calculates "Potential Stock" based on child component stock.
+    - **Variant Hiding**: Strict filtering to ensure specific Variants do not clutter the main list.
+- **`Carts.jsx`**: Live view of Abandoned Carts (via Helper Plugin).
+- **`Orders.jsx`**: Order Management with segmenting and batch actions.
 
-### Pages (`src/pages/`)
-- **`DashboardHome.jsx`**: Landing page. Displays Widgets (Sales, Visitors), Real-time charts, and Activity Feeds.
-- **`Orders.jsx`**: List view of orders. Features:
-    - Advanced Filtering (Segment Builder).
-    - Batch Pick List Generation (PDF).
-    - CSV Export.
-- **`Products.jsx`**: Inventory grid. Features:
-    - Bulk Actions (Stock status, Delete).
-    - Custom Tagging System.
-    - `useSortableData` for column sorting.
-- **`Inventory.jsx`**: Specialized view for "Recipes" (Composite Products).
-    - Allows defining Bundles (1 Box = 3 Items).
-    - Calculates "Potential Stock" based on component availability.
-- **`Reports.jsx`**: Analytics hub.
-    - PDF/CSV Report Generation.
-    - "Digests": Scheduling automated email/slack reports (Simulated).
-    - Custom Report Builder.
-- **`Inbox.jsx`**: CRM & Live Chat interface.
-    - 3-Pane Layout: Contacts List -> Chat -> User Profile.
-    - MagicMap: Visualization of customer location.
-- **`Settings.jsx`**: Configuration.
-    - Tabs: General, Connection, Sync, AI, SMTP, Danger Zone.
-    - Backup & Restore interface.
-- **`Help.jsx`**: Internal Documentation.
-    - Architecture docs, User guides.
-
-### Hooks (`src/hooks/`)
-- **`useStats.js`**: Aggregates general store stats (Revenue, Orders count) from DB.
-- **`useProductStats.js`**: Advanced product analytics (Top Sellers, Margins, Dead Stock).
-- **`useSortableData.js`**: Generic hook for table sorting logic (Text, Dates, Numbers).
-
-### Components (`src/components/`)
-- **`AIChat.jsx`**: Floating Chatbot.
-    - Uses OpenRouter API.
-    - Context-aware: Feeds summaries of store data (Revenue, Low Stock) to the LLM for accurate answers.
-    - Navigation: Can redirect users to pages via natural language prompts.
+### `src/context/`
+- **`SyncContext.jsx`**: Worker Manager. Spawns `sync.worker.js` and listens for messages.
+- **`SettingsContext.jsx`**: Manages global preferences (Currency, Store URL).
 
 ---
 
-## 5. Future Roadmap & Improvements
-Based on code analysis:
-1.  **AI Implementation:** Move from direct API calls in `AIChat` to a more structured "Agent" system that can perform actions (e.g., "Create a coupon").
-2.  **Live Chat Real-time:** Implement actual WebSocket or polling mechanism for the `Inbox` (currently has simulated elements).
-3.  **Role Granularity:** Expand `AuthContext` to support granular permission editing in the UI.
-4.  **Testing:** Add unit tests for critical paths (`sync.js`, `calculatePotentialStock`).
+## 4. Security & Isolation
+
+- **API Keys**: Stored in `localStorage` (encrypted at rest by browser) or `IndexedDB`. Never sent to 3rd party.
+- **Cross-Account Safety**: Every DB query includes `.where('account_id').equals(activeAccount.id)`.
+- **Proxy Security**: The Node Proxy does not store keys. It forwards them.
+
+## 5. Deployment
+
+- **Docker**: `Dockerfile` + `docker-compose.prod.yml` available for containerized deployment.
+- **Environment**: Requires `REDIS_URL` for caching.
+
+---
+
+## 6. Known Patterns & Gotchas
+- **"Variants Showing":** If variants appear in Inventory, check `p.type` is 'variation' and `p.parent_id > 0`. The UI filters strictly on these.
+- **"Sync Stuck":** Often due to Proxy returning wrapped JSON while Worker expects Array. (Fixed in v2 Worker).
+- **"Helper 404":** Often due to Host stripping Authorization header. Use "Query Param" auth mode in Settings.
