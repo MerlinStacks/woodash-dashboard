@@ -387,8 +387,7 @@ const RecipeModal = ({ product, onClose }) => {
                     console.error("Component Search Error:", e);
                 }
 
-                // Remove self
-                setSearchResults(results.filter(r => r.id !== product.id));
+
             }
             setSearching(false);
         };
