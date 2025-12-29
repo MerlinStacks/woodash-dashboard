@@ -15,13 +15,24 @@ if (class_exists('OverSeek_Helper_Latest')) {
 class OverSeek_Helper_Latest {
 
     public function __construct() {
+        // DEBUG: Proof of Life Check
+        if (isset($_GET['os_check'])) {
+            die('OVERSEEK PLUGIN IS ALIVE! Class: ' . __CLASS__);
+        }
+
         // 1. Critical: Handle CORS and Auth immediately
         add_action('init', [$this, 'handle_cors'], 0);
         
         // 2. Initialize
         add_action('rest_api_init', [$this, 'register_routes']);
         add_action('phpmailer_init', [$this, 'configure_smtp']);
-        
+
+        // DEBUG: Visual Confirmations
+        add_action('wp_head', function() { echo "\n<!-- OVERSEEK PLUGIN: ACTIVE (v2.5) -->\n"; });
+        add_action('admin_notices', function() {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>OverSeek Helper</strong> is ACTIVE and running.</p></div>';
+        });
+
         // 3. Visitor Tracking
         add_action('template_redirect', [$this, 'track_visit']);
         
