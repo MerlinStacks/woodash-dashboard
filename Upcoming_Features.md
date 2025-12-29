@@ -7,16 +7,17 @@
 - [x] **Refine Analytics Validation**: Display 'No prev data' instead of misleading 0%/100% when no historical data exists.
 
 ## Planned
-- [ ] Admin feature: Enable certain features per account only (e.g., gold price indicator)
 - [ ] Full Data Export feature
 - [ ] Ad revenue tracking [Meta Ads, Google Ads]
 - [ ] Integrate emails into the inbox
-- [ ] Improve WooCommerce plugin: Include Live Chat features with UI editorWordPress.
+- [ ] Improve WooCommerce plugin: Include Live Chat features with UI editor.
 
-Plugin Active but Routes Missing. Please Deactivate & Reactivate Plugin in WordPress.
-But we tried this and the error still appears
 
 The reviews are not syncing.
 
 Dark/Light mode don't really change everything.
+
+Add a Gold Price setting - make this a feature that we need to enable per account in the admin panel
+
+Make the BOM feature a feature that we need to enable per account in the admin panel
 

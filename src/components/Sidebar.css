@@ -5,10 +5,10 @@
     position: fixed;
     left: 0;
     top: 0;
-    background: rgba(19, 19, 31, 0.95);
+    background: var(--bg-sidebar);
     /* Slightly darker/more opaque for readability */
     backdrop-filter: blur(20px);
-    border-right: 1px solid var(--border-glass);
+    border-right: 1px solid var(--border-sidebar);
     display: flex;
     flex-direction: column;
     z-index: 100;
@@ -114,16 +114,22 @@
 }
 
 .nav-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-sidebar-item-hover);
     color: var(--text-main);
 }
 
 .nav-item.active {
-    background: rgba(99, 102, 241, 0.15);
+    background: var(--bg-sidebar-item-active);
     border-color: rgba(99, 102, 241, 0.2);
-    color: white;
+    color: var(--text-main);
     box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
     /* Reduced glow */
+}
+
+/* Override text color for active item if needed, but var(--text-main) usually works */
+:root[data-theme="light"] .nav-item.active {
+    color: var(--primary);
+    /* In light mode, active item looks better colored */
 }
 
 .nav-item svg {
@@ -183,6 +189,7 @@
     /* Indentation */
     margin-bottom: 4px;
     border-left: 1px solid rgba(255, 255, 255, 0.05);
+    /* Could var this too but low priority */
     margin-left: 1.25rem;
 }
 
@@ -197,12 +204,12 @@
 
 .submenu-item:hover {
     color: var(--text-main);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-sidebar-item-hover);
 }
 
 .submenu-item.active {
     color: var(--primary);
-    background: rgba(99, 102, 241, 0.1);
+    background: var(--bg-sidebar-item-active);
     font-weight: 500;
 }
 

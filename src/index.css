@@ -52,6 +52,12 @@
   --trans-fast: 0.2s ease;
   --trans-med: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* Sidebar Defaults (Dark/Base) */
+  --bg-sidebar: rgba(19, 19, 31, 0.95);
+  --bg-sidebar-item-hover: rgba(255, 255, 255, 0.05);
+  --bg-sidebar-item-active: rgba(99, 102, 241, 0.15);
+  --border-sidebar: var(--border-glass);
+
   /* Shadows */
   --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
@@ -358,11 +364,24 @@ a {
   --text-muted: #475569;
   --text-dim: #64748b;
 
+  /* Sidebar Tokens (Dark Default) */
+  --bg-sidebar: rgba(19, 19, 31, 0.95);
+  --bg-sidebar-item-hover: rgba(255, 255, 255, 0.05);
+  --bg-sidebar-item-active: rgba(99, 102, 241, 0.15);
+  --border-sidebar: var(--border-glass);
+
   /* Glass - Softer Shadows in Light Mode */
   --bg-glass: rgba(255, 255, 255, 0.95);
   --bg-glass-lighter: #ffffff;
   --border-glass: #cbd5e1;
   --border-glass-hover: #94a3b8;
+
+  /* Sidebar Tokens (Light Mode Override) */
+  --bg-sidebar: #ffffff;
+  --bg-sidebar-item-hover: #f1f5f9;
+  --bg-sidebar-item-active: #e0e7ff;
+  /* Light Indigo */
+  --border-sidebar: #e2e8f0;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
