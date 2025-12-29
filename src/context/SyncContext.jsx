@@ -14,45 +14,84 @@ export const SyncProvider = ({ children }) => {
     const { activeAccount } = useAccount();
 
     const [status, setStatus] = useState('idle'); // idle, running, error, complete
-    const [progress, setProgress] = useState(0); // 0 to 100
-    const [task, setTask] = useState(''); // e.g., "Syncing Products"
-    const [logs, setLogs] = useState([]); // Array of log messages/errors
-    const [lastLiveSync, setLastLiveSync] = useState(null); // Timestamp of last successful poll
+    const [progress, setProgress] = useState(0);
+    const [task, setTask] = useState('');
+    const [logs, setLogs] = useState([]);
+    const [lastLiveSync, setLastLiveSync] = useState(null);
 
-    const workerRef = useRef(null);
+    const pollInterval = useRef(null);
 
-    // Cancel sync if account changes
+    // 1. Resume Sync on Load (If server is running)
     useEffect(() => {
-        if (status === 'running') {
-            cancelSync();
-        }
-        setLogs([]);
-        setProgress(0);
-        setStatus('idle');
-    }, [activeAccount]);
-
-    // Cleanup worker on unmount
-    useEffect(() => {
-        return () => {
-            if (workerRef.current) {
-                workerRef.current.terminate();
+        const checkServerStatus = async () => {
+            if (status === 'running') return;
+            try {
+                const { data } = await axios.get('/api/sync/status');
+                if (data.running) {
+                    console.log("Resuming Sync UI attachment...");
+                    setStatus('running');
+                    setTask(`Syncing ${data.entity}...`);
+                    setProgress(data.progress);
+                    startPolling();
+                }
+            } catch (e) {
+                // ignore
             }
         };
+        checkServerStatus();
+
+        return () => stopPolling();
     }, []);
+
+    // 2. Polling
+    const startPolling = () => {
+        if (pollInterval.current) clearInterval(pollInterval.current);
+
+        pollInterval.current = setInterval(async () => {
+            try {
+                const { data } = await axios.get('/api/sync/status');
+
+                if (data.running) {
+                    setProgress(data.progress);
+                    setTask(`Syncing ${data.entity} (${data.details || ''})`);
+                } else {
+                    // Sync Stopped (Finished or Error)
+                    stopPolling();
+                    if (data.error) {
+                        setStatus('error');
+                        log(`Server Error: ${data.error}`, 'error');
+                    } else if (data.progress === 100) {
+                        setStatus('complete');
+                        setProgress(100);
+                        setTask('Completed');
+                        log('Sync Completed Server-Side', 'success');
+                        setTimeout(() => setStatus('idle'), 5000);
+                    } else {
+                        // Stopped unexpectedly
+                        setStatus('idle');
+                    }
+                }
+            } catch (e) {
+                console.warn("Poll Error:", e);
+            }
+        }, 2000);
+    };
+
+    const stopPolling = () => {
+        if (pollInterval.current) {
+            clearInterval(pollInterval.current);
+            pollInterval.current = null;
+        }
+    };
 
     const log = (message, type = 'info') => {
         setLogs(prev => [...prev, { timestamp: new Date(), message, type }]);
     };
 
     const cancelSync = () => {
-        if (workerRef.current) {
-            workerRef.current.terminate();
-            workerRef.current = null;
-        }
+        stopPolling();
         setStatus('idle');
-        setProgress(0);
-        setTask('');
-        log('Sync cancelled by user', 'warning');
+        log('UI detached from Sync (Server process continues)', 'warning');
     };
 
     const startSync = async (forceFull = false, options = {}) => {
@@ -62,99 +101,31 @@ export const SyncProvider = ({ children }) => {
             return;
         }
 
-        // Default options
-        const shouldSync = {
-            products: options.products !== false,
-            orders: options.orders !== false,
-            taxes: options.taxes !== false,
-            customers: options.customers !== false,
-            reviews: options.reviews !== false,
-        };
-
         setStatus('running');
         setProgress(0);
         setLogs([]);
 
-        // Terminate existing worker if any
-        if (workerRef.current) {
-            workerRef.current.terminate();
-        }
-
-        const accountId = activeAccount.id;
-        const mode = forceFull ? 'Full' : 'Delta';
-        log(`Starting ${mode} sync for ${activeAccount.name}...`);
-
-        // Prepare Last Sync Times
-        const lastSyncTimes = {
-            products: localStorage.getItem(`last_sync_products_${accountId}`),
-            orders: localStorage.getItem(`last_sync_orders_${accountId}`),
-            customers: localStorage.getItem(`last_sync_customers_${accountId}`),
-            reviews: localStorage.getItem(`last_sync_reviews_${accountId}`)
-        };
-
-        // Initialize Worker
         try {
-            workerRef.current = new Worker(new URL('../workers/sync.worker.js', import.meta.url), { type: 'module' });
-
-            workerRef.current.onmessage = (e) => {
-                const msg = e.data;
-
-                if (msg.type === 'LOG') {
-                    log(msg.message, msg.level);
-                } else if (msg.type === 'PROGRESS') {
-                    setTask(msg.task);
-                    setProgress(msg.percentage);
-                } else if (msg.type === 'COMPLETE') {
-                    setStatus('complete');
-                    log('Sync completed successfully', 'success');
-
-                    // Update LocalStorage with new timestamps
-                    if (msg.newSyncTimes) {
-                        if (shouldSync.products) localStorage.setItem(`last_sync_products_${accountId}`, msg.newSyncTimes.products);
-                        if (shouldSync.orders) localStorage.setItem(`last_sync_orders_${accountId}`, msg.newSyncTimes.orders);
-                        if (shouldSync.customers) localStorage.setItem(`last_sync_customers_${accountId}`, msg.newSyncTimes.customers);
-                        if (shouldSync.reviews) localStorage.setItem(`last_sync_reviews_${accountId}`, msg.newSyncTimes.reviews);
-                    }
-
-                    setTimeout(() => setStatus('idle'), 5000);
-                    workerRef.current.terminate();
-                    workerRef.current = null;
-                } else if (msg.type === 'ERROR') {
-                    setStatus('error');
-                    log(msg.error, 'error');
-                    workerRef.current.terminate();
-                    workerRef.current = null;
+            await axios.post('/api/sync/start', {
+                storeUrl: settings.storeUrl,
+                consumerKey: settings.consumerKey,
+                consumerSecret: settings.consumerSecret,
+                accountId: activeAccount.id,
+                options: {
+                    products: options.products !== false,
+                    orders: options.orders !== false,
                 }
-            };
-
-            workerRef.current.onerror = (err) => {
-                setStatus('error');
-                log(`Worker Error: ${err.message}`, 'error');
-                console.error(err);
-            };
-
-            // Start the Worker
-            workerRef.current.postMessage({
-                type: 'START',
-                config: {
-                    storeUrl: settings.storeUrl,
-                    consumerKey: settings.consumerKey,
-                    consumerSecret: settings.consumerSecret
-                },
-                accountId,
-                options: shouldSync,
-                lastSyncTimes,
-                forceFull
             });
-
+            log('Sync initiated on server...', 'info');
+            startPolling();
         } catch (e) {
             setStatus('error');
-            log(`Failed to start worker: ${e.message}`, 'error');
-            console.error(e);
+            log(e.response?.data?.error || e.message, 'error');
+            stopPolling();
         }
     };
 
-    // Background Live Sync (Orders Only)
+    // Background Live Sync (Orders Only) - Kept for Real-Time notifications logic
     useEffect(() => {
         if (!settings.storeUrl || !settings.consumerKey || !activeAccount) return;
 
@@ -163,7 +134,7 @@ export const SyncProvider = ({ children }) => {
 
             try {
                 const accountId = activeAccount.id;
-                // Default to 1 day ago if no sync yet, to ensure we catch recent activity
+                // Default to 1 day ago if no sync yet
                 let lastSync = localStorage.getItem(`last_sync_orders_${accountId}`);
                 if (!lastSync) {
                     lastSync = new Date(Date.now() - 86400000).toISOString();
@@ -181,40 +152,32 @@ export const SyncProvider = ({ children }) => {
                         total_tax: order.total_tax || 0,
                         account_id: accountId
                     }));
+
+                    // Update Local Dexie for Automations
                     await db.orders.bulkPut(processed);
 
-                    // Notify for NEW orders (compare against DB or just notify for batch)
-                    // For simplicity, if we pulled data in a live sync, it's likely new or updated.
-                    // We can check if the order creation time is very recent to distinguish "new" vs "update"
+                    // Notify
                     const recentOrders = processed.filter(o => {
                         const created = new Date(o.date_created).getTime();
-                        const now = Date.now();
-                        return (now - created) < 20000; // Created in last 20s
+                        return (Date.now() - created) < 20000;
                     });
 
                     if (recentOrders.length > 0) {
                         recentOrders.forEach(o => {
-                            toast.success(`💰 New Order #${o.id}: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: o.currency }).format(o.total)}`, {
-                                duration: 5000,
-                            });
+                            toast.success(`💰 New Order #${o.id}: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: o.currency }).format(o.total)}`);
                         });
                     }
 
-                    // Update timestamp (With 10s overlap buffer for safety)
                     const safeNextSync = new Date(Date.now() - 10000).toISOString();
                     localStorage.setItem(`last_sync_orders_${accountId}`, safeNextSync);
-
                     setLastLiveSync(new Date());
-                    console.log(`Live Sync: Fetched ${res.data.length} orders.`);
                 } else {
-                    // Update timestamp even if empty, to advance the window
                     const safeNextSync = new Date(Date.now() - 10000).toISOString();
                     localStorage.setItem(`last_sync_orders_${accountId}`, safeNextSync);
                     setLastLiveSync(new Date());
                 }
             } catch (e) {
                 // Silent fail
-                console.error("Live Sync Fail", e);
             }
         };
 
