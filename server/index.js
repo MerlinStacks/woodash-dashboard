@@ -146,6 +146,15 @@ const initDB = async () => {
             );
         `);
 
+        // Reviews Table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS reviews (
+                id BIGINT PRIMARY KEY,
+                data JSONB,
+                synced_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
         // Indexes for High Performance
         // 1. GIN Trigram Index for Instant Name Search (data->>'name' ILIKE '%term%')
         await client.query(`CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON products USING GIN ((data->>'name') gin_trgm_ops);`);
@@ -194,7 +203,7 @@ app.get('/api/db/:table', async (req, res) => {
     const { page = 1, limit = 50, search = '', hide_variants = 'false', account_id } = req.query;
 
     // Validate table
-    if (!['products', 'orders'].includes(table)) {
+    if (!['products', 'orders', 'reviews'].includes(table)) {
         return res.status(400).json({ error: 'Invalid table' });
     }
 
@@ -325,11 +334,11 @@ app.all('/api/proxy/*', async (req, res) => {
         }
 
         // 5. Archival Storage (Postgres) - Passive Sync
-        if (req.method === 'GET' && (endpoint === 'orders' || endpoint === 'products') && Array.isArray(data)) {
+        if (req.method === 'GET' && (endpoint === 'orders' || endpoint === 'products' || endpoint === 'products/reviews') && Array.isArray(data)) {
             (async () => {
                 try {
                     const client = await pool.connect();
-                    const tableName = endpoint === 'orders' ? 'orders' : 'products';
+                    const tableName = endpoint === 'products/reviews' ? 'reviews' : (endpoint === 'orders' ? 'orders' : 'products');
 
                     const query = `
                         INSERT INTO ${tableName} (id, data, synced_at) 

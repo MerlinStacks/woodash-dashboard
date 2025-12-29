@@ -123,6 +123,28 @@ const startSync = ({ storeUrl, consumerKey, consumerSecret, accountId, options }
                 } while (page <= totalPages);
             }
 
+            // 3. REVIEWS
+            if (options.reviews) {
+                currentStatus.entity = 'Reviews';
+                currentStatus.progress = 0;
+                let page = 1;
+                let totalPages = 1;
+
+                do {
+                    currentStatus.details = `Fetching page ${page}...`;
+                    const res = await api.get('/products/reviews', { params: { page, per_page: 50 } });
+                    totalPages = parseInt(res.headers['x-wp-totalpages'] || 1, 10);
+
+                    if (res.data.length > 0) {
+                        await saveBatch('reviews', res.data);
+                    }
+
+                    currentStatus.progress = Math.round((page / totalPages) * 100);
+                    page++;
+
+                } while (page <= totalPages);
+            }
+
             // Complete
             currentStatus.running = false;
             currentStatus.entity = 'Complete';
