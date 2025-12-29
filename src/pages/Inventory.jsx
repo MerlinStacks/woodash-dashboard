@@ -54,8 +54,10 @@ const Inventory = () => {
         const childIds = new Set(allComponents.map(c => c.child_id));
 
         // 2. Build Query
-        let collection = db.products.where('account_id').equals(activeAccount.id);
+        let collection;
 
+        // Optimized: Use [account_id+name] index for default alphabetical sort and fast cursor traversal
+        // This avoids loading all 50k items into memory.
         if (searchTerm.length > 1) {
             collection = db.products.where('[account_id+name]')
                 .between(
@@ -63,38 +65,46 @@ const Inventory = () => {
                     [activeAccount.id, searchTerm + '\uffff'],
                     true, true
                 );
+        } else {
+            // Default View: Sort by Name (A-Z)
+            collection = db.products.where('[account_id+name]')
+                .between([activeAccount.id, Dexie.minKey], [activeAccount.id, Dexie.maxKey]);
+
+            if (sortConfig.key === 'name' && sortConfig.direction === 'desc') {
+                collection = collection.reverse();
+            }
         }
 
-        let finalCollection = collection;
+        // Apply Filter on the Cursor (Lazy Evaluation)
+        collection = collection.filter(p => {
+            // Type Filtering logic
+            const isParent = p.parent_id === 0 || !p.parent_id;
 
-        // Apply Filter Function
-        finalCollection = finalCollection.filter(p => {
-            // Search Logic
-            if (searchTerm.length > 1) {
-                // ... logic handled by 'between' mostly, but filter maintains robustness
-            } else {
-                // Type Filtering
-                if (filterType === 'composite' && !parentIds.has(p.id)) return false;
-                if (filterType === 'component' && !childIds.has(p.id)) return false;
-                if (filterType === 'variation' && p.type !== 'variation') return false;
+            // 1. Filter Type Logic
+            if (filterType === 'composite') {
+                if (!parentIds.has(p.id)) return false;
             }
-
-            // HIERARCHY RULE:
-            // If showing "All" or "Composite" or "Component", we only show PARENTS (Root nodes).
-            // Variants are hidden unless explicitly filtering for 'variation'.
-            const isVariant = p.type === 'variation' || p.type === 'product_variation' || (p.parent_id && p.parent_id !== 0);
-
-            if (filterType !== 'variation' && isVariant) return false;
+            if (filterType === 'component') {
+                if (!childIds.has(p.id)) return false;
+            }
+            if (filterType === 'variation') {
+                if (p.type !== 'variation' && p.type !== 'product_variation') return false;
+                // Note: 'variation' usually implies parent_id > 0
+            } else {
+                // Hiding Variants (Standard View)
+                // If not explicitly asking for variations, hide them.
+                if (!isParent && p.type !== 'variable') return false;
+            }
 
             return true;
         });
 
-        // Count
-        const count = await finalCollection.count();
+        // Count (Scans index keys matching filter)
+        const count = await collection.count();
 
-        // Paginate Parents
+        // Paginate (Scans until bucket filled)
         const offset = (currentPage - 1) * itemsPerPage;
-        const products = await finalCollection.offset(offset).limit(itemsPerPage).toArray();
+        const products = await collection.offset(offset).limit(itemsPerPage).toArray();
 
         // 3. Fetch Variants for this Page (Hierarchy)
         // We only fetch variants if we are NOT in 'variation' mode (where we show them flat)
