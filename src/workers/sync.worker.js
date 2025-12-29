@@ -66,7 +66,7 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
     const enrich = (items) => items.map(i => ({ ...i, account_id: accountId }));
 
     // Helper: Fetch Loop
-    const syncEntity = async (endpoint, entityName, table, lastSyncKey, transformFn = null) => {
+    const syncEntity = async (endpoint, entityName, table, lastSyncKey, transformFn = null, basePct = 0, weight = 10) => {
         let page = 1;
         let totalPages = 1;
         let completedSuccess = true;
@@ -77,14 +77,14 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
             params.after = lastSyncTimes[lastSyncKey];
         }
 
-        reportProgress(`Syncing ${entityName}...`, 0);
+        reportProgress(`Syncing ${entityName}...`, basePct);
 
         do {
             try {
                 // Fetch
                 params.page = page;
                 const { data, totalPages: total } = await fetchPage(`${apiBase}/${endpoint}`, params, headers);
-                totalPages = total;
+                totalPages = total || 1; // Prevent divide by zero
 
                 if (data.length > 0) {
                     let itemsToSave = enrich(data);
@@ -92,7 +92,11 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
                         itemsToSave = await transformFn(itemsToSave);
                     }
                     await table.bulkPut(itemsToSave);
+
+                    // Calculate detailed progress
+                    const progress = Math.min(basePct + Math.round((page / totalPages) * weight), basePct + weight);
                     log(`Synced ${entityName} page ${page}/${totalPages} (${data.length} items)`);
+                    reportProgress(`Syncing ${entityName} (${Math.round((page / totalPages) * 100)}%)`, progress);
                 }
 
                 page++;
@@ -108,26 +112,20 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
         } else {
             log(`Sync for ${entityName} incomplete. Will retry from previous timestamp next time.`, 'warning');
         }
+
+        // Ensure we hit the top of the weight bracket when done
+        reportProgress(`${entityName} Complete`, basePct + weight);
     };
 
-    // 1. PRODUCTS
+    // 1. PRODUCTS (0-40%)
     if (options.products) {
-        reportProgress('Syncing Products', 10);
         await syncEntity('products', 'Products', db.products, 'products', async (items) => {
-            // Fetch Variations Logic could go here, but doing it inside worker sequentially is better
-            // Ideally we gather IDs of variable products and fetch variations
-            // For simplicity in this v1 worker, let's keep it simple or implement the variation fetch logic
-
-            // Note: Variation fetching makes this complex. 
-            // In the original SyncContext, we iterated items.
-
-            // Parallel fetch for variations
+            // Fetch Variations Logic
             const fetchPromises = items.map(async (item) => {
                 const results = [item];
 
                 if (item.type === 'variable') {
                     try {
-                        // Parallelize this fetch
                         const { data: vars } = await fetchPage(`${apiBase}/products/${item.id}/variations`, { per_page: 50 }, headers);
                         const enrichedVars = vars.map(v => ({
                             ...v,
@@ -137,7 +135,6 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
                             account_id: accountId,
                             status: v.status || 'publish',
                             local_tags: item.local_tags || [],
-                            // fallback metadata
                             description: v.description || item.description,
                             short_description: item.short_description,
                             images: (v.image && v.image.src) ? [v.image] : item.images
@@ -150,16 +147,13 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
                 return results;
             });
 
-            // Wait for all product/variation fetches in this page to complete
             const results = await Promise.all(fetchPromises);
             return results.flat();
-        });
+        }, 0, 40);
     }
 
-    // 2. ORDERS
+    // 2. ORDERS (40-70%)
     if (options.orders) {
-        reportProgress('Syncing Orders', 40);
-
         // Load active automations once
         const automations = await db.automations.toArray();
         const activeStatusRules = automations.filter(a => a.active && a.trigger_type === 'order_status_change');
@@ -186,7 +180,6 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
                         for (const rule of rules) {
                             if (rule.action.type === 'send_email') {
                                 try {
-                                    // Variable Replacement
                                     const customerName = (newOrder.billing?.first_name || 'Customer');
                                     const subject = rule.action.subject
                                         .replace('{order_id}', newOrder.id)
@@ -195,8 +188,6 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
                                         .replace('{order_id}', newOrder.id)
                                         .replace('{customer_name}', customerName);
 
-                                    // Send Email via API (using fetch)
-                                    // Helper Plugin Endpoint (via Proxy traversal)
                                     const emailEndpoint = `/api/proxy/overseek/v1/email/send`;
 
                                     await fetch(emailEndpoint, {
@@ -219,31 +210,32 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
             }
 
             return transformed;
-        });
+        }, 40, 30);
     }
 
-    // 3. CUSTOMERS
+    // 3. CUSTOMERS (70-85%)
     if (options.customers) {
-        reportProgress('Syncing Customers', 70);
-        await syncEntity('customers', 'Customers', db.customers, 'customers');
+        await syncEntity('customers', 'Customers', db.customers, 'customers', null, 70, 15);
     }
 
-    // 4. TAXES
+    // 4. TAXES (85-90%)
     if (options.taxes) {
         reportProgress('Syncing Taxes', 85);
-        // Taxes don't support pagination usually, or small enough
         try {
             const { data } = await fetchPage(`${apiBase}/taxes`, {}, headers);
+            // Check for wrapped data if Proxy logic applies unexpectedly (though custom endpoints usually consistent)
+            // But taxes is standard WP.
+            // fetchPage unwraps json.data || json now.
             await db.tax_rates.where('account_id').equals(accountId).delete();
             await db.tax_rates.bulkAdd(enrich(data));
         } catch (e) {
             log(`Error syncing taxes: ${e.message}`, 'warning');
         }
+        reportProgress('Taxes Sync Complete', 90);
     }
 
-    // 5. REVIEWS
+    // 5. REVIEWS (90-100%)
     if (options.reviews) {
-        reportProgress('Syncing Reviews', 90);
         await syncEntity('products/reviews', 'Reviews', db.reviews, 'reviews', async (items) => {
             return items.map(r => ({
                 id: r.id,
@@ -252,14 +244,14 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
                 rating: r.rating,
                 date_created: r.date_created,
                 content: r.review.replace(/<[^>]*>?/gm, ''),
-                order_id: null, // API doesn't always provide this easily
+                order_id: null,
                 customer_id: r.reviewer_id || 0,
                 reviewer_name: r.reviewer,
                 reviewer_email: r.reviewer_email,
                 photos: r.images || [],
                 account_id: accountId
             }));
-        });
+        }, 90, 10);
     }
 
     reportProgress('Sync Complete', 100);
