@@ -173,7 +173,9 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
             // 2. Automation Check (only if rules exist)
             if (activeStatusRules.length > 0) {
                 const ids = transformed.map(o => o.id);
-                const existingOrders = await db.orders.where('id').anyOf(ids).toArray();
+                // Fix: Use Compound Index for lookup because 'id' is not a simple index on orders_v2
+                const compoundKeys = ids.map(id => [accountId, id]);
+                const existingOrders = await db.orders.where('[account_id+id]').anyOf(compoundKeys).toArray();
                 const existingMap = new Map(existingOrders.map(o => [o.id, o]));
 
                 for (const newOrder of transformed) {

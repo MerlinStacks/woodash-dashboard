@@ -116,7 +116,6 @@ db.version(21).stores({
 
 // Version 22: Optimization Indices
 // Version 23: Scalabilty Indices
-// Version 23: Scalabilty Indices
 db.version(23).stores({
     // Add compound index [account_id+name] for fast autocomplete/search
     products_v2: '[account_id+id], [account_id+name], [account_id+date_created], account_id, name, status, price, stock_quantity, sku, date_modified, cost_price, *local_tags, tax_status, tax_class, bin_location, supplier_id',
