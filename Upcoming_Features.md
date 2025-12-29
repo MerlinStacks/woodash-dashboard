@@ -8,11 +8,8 @@
 ## Planned
 - [ ] Admin feature: Enable certain features per account only (e.g., gold price indicator)
 - [ ] Full Data Export feature
-- [ ] Ad revenue tracking
+- [ ] Ad revenue tracking [Meta Ads, Google Ads]
 - [ ] Integrate emails into the inbox
 - [ ] Improve WooCommerce plugin: Include Live Chat features with UI editor
 
 when there is no data to compare to ( previous period / year ) we need to say no previous data instead of 100% or 0%
-
-The sync needs to keep running even when the user refreshes the page
-
