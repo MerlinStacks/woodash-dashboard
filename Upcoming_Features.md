@@ -1,15 +1,18 @@
-Maybe introduce elasticsearch to speed up searching
+# Roadmap & Features
 
-Rebuild the sync engine to use elasticsearch
+## Completed
+- [x] **Speed up searching**: Implemented Postgres Trigram (GIN) Indices for instant fuzzy search. This achieves "Elasticsearch-like" performance for the catalog without the heavy infrastructure overhead.
+- [x] **Rebuild sync engine**: Migrated to a "Thin Client" architecture. Products are now archived in Postgres (via Passive Proxy Sync) and fetched via API, significantly reducing Browser Memory usage.
+- [x] **Speed up the sync process**: Optimized with parallel worker threads and passive archival.
 
-speed up the sync process
+## Planned
+- [ ] Admin feature: Enable certain features per account only (e.g., gold price indicator)
+- [ ] Full Data Export feature
+- [ ] Ad revenue tracking
+- [ ] Integrate emails into the inbox
+- [ ] Improve WooCommerce plugin: Include Live Chat features with UI editor
 
-Admin feature - enable certain features per account only e.g. gold price indicator
+when there is no data to compare to ( previous period / year ) we need to say no previous data instead of 100% or 0%
 
-We need a export feature for the full data.
+The sync needs to keep running even when the user refreshes the page
 
-ad revenue tracking
-
-intergrate emails into the inbox
-
-we need to improve the woocommerce plugin to include the live chat features and have it have a ui editor for the chatbox.
