@@ -145,6 +145,50 @@ const startSync = ({ storeUrl, consumerKey, consumerSecret, accountId, options }
                 } while (page <= totalPages);
             }
 
+            // 4. CUSTOMERS
+            if (options.customers) {
+                currentStatus.entity = 'Customers';
+                currentStatus.progress = 0;
+                let page = 1;
+                let totalPages = 1;
+
+                do {
+                    currentStatus.details = `Fetching page ${page}...`;
+                    const res = await api.get('/customers', { params: { page, per_page: 50, role: 'all' } });
+                    totalPages = parseInt(res.headers['x-wp-totalpages'] || 1, 10);
+
+                    if (res.data.length > 0) {
+                        await saveBatch('customers', res.data);
+                    }
+
+                    currentStatus.progress = Math.round((page / totalPages) * 100);
+                    page++;
+
+                } while (page <= totalPages);
+            }
+
+            // 5. COUPONS
+            if (options.coupons) {
+                currentStatus.entity = 'Coupons';
+                currentStatus.progress = 0;
+                let page = 1;
+                let totalPages = 1;
+
+                do {
+                    currentStatus.details = `Fetching page ${page}...`;
+                    const res = await api.get('/coupons', { params: { page, per_page: 50 } });
+                    totalPages = parseInt(res.headers['x-wp-totalpages'] || 1, 10);
+
+                    if (res.data.length > 0) {
+                        await saveBatch('coupons', res.data);
+                    }
+
+                    currentStatus.progress = Math.round((page / totalPages) * 100);
+                    page++;
+
+                } while (page <= totalPages);
+            }
+
             // Complete
             currentStatus.running = false;
             currentStatus.entity = 'Complete';

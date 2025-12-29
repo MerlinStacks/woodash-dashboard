@@ -155,6 +155,24 @@ const initDB = async () => {
             );
         `);
 
+        // Customers Table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS customers (
+                id BIGINT PRIMARY KEY,
+                data JSONB,
+                synced_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
+        // Coupons Table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS coupons (
+                id BIGINT PRIMARY KEY,
+                data JSONB,
+                synced_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+
         // Indexes for High Performance
         // 1. GIN Trigram Index for Instant Name Search (data->>'name' ILIKE '%term%')
         await client.query(`CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON products USING GIN ((data->>'name') gin_trgm_ops);`);
@@ -203,7 +221,7 @@ app.get('/api/db/:table', async (req, res) => {
     const { page = 1, limit = 50, search = '', hide_variants = 'false', account_id } = req.query;
 
     // Validate table
-    if (!['products', 'orders', 'reviews'].includes(table)) {
+    if (!['products', 'orders', 'reviews', 'customers', 'coupons'].includes(table)) {
         return res.status(400).json({ error: 'Invalid table' });
     }
 

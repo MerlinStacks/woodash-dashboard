@@ -61,10 +61,14 @@ export const SyncProvider = ({ children }) => {
                         setStatus('error');
                         log(`Server Error: ${data.error}`, 'error');
                     } else if (data.progress === 100) {
+                        // Sync Finished Server-Side, now Download
+                        log('Server Sync Complete. Downloading...', 'info');
+                        await downloadFromServer();
+
                         setStatus('complete');
                         setProgress(100);
-                        setTask('Completed');
-                        log('Sync Completed Server-Side', 'success');
+                        setTask('Completed (All Data Synced)');
+                        log('Sync Process Fully Completed', 'success');
                         setTimeout(() => setStatus('idle'), 5000);
                     } else {
                         // Stopped unexpectedly
@@ -115,6 +119,8 @@ export const SyncProvider = ({ children }) => {
                     products: options.products !== false,
                     orders: options.orders !== false,
                     reviews: options.reviews !== false,
+                    customers: options.customers !== false,
+                    coupons: options.coupons !== false,
                 }
             });
             log('Sync initiated on server...', 'info');
@@ -123,6 +129,43 @@ export const SyncProvider = ({ children }) => {
             setStatus('error');
             log(e.response?.data?.error || e.message, 'error');
             stopPolling();
+        }
+    };
+
+    // 3. Download from Server (Post-Processing)
+    const downloadFromServer = async () => {
+        if (!activeAccount) return;
+        setTask('Downloading data to local device...');
+
+        const entities = ['products', 'orders', 'reviews', 'customers', 'coupons'];
+
+        for (const entity of entities) {
+            try {
+                // Fetch from Local Postgres (which was just synced)
+                // Use a large limit or paginate. For MVP we use large limit (10k)
+                const { data } = await axios.get(`/api/db/${entity}`, {
+                    params: {
+                        account_id: activeAccount.id,
+                        limit: 10000
+                    }
+                });
+
+                if (data.data && data.data.length > 0) {
+                    // Normalize data for Dexie (add account_id if missing)
+                    const rows = data.data.map(item => ({
+                        ...item,
+                        account_id: activeAccount.id,
+                        // Ensure ID is unique per account for compound keys
+                    }));
+
+                    // Bulk Put (Upsert)
+                    await db.table(entity).bulkPut(rows);
+                    log(`Downloaded ${rows.length} ${entity}`, 'success');
+                }
+            } catch (e) {
+                console.error(`Failed to download ${entity}`, e);
+                log(`Failed to download ${entity}: ${e.message}`, 'error');
+            }
         }
     };
 
