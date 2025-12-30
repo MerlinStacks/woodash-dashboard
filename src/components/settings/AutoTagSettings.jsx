@@ -30,7 +30,7 @@ const AutoTagSettings = () => {
 
                 products.forEach(p => {
                     const data = typeof p.data === 'string' ? JSON.parse(p.data) : p.data;
-                    if (data.tags && Array.isArray(data.tags)) {
+                    if (data && data.tags && Array.isArray(data.tags)) {
                         data.tags.forEach(t => tagSet.add(t.name || t));
                     }
                 });
