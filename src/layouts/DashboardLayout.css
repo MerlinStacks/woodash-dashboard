@@ -34,9 +34,10 @@
     padding: var(--spacing-md) var(--spacing-lg);
 
     /* Glass effect for header */
-    background: rgba(15, 23, 42, 0.95);
+    /* Glass effect for header */
+    background: var(--header-bg);
     backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--header-border);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 

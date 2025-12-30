@@ -56,7 +56,12 @@
   --bg-sidebar: rgba(19, 19, 31, 0.95);
   --bg-sidebar-item-hover: rgba(255, 255, 255, 0.05);
   --bg-sidebar-item-active: rgba(99, 102, 241, 0.15);
+  --bg-sidebar-item-active: rgba(99, 102, 241, 0.15);
   --border-sidebar: var(--border-glass);
+
+  /* Header Defaults (Dark) */
+  --header-bg: rgba(15, 23, 42, 0.95);
+  --header-border: rgba(255, 255, 255, 0.05);
 
   /* Shadows */
   --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -383,7 +388,12 @@ a {
   --bg-sidebar-item-hover: #f1f5f9;
   --bg-sidebar-item-active: #e0e7ff;
   /* Light Indigo */
+  /* Light Indigo */
   --border-sidebar: #e2e8f0;
+
+  /* Header Light Mode Override */
+  --header-bg: rgba(255, 255, 255, 0.95);
+  --header-border: #e2e8f0;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
