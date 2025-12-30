@@ -152,7 +152,7 @@ const AIChat = () => {
         return { start, end, label };
     };
 
-    // --- Tools Definition ---
+    // --- Advanced Tools Definition ---
     const availableTools = [
         {
             name: "create_coupon",
@@ -174,79 +174,109 @@ const AIChat = () => {
             }
         },
         {
-            name: "lookup_order",
-            description: "Get full details of a specific order by ID. Args: { order_id: number }",
+            name: "search_store_data",
+            description: "Deep search for orders, products, or customers. Args: { type: 'orders'|'products'|'customers', query: string (search term) }",
             execute: async (args) => {
-                const order = await db.orders.get(parseInt(args.order_id));
-                if (!order) return `Order #${args.order_id} not found locally.`;
-                return `Order #${order.id} | Status: ${order.status} | Total: ${order.total} ${order.currency}\nItems:\n${order.line_items?.map(i => `- ${i.name} x${i.quantity}`).join('\n')}`;
+                const term = args.query.toLowerCase();
+                let results = [];
+
+                if (args.type === 'products') {
+                    results = (await db.products.toArray())
+                        .filter(p => p.name.toLowerCase().includes(term) || (p.sku && p.sku.toLowerCase().includes(term)))
+                        .slice(0, 5)
+                        .map(p => ({ id: p.id, name: p.name, stock: p.stock_quantity, price: p.price }));
+                } else if (args.type === 'orders') {
+                    // Search by ID or Customer Name
+                    results = (await db.orders.toArray())
+                        .filter(o => o.id.toString().includes(term) ||
+                            (o.shipping && (o.shipping.first_name + ' ' + o.shipping.last_name).toLowerCase().includes(term)))
+                        .slice(0, 5)
+                        .map(o => ({ id: o.id, status: o.status, total: o.total, customer: o.shipping ? `${o.shipping.first_name} ${o.shipping.last_name}` : 'Guest' }));
+                } else if (args.type === 'customers') {
+                    results = (await db.customers.toArray())
+                        .filter(c => (c.first_name + ' ' + c.last_name).toLowerCase().includes(term) || c.email.toLowerCase().includes(term))
+                        .slice(0, 5);
+                }
+
+                if (results.length === 0) return `No ${args.type} found matching "${args.query}".`;
+                return JSON.stringify(results, null, 2);
             }
         },
         {
-            name: "check_stock",
-            description: "Check exact stock status for a product search term. Args: { name: string }",
+            name: "get_sales_analytics",
+            description: "Calculate sales for a specific period. Args: { start_date: 'YYYY-MM-DD', end_date: 'YYYY-MM-DD' }",
             execute: async (args) => {
-                const matches = (await db.products.toArray()).filter(p => p.name.toLowerCase().includes(args.name.toLowerCase()));
-                if (matches.length === 0) return `No products found matching '${args.name}'.`;
-                return `**Stock Check Results:**\n` + matches.map(p => `- ${p.name}: **${p.stock_quantity ?? '∞'}** (Status: ${p.stock_status})`).join('\n');
-            }
-        },
-        {
-            name: "list_recent_orders",
-            description: "List the most recent 5 orders. Args: {}",
-            execute: async () => {
-                const recent = await db.orders.orderBy('date_created').reverse().limit(5).toArray();
-                return `**Recent Orders:**\n` + recent.map(o => `- Order #${o.id}: **${o.total} ${o.currency}** (${o.status})`).join('\n');
+                const start = new Date(args.start_date);
+                const end = new Date(args.end_date);
+                const allOrders = await db.orders.toArray();
+
+                const relevant = allOrders.filter(o => {
+                    const d = new Date(o.date_created);
+                    return d >= start && d <= end;
+                });
+
+                const total = relevant.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+                return `Sales from ${args.start_date} to ${args.end_date}:\n- **Total Revenue**: $${total.toFixed(2)}\n- **Order Count**: ${relevant.length}`;
             }
         }
     ];
 
     const generateSystemPrompt = (context) => `
-You are a smart Store Assistant for OverSeek.
-Current Date: ${new Date().toISOString()}
+You are a highly capable Store Intelligence AI for OverSeek.
+Current Date: ${new Date().toLocaleString()}
 
-Context:
+### 🛍️ LIVE STORE SNAPSHOT
 ${JSON.stringify(context, null, 2)}
 
-You have access to the following TOOLS.
-Tool Syntax: [TOOL: tool_name, { "arg": "value" }]
+### 🛠️ CAPABILITIES
+You have full access to the database via these tools:
+${availableTools.map(t => `- [${t.name}]: ${t.description}`).join('\n')}
 
-Available Tools:
-${availableTools.map(t => `- ${t.name}: ${t.description}`).join('\n')}
-
-Rules:
-1. Use markdown for formatting (**bold**, - lists).
-2. Be concise and professional.
-3. If users ask to navigate, use [Nav: /url].
+### 🧠 INSTRUCTIONS
+1. **Analyze Context First**: The "Snapshot" above contains real-time data. Use it to answer "How is the store doing?", "Top products?", or "Recent orders" IMMEDIATELY without calling tools.
+2. **Use Tools for Specifics**: If asked for "Order #123" or "Search for 'Nike'", use the \`search_store_data\` tool.
+3. **Be Proactive**: If you see low stock in the snapshot, mention it when relevant.
+4. **Navigation**: If the user wants to go somewhere, return "[Nav: /url]".
 `;
 
     const processQuery = async (query) => {
         const lowerQuery = query.toLowerCase();
 
-        // --- Navigation ---
-        if (lowerQuery.includes('go to') || lowerQuery.includes('open') || lowerQuery.includes('navigate') || lowerQuery.includes('take me')) {
-            if (lowerQuery.includes('dashboard') || lowerQuery.includes('home')) { navigate('/'); return "Navigating to Dashboard..."; }
-            if (lowerQuery.includes('orders')) { navigate('/orders'); return "Opening Orders page..."; }
+        // --- Navigation Short-circuits ---
+        if (lowerQuery.includes('go to') || lowerQuery.includes('open') || lowerQuery.includes('navigate')) {
+            if (lowerQuery.includes('dashboard')) { navigate('/'); return "Navigating to Dashboard..."; }
+            if (lowerQuery.includes('orders')) { navigate('/orders'); return "Opening Orders..."; }
             if (lowerQuery.includes('products')) { navigate('/products'); return "Taking you to Products..."; }
-            if (lowerQuery.includes('customers')) { navigate('/customers'); return "Opening Customers list..."; }
             if (lowerQuery.includes('settings')) { navigate('/settings'); return "Opening Settings..."; }
-            if (lowerQuery.includes('analytics')) { navigate('/analytics'); return "Showing Analytics..."; }
-            if (lowerQuery.includes('automations')) { navigate('/automations'); return "Opening Automations..."; }
-            if (lowerQuery.includes('carts')) { navigate('/carts'); return "Opening Live Carts..."; }
         }
 
-        // --- Real AI Mode ---
+        // --- Real AI Execution ---
         if (settings.aiApiKey) {
             try {
-                const context = {
-                    store_stats: {
-                        revenue_total: orders.reduce((s, o) => s + parseFloat(o.total || 0), 0).toFixed(2),
-                        order_count: orders.length,
-                        product_count: products.length
-                    }
+                // 1. Gather Rich Context
+                const recentOrders = orders.slice(0, 5).map(o => ({
+                    id: o.id,
+                    total: o.total,
+                    status: o.status,
+                    customer: o.billing ? `${o.billing.first_name} ${o.billing.last_name}` : 'Guest'
+                }));
+
+                const lowStock = products
+                    .filter(p => p.stock_quantity !== null && p.stock_quantity <= 5)
+                    .map(p => ({ name: p.name, qty: p.stock_quantity }))
+                    .slice(0, 5);
+
+                // Simple "Top Sellers" approximation (by stock delta or just mock logic if no history)
+                // For now, we'll just send total counts as we don't track comprehensive sales history per product easily yet
+                const stats = {
+                    total_revenue: orders.reduce((s, o) => s + parseFloat(o.total || 0), 0).toFixed(2),
+                    total_orders: orders.length,
+                    total_products: products.length,
+                    recent_activity: recentOrders,
+                    low_stock_alerts: lowStock
                 };
 
-                const userMsgs = [{ role: 'system', content: generateSystemPrompt(context) }, { role: 'user', content: query }];
+                const userMsgs = [{ role: 'system', content: generateSystemPrompt(stats) }, { role: 'user', content: query }];
 
                 const callAI = async (msgs) => {
                     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -269,37 +299,34 @@ Rules:
 
                 let text = await callAI(userMsgs);
 
-                // Tool Execution
+                // Tool Execution Loop
                 const toolMatch = text.match(/\[TOOL:\s*(\w+),\s*({.*?})\]/s);
-                if (toolMatch) {
+                if (toolMatch) { // Only handling one tool call per turn for simplicity/safety
                     const toolName = toolMatch[1];
-                    let toolArgs = {};
-                    try {
-                        toolArgs = JSON.parse(toolMatch[2]);
-                    } catch (e) {
-                        return "Error parsing tool arguments.";
-                    }
+                    let toolArgs;
+                    try { toolArgs = JSON.parse(toolMatch[2]); } catch (e) { console.error(e); }
 
                     const tool = availableTools.find(t => t.name === toolName);
-                    if (tool) {
-                        setMessages(prev => [...prev, { role: 'assistant', text: `_Running tool: ${toolName}..._` }]);
+                    if (tool && toolArgs) {
+                        setMessages(prev => [...prev, { role: 'assistant', text: `_Using ${toolName}..._` }]);
                         const result = await tool.execute(toolArgs);
 
-                        // Re-prompt
                         userMsgs.push({ role: 'assistant', content: text });
                         userMsgs.push({ role: 'system', content: `Tool Result:\n${result}` });
                         text = await callAI(userMsgs);
                     }
                 }
 
-                // Nav Hints
-                if (text.includes('/orders')) navigate('/orders');
-                if (text.includes('/products')) navigate('/products');
+                if (text.includes('[Nav:')) {
+                    const path = text.match(/\[Nav: (.*?)\]/)[1];
+                    navigate(path);
+                    return text.replace(/\[Nav:.*?\]/, '');
+                }
 
                 return text;
             } catch (e) {
                 console.error("AI Error", e);
-                return "I'm having trouble connecting to my brain right now. Please check your API key in Settings.";
+                return "I'm having trouble connecting to the AI service. Please check your API key in Settings.";
             }
         }
 
