@@ -12,16 +12,24 @@ router.get('/geoip', async (req, res) => {
     const cacheKey = `geoip:${ip}`;
 
     try {
-        // Check Cache
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return res.json(JSON.parse(cached));
+        // Check Cache (Resilient)
+        try {
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return res.json(JSON.parse(cached));
+        } catch (e) {
+            console.warn("Redis skipped:", e.message);
+        }
 
         // Fetch (Rate limited free API)
         const response = await axios.get(`https://ipapi.co/${ip}/json/`);
         const data = response.data;
 
         // Cache for 24 hours (GeoIP rarely changes)
-        await redisClient.setEx(cacheKey, 86400, JSON.stringify(data));
+        try {
+            await redisClient.setEx(cacheKey, 86400, JSON.stringify(data));
+        } catch (e) {
+            console.warn("Redis cache failed:", e.message);
+        }
 
         res.json(data);
     } catch (err) {
