@@ -4,6 +4,7 @@ import { db } from '../db/db';
 import { useAccount } from '../context/AccountContext';
 import { Link } from 'react-router-dom';
 import { Star, MessageSquare, Package, User, CheckCircle, XCircle, Search, Filter, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ReviewsPage = () => {
     const { activeAccount } = useAccount();
@@ -11,10 +12,15 @@ const ReviewsPage = () => {
     // Fetch all reviews for this account
     // Note: In a larger app, we'd add an index on [account_id+date_created] for sorting
     const reviews = useLiveQuery(async () => {
-        if (!activeAccount) return [];
-        return await db.reviews
-            .where({ account_id: activeAccount.id })
+        if (!activeAccount) {
+            console.log("ReviewsPage: No active account");
+            return [];
+        }
+        const results = await db.reviews
+            .where('account_id').equals(activeAccount.id)
             .toArray();
+        console.log(`ReviewsPage: Found ${results.length} reviews for account ${activeAccount.id}`);
+        return results;
     }, [activeAccount]) || [];
 
     // Sort by date descending (in memory)
