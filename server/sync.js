@@ -227,8 +227,12 @@ const startSync = ({ storeUrl, consumerKey, consumerSecret, authMethod, accountI
         } catch (err) {
             console.error("Server Sync Error:", err);
             currentStatus.running = false;
-            currentStatus.error = err.response?.data?.message || err.message;
-            currentStatus.details = `Failed: ${err.response?.status || ''} ${err.code || ''}`;
+            // Capture Axios errors (upstream API) or DB errors
+            const upstreamError = err.response?.data?.message || err.response?.statusText;
+            const dbError = err.code ? `DB Error ${err.code}` : null;
+
+            currentStatus.error = upstreamError || dbError || err.message;
+            currentStatus.details = `Failed at ${currentStatus.entity}. ${err.response?.status ? `HTTP ${err.response.status}` : ''} ${err.code || ''}`;
         }
     })();
 };

@@ -132,7 +132,9 @@ export const SyncProvider = ({ children }) => {
             startPolling();
         } catch (e) {
             setStatus('error');
-            log(e.response?.data?.error || e.message, 'error');
+            const errorMsg = e.response?.data?.error || e.response?.data?.message || e.message || 'Unknown error';
+            const errorDetails = e.response?.data?.details || '';
+            log(`Sync Failed: ${errorMsg} ${errorDetails}`, 'error');
             stopPolling();
         }
     };
