@@ -213,7 +213,7 @@ const GlobalSearch = () => {
                         {searchResults?.customers?.length > 0 && (
                             <div className="search-section">
                                 <h4 className="section-title">Customers</h4>
-                                {searchResults.customers.map((c, idx) => (
+                                {searchResults.customers.map((c) => (
                                     <div
                                         key={`c-${c.id}`}
                                         className={`search-result-item ${flatResults.find(i => i.id === c.id && i.type === 'customer') && selectedIndex === flatResults.findIndex(i => i.id === c.id && i.type === 'customer') ? 'selected' : ''}`}

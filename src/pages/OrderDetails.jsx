@@ -6,7 +6,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useAccount } from '../context/AccountContext';
 import { updateOrder, sendEmail } from '../services/api';
 import { toast, Toaster } from 'sonner';
-import { generateInvoicePDF } from '../utils/pdfGenerator';
+import { generatePDF } from '../utils/pdfGenerator';
 import ShipmentTracking from '../components/ShipmentTracking';
 import {
     ArrowLeft, MapPin, Mail, Phone, Calendar, CreditCard, RefreshCw,
@@ -428,7 +428,7 @@ const OrderDetails = () => {
                         <button onClick={() => window.print()} className="header-btn" title="Print Invoice">
                             <Printer size={16} />
                         </button>
-                        <button onClick={() => generateInvoicePDF(order, settings)} className="header-btn" title="Download PDF">
+                        <button onClick={() => generatePDF(`Invoice-${order.id}`)} className="header-btn" title="Download PDF">
                             <Download size={16} />
                         </button>
                     </div>
