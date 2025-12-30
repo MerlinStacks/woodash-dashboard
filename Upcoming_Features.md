@@ -18,3 +18,6 @@
 - [ ] Ad revenue tracking [Meta Ads, Google Ads]
 - [ ] Integrate emails into the inbox
 - [ ] Improve WooCommerce plugin: Include Live Chat features with UI editor.
+
+
+Auto tagging orders when they first come in based on selected product tags.
