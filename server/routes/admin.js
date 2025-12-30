@@ -2,8 +2,12 @@ const express = require('express');
 const axios = require('axios');
 const redisClient = require('../redis');
 const { LOG_BUFFER } = require('../logger');
+const { restrictToLocalhost } = require('../middleware/security');
 
 const router = express.Router();
+
+// Apply Security Middleware to ALL admin routes
+router.use(restrictToLocalhost);
 
 router.get('/logs', (req, res) => {
     res.json(LOG_BUFFER);

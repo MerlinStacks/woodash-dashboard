@@ -34,8 +34,36 @@ app.use('/api/db', dbRoutes);
 app.use('/api/proxy', proxyRoutes);
 
 // Health Check
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date() });
+app.get('/health', async (req, res) => {
+    let dbStatus = 'disconnected';
+    let redisStatus = 'disconnected';
+
+    // Check DB
+    try {
+        const client = await require('./db').pool.connect();
+        await client.query('SELECT 1');
+        client.release();
+        dbStatus = 'connected';
+    } catch (e) {
+        dbStatus = `error: ${e.message}`;
+    }
+
+    // Check Redis
+    try {
+        const redis = require('./redis');
+        if (redis.isOpen) redisStatus = 'connected';
+    } catch (e) {
+        redisStatus = `error: ${e.message}`;
+    }
+
+    res.json({
+        status: (dbStatus === 'connected') ? 'ok' : 'degraded',
+        timestamp: new Date(),
+        services: {
+            database: dbStatus,
+            redis: redisStatus
+        }
+    });
 });
 
 const server = http.createServer(app);
