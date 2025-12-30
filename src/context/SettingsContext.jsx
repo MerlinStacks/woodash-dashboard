@@ -19,6 +19,7 @@ export const SettingsProvider = ({ children }) => {
         aiApiKey: '',
         aiModel: 'google/gemini-2.0-flash-exp:free',
         minProfitMargin: 0,
+        goldPrice: 0,
         brandColor: '#6366f1',
         accentColor: '#8b5cf6'
     });
@@ -43,12 +44,13 @@ export const SettingsProvider = ({ children }) => {
             const aiApiKey = await getSetting('aiApiKey', acctId) || '';
             const aiModel = await getSetting('aiModel', acctId) || 'google/gemini-2.0-flash-exp:free';
             const minProfitMargin = parseFloat(await getSetting('minProfitMargin', acctId) || '0');
+            const goldPrice = parseFloat(await getSetting('goldPrice', acctId) || '0');
             const brandColor = await getSetting('brandColor', acctId) || '#6366f1';
             const accentColor = await getSetting('accentColor', acctId) || '#8b5cf6';
             const invoiceLayout = await getSetting('invoiceLayout', acctId) || null;
             const footerText = await getSetting('footerText', acctId) || '';
 
-            setSettings({ storeUrl, consumerKey, consumerSecret, authMethod, syncInterval, aiApiKey, aiModel, minProfitMargin, brandColor, accentColor, invoiceLayout, footerText });
+            setSettings({ storeUrl, consumerKey, consumerSecret, authMethod, syncInterval, aiApiKey, aiModel, minProfitMargin, goldPrice, brandColor, accentColor, invoiceLayout, footerText });
             setLoading(false);
         };
 

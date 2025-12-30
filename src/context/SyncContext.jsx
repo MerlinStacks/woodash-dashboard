@@ -24,59 +24,6 @@ export const SyncProvider = ({ children }) => {
     const pollInterval = useRef(null);
     const workerRef = useRef(null);
 
-    // 1. Resume Sync on Load (If server is running)
-    useEffect(() => {
-        // Initialize Worker
-        workerRef.current = new Worker(new URL('../workers/sync.worker.js', import.meta.url));
-
-        workerRef.current.onmessage = (e) => {
-            if (e.data.type === 'LOG') {
-                log(e.data.message, e.data.level);
-            } else if (e.data.type === 'PROGRESS') {
-                setTask(e.data.task);
-                setProgress(e.data.percentage);
-            } else if (e.data.type === 'COMPLETE') {
-                setStatus('complete'); // Simplified from original snippet
-                setTask('Idle');
-                if (e.data.newSyncTimes) {
-                    Object.entries(e.data.newSyncTimes).forEach(([key, val]) => {
-                        localStorage.setItem(key, val);
-                    });
-                    setLastFullSync(new Date());
-                    log("Data download complete.", "success");
-                }
-            } else if (e.data.type === 'ERROR') {
-                log(e.data.error, 'error');
-                setStatus('error'); // Simplified from original snippet
-                setTask('Error');
-            }
-        };
-
-        const checkServerStatus = async () => {
-            if (status === 'running') return;
-            try {
-                const { data } = await axios.get('/api/sync/status');
-                if (data.running) {
-                    console.log("Resuming Sync UI attachment...");
-                    setStatus('running');
-                    setTask(`Syncing ${data.entity}...`);
-                    setProgress(data.progress);
-                    startPolling();
-                }
-            } catch (e) {
-                // ignore
-            }
-        };
-        checkServerStatus();
-
-        return () => {
-            stopPolling();
-            if (workerRef.current) {
-                workerRef.current.terminate();
-            }
-        };
-    }, []);
-
     // 2. Logging Helper
     const log = (message, type = 'info') => {
         setLogs(prev => [...prev, { timestamp: new Date(), message, type }]);
@@ -128,6 +75,60 @@ export const SyncProvider = ({ children }) => {
         }, 2000);
     };
 
+    // 1. Resume Sync on Load (If server is running)
+    useEffect(() => {
+        // Initialize Worker
+        workerRef.current = new Worker(new URL('../workers/sync.worker.js', import.meta.url));
+
+        workerRef.current.onmessage = (e) => {
+            if (e.data.type === 'LOG') {
+                log(e.data.message, e.data.level);
+            } else if (e.data.type === 'PROGRESS') {
+                setTask(e.data.task);
+                setProgress(e.data.percentage);
+            } else if (e.data.type === 'COMPLETE') {
+                setStatus('complete'); // Simplified from original snippet
+                setTask('Idle');
+                if (e.data.newSyncTimes) {
+                    Object.entries(e.data.newSyncTimes).forEach(([key, val]) => {
+                        localStorage.setItem(key, val);
+                    });
+                    setLastFullSync(new Date());
+                    log("Data download complete.", "success");
+                }
+            } else if (e.data.type === 'ERROR') {
+                log(e.data.error, 'error');
+                setStatus('error'); // Simplified from original snippet
+                setTask('Error');
+            }
+        };
+
+        const checkServerStatus = async () => {
+            if (status === 'running') return;
+            try {
+                const { data } = await axios.get('/api/sync/status');
+                if (data.running) {
+                    console.log("Resuming Sync UI attachment...");
+                    setStatus('running');
+                    setTask(`Syncing ${data.entity}...`);
+                    setProgress(data.progress);
+                    startPolling();
+                }
+            } catch (e) {
+                // ignore
+            }
+        };
+        checkServerStatus();
+
+        return () => {
+            stopPolling();
+            if (workerRef.current) {
+                workerRef.current.terminate();
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const cancelSync = () => {
         stopPolling();
         setStatus('idle');
@@ -156,11 +157,11 @@ export const SyncProvider = ({ children }) => {
                 authMethod: settings.authMethod || 'basic', // Default to basic
                 accountId: parseInt(activeAccount.id, 10),
                 options: {
-                    products: true,
-                    orders: true,
-                    reviews: true,
-                    customers: true,
-                    coupons: true,
+                    products: options.products ?? true,
+                    orders: options.orders ?? true,
+                    reviews: options.reviews ?? true,
+                    customers: options.customers ?? true,
+                    coupons: options.coupons ?? true,
                     forceFull: options.forceFull // Pass to server
                 }
             });
