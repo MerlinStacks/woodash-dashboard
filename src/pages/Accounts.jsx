@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useAccount } from '../context/AccountContext';
-import { Plus, Globe, Server, User, Settings as SettingsIcon, Check } from 'lucide-react';
+import { Plus, Globe, Server, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../db/db';
 import './Accounts.css';
 
 const AccountsPage = () => {
@@ -10,7 +9,6 @@ const AccountsPage = () => {
     const [isCreating, setIsCreating] = useState(false);
     const [newAccountName, setNewAccountName] = useState('');
     const [newAccountDomain, setNewAccountDomain] = useState('');
-    const [editingAccount, setEditingAccount] = useState(null); // Account being edited
     const navigate = useNavigate();
 
     const handleCreate = async (e) => {
@@ -25,20 +23,6 @@ const AccountsPage = () => {
             console.error(error);
             alert('Failed to create account');
         }
-    };
-
-    const toggleFeature = async (accountId, featureKey) => {
-        const account = accounts.find(a => a.id === accountId);
-        if (!account) return;
-
-        const features = account.features || {};
-        const newValue = !features[featureKey];
-
-        await db.table('accounts').update(accountId, {
-            features: { ...features, [featureKey]: newValue }
-        });
-        // We rely on useAccount to re-fetch or live query, but AccountContext might need refresh.
-        // Assuming AccountContext uses useLiveQuery for 'accounts', it will auto-update.
     };
 
     return (
@@ -182,11 +166,11 @@ const AccountsPage = () => {
                                     {isActive ? 'Current Session' : 'Switch to Account'}
                                 </button>
                                 <button
-                                    onClick={() => setEditingAccount(account)}
+                                    onClick={() => navigate('/settings')}
                                     className="btn-config"
-                                    title="Manage Features"
+                                    title="Configure"
                                 >
-                                    <SettingsIcon size={18} />
+                                    <User size={18} />
                                 </button>
                             </div>
                         </div>

@@ -36,7 +36,8 @@ const AdminAccountsPage = () => {
                     ...configAccount.features,
                     goldPrice: e.target.goldPrice.checked,
                     bom: e.target.bom.checked,
-                    autoTagging: e.target.autoTagging.checked
+                    autoTagging: e.target.autoTagging.checked,
+                    adRevenueTracking: e.target.adRevenueTracking.checked
                 }
             });
             alert('Features updated');
@@ -110,7 +111,18 @@ const AdminAccountsPage = () => {
                                     />
                                     <div>
                                         <div style={{ fontWeight: 600 }}>Enable Order Auto-Tagging</div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Automatically tag incoming orders based on product tags.</div>
+                                    </div>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        name="adRevenueTracking"
+                                        defaultChecked={configAccount.features?.adRevenueTracking}
+                                        style={{ width: '18px', height: '18px' }}
+                                    />
+                                    <div>
+                                        <div style={{ fontWeight: 600 }}>Enable Ad Revenue Tracking</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Meta & Google Ads integration with AI suggestions.</div>
                                     </div>
                                 </label>
                                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
