@@ -118,7 +118,7 @@ export const SyncProvider = ({ children }) => {
                 consumerKey: settings.consumerKey,
                 consumerSecret: settings.consumerSecret,
                 authMethod: settings.authMethod, // Pass auth method
-                accountId: activeAccount.id,
+                accountId: parseInt(activeAccount.id, 10),
                 forceFull: forceFull,
                 options: {
                     products: options.products !== false,
@@ -174,7 +174,7 @@ export const SyncProvider = ({ children }) => {
                     // Normalize data for Dexie (add account_id if missing)
                     const rows = data.data.map(item => ({
                         ...item,
-                        account_id: activeAccount.id,
+                        account_id: parseInt(activeAccount.id, 10),
                         // Ensure ID is unique per account for compound keys
                     }));
 

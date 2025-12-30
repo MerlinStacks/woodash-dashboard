@@ -2,12 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useAccount } from '../context/AccountContext';
-import { Link } from 'react-router-dom';
+import { useSync } from '../context/SyncContext';
+
 import { Star, MessageSquare, Package, User, CheckCircle, XCircle, Search, Filter, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ReviewsPage = () => {
     const { activeAccount } = useAccount();
+    const { status, progress } = useSync();
 
     // Fetch all reviews for this account
     // Note: In a larger app, we'd add an index on [account_id+date_created] for sorting
@@ -21,7 +23,7 @@ const ReviewsPage = () => {
             .toArray();
         console.log(`ReviewsPage: Found ${results.length} reviews for account ${activeAccount.id}`);
         return results;
-    }, [activeAccount]) || [];
+    }, [activeAccount], []);
 
     // Sort by date descending (in memory)
     const sortedReviews = useMemo(() => {
@@ -37,13 +39,13 @@ const ReviewsPage = () => {
         if (!activeAccount || productIds.length === 0) return [];
         const keys = productIds.map(id => [activeAccount.id, id]);
         return (await db.products.bulkGet(keys)).filter(Boolean);
-    }, [activeAccount, productIds]) || [];
+    }, [activeAccount, productIds], []);
 
     const customers = useLiveQuery(async () => {
         if (!activeAccount || customerIds.length === 0) return [];
         const keys = customerIds.map(id => [activeAccount.id, id]);
         return (await db.customers.bulkGet(keys)).filter(Boolean);
-    }, [activeAccount, customerIds]) || [];
+    }, [activeAccount, customerIds], []);
 
     const [filterStatus, setFilterStatus] = useState('all'); // all, approved, pending, spam
     const [searchTerm, setSearchTerm] = useState('');
@@ -146,8 +148,14 @@ const ReviewsPage = () => {
                 {filteredReviews.length === 0 ? (
                     <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                         <MessageSquare size={48} style={{ opacity: 0.3, margin: '0 auto 1rem' }} />
-                        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>No reviews found</h3>
-                        <p>Try adjusting filters or checking back later.</p>
+                        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>
+                            {status === 'running' ? 'Syncing Reviews...' : 'No reviews found'}
+                        </h3>
+                        <p>
+                            {status === 'running'
+                                ? `We're grabbing your reviews from WooCommerce. (${progress}%)`
+                                : 'Try adjusting filters or checking back later.'}
+                        </p>
                     </div>
                 ) : (
                     <div className="reviews-list">

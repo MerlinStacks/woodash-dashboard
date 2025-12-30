@@ -145,8 +145,8 @@ const startSync = ({ storeUrl, consumerKey, consumerSecret, authMethod, accountI
                     `;
                     for (const item of items) {
                         // Inject Context
-                        item.account_id = accountId;
-                        await client.query(query, [accountId, item.id, JSON.stringify(item)]);
+                        item.account_id = parseInt(accountId, 10);
+                        await client.query(query, [item.account_id, item.id, JSON.stringify(item)]);
                     }
                     await client.query('COMMIT');
                 } catch (e) {
