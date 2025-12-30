@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-export const generateInvoicePDF = async (order, settings) => {
+export const generatePDF = async (reportType) => {
     const input = document.querySelector('.invoice-print-area .invoice-paper');
 
     if (!input) {
@@ -11,9 +11,6 @@ export const generateInvoicePDF = async (order, settings) => {
 
     try {
         // Temporarily make it visible for capture if it's hidden or absolute
-        const originalPosition = input.style.position;
-        const originalDisplay = input.style.display;
-
         // We rely on the fact that .invoice-print-area is in the DOM but hidden/absolute
         // html2canvas needs it to be rendered. If it's effectively invisible, it might not capture.
         // However, in our CSS, it's just z-indexed out or absolute.
@@ -57,7 +54,7 @@ export const generateInvoicePDF = async (order, settings) => {
             heightLeft -= pdfHeight;
         }
 
-        pdf.save(`Invoice-${order.id}.pdf`);
+        pdf.save(`${reportType}-report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
         console.error("PDF Generation Error:", error);
         alert("Failed to generate PDF. check console.");

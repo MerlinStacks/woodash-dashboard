@@ -22,12 +22,12 @@ const initDB = async () => {
                         dbUrl.pathname = '/postgres';
                         adminConnectionString = dbUrl.toString();
                         console.log(`[initDB] Detected target DB '${targetDb}'. Switching to 'postgres' for creation.`);
-                    } catch (e) {
+                    } catch {
                         console.warn("[initDB] API URL parsing failed, using regex fallback.");
                         adminConnectionString = process.env.DATABASE_URL.replace(/\/overseek(\?|$)/, '/postgres$1');
                     }
                 } else {
-                    adminConfig = { database: 'postgres' };
+                    // adminConfig = { database: 'postgres' };
                 }
 
                 const adminConfig = adminConnectionString ? { connectionString: adminConnectionString } : { database: 'postgres' };

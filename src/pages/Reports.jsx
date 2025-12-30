@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Mail, Slack, Plus, Trash2, Clock, BarChart2, CheckCircle, Send, FileText, Eye, X, PackageX } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { useSettings } from '../context/SettingsContext';

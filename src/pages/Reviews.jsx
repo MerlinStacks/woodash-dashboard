@@ -6,6 +6,7 @@ import { useSync } from '../context/SyncContext';
 
 import { Star, MessageSquare, Package, User, CheckCircle, XCircle, Search, Filter, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import DOMPurify from 'dompurify';
 
 const ReviewsPage = () => {
     const { activeAccount } = useAccount();
@@ -15,13 +16,12 @@ const ReviewsPage = () => {
     // Note: In a larger app, we'd add an index on [account_id+date_created] for sorting
     const reviews = useLiveQuery(async () => {
         if (!activeAccount) {
-            console.log("ReviewsPage: No active account");
+            // console.log("ReviewsPage: No active account");
             return [];
         }
         const results = await db.reviews
             .where('account_id').equals(activeAccount.id)
             .toArray();
-        console.log(`ReviewsPage: Found ${results.length} reviews for account ${activeAccount.id}`);
         return results;
     }, [activeAccount], []);
 
@@ -114,7 +114,7 @@ const ReviewsPage = () => {
                         className="btn btn-secondary"
                         onClick={async () => {
                             const all = await db.reviews.toArray();
-                            console.log("DEBUG: All Local Reviews:", all);
+                            // console.log("DEBUG: All Local Reviews:", all);
                             toast.info(`Logged ${all.length} reviews to console`);
                         }}
                     >
@@ -242,7 +242,7 @@ const ReviewsPage = () => {
 
                                         <div
                                             style={{ color: 'var(--text-main)', lineHeight: '1.5', marginBottom: '0.75rem' }}
-                                            dangerouslySetInnerHTML={{ __html: review.review || review.content || '' }}
+                                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(review.review || review.content || '') }}
                                         />
 
                                         {product && (

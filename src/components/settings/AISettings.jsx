@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, ChevronRight, Search, RefreshCw, Check } from 'lucide-react';
+import { Key, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const AISettings = ({ settings, updateSettings }) => {
@@ -91,7 +91,6 @@ const AISettings = ({ settings, updateSettings }) => {
         }
     };
 
-    return (
     return (
         <form onSubmit={handleSubmit} className="fade-in">
             <div className="settings-content-header">

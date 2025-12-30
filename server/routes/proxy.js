@@ -1,7 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const redisClient = require('../redis');
-const { pool } = require('../db'); // For archival (if enabled)
+// const { pool } = require('../db'); // For archival (if enabled)
 
 const router = express.Router();
 

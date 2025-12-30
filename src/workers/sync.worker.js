@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-globals */
+
 
 import { db } from '../db/db';
 
@@ -133,7 +133,7 @@ const startSync = async ({ config, accountId, options, lastSyncTimes, forceFull 
                 if (item.type === 'variable') {
                     try {
                         await fetchPage(`${apiBase}/products/${item.id}/variations`, { per_page: 50, ...globalParams }, headers);
-                    } catch (_) {
+                    } catch {
                         // ignore
                     }
                 }

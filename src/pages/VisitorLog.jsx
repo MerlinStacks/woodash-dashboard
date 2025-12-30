@@ -36,7 +36,7 @@ const VisitorProfileModal = ({ visitorId, allVisits, isOpen, onClose }) => {
     if (!isOpen || !visitorId) return null;
 
     const getHost = (url) => {
-        try { return new URL(url).hostname; } catch (e) { return 'Direct Entry'; }
+        try { return new URL(url).hostname; } catch { return 'Direct Entry'; }
     };
 
     // Robust ID resolver
@@ -60,7 +60,7 @@ const VisitorProfileModal = ({ visitorId, allVisits, isOpen, onClose }) => {
 
     const totalDuration = userVisits.reduce((acc, v) => acc + resolveDuration(v.actions), 0);
     const totalPages = userVisits.reduce((acc, v) => acc + (v.actions?.filter(a => a.type === 'page_view').length || 0), 0);
-    const totalGoals = 0;
+
 
     const formatDuration = (sec) => {
         if (sec < 60) return `${sec}s`;
@@ -214,7 +214,7 @@ const DebugView = ({ settings }) => {
     const [loading, setLoading] = useState(true);
     const [repairing, setRepairing] = useState(false);
 
-    const checkStatus = async () => {
+    const checkStatus = React.useCallback(async () => {
         if (!settings.storeUrl || !settings.consumerKey) return;
         setLoading(true);
         try {
@@ -225,11 +225,11 @@ const DebugView = ({ settings }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [settings]);
 
     useEffect(() => {
         checkStatus();
-    }, [settings]);
+    }, [checkStatus]);
 
     const handleRepair = async () => {
         setRepairing(true);
@@ -396,7 +396,7 @@ const VisitorLog = () => {
     const [locations, setLocations] = useState({}); // Cache for IP locations
 
     // Fetch location for an IP
-    const resolveLocation = async (ip) => {
+    const resolveLocation = React.useCallback(async (ip) => {
         if (locations[ip] || ip === '::1' || ip === '127.0.0.1') return;
 
         try {
@@ -416,7 +416,7 @@ const VisitorLog = () => {
         } catch (e) {
             console.error("GeoIP Error", e);
         }
-    };
+    }, [locations]);
 
     // Process visits to resolve IPs
     useEffect(() => {
@@ -425,9 +425,9 @@ const VisitorLog = () => {
                 resolveLocation(v.ip);
             }
         });
-    }, [visits]);
+    }, [visits, locations, resolveLocation]);
 
-    const loadLogs = async () => {
+    const loadLogs = React.useCallback(async () => {
         if (!settings.storeUrl || !settings.consumerKey) return;
         setLoading(true);
         try {
@@ -448,19 +448,15 @@ const VisitorLog = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [settings]);
 
     useEffect(() => {
         loadLogs();
         const interval = setInterval(loadLogs, 5000);
         return () => clearInterval(interval);
-    }, [settings]);
+    }, [loadLogs]);
 
-    const getDeviceIcon = (device) => {
-        if (!device) return <Monitor size={16} />;
-        if (device.is_mobile) return <Smartphone size={16} />;
-        return <Monitor size={16} />;
-    };
+
 
     // Helper to get ID inside component scope if needed, or re-use logic
     const getVisitorID = (v) => v.visitor_id || v.cookie_id || v.ip;
@@ -489,13 +485,7 @@ const VisitorLog = () => {
         return ip.split(':')[0] + ':****:****...';
     };
 
-    const getActionIcon = (type) => {
-        switch (type) {
-            case 'add_to_cart': return <ShoppingCart size={14} color="#eab308" />;
-            case 'order': return <CheckCircle size={14} color="#10b981" />;
-            default: return <Eye size={14} color="#94a3b8" />; // Default page view
-        }
-    };
+
 
     // --- Metrics Processing with Date Filtering ---
     const { filteredVisits, comparisons, showCompare } = useMemo(() => {
@@ -538,7 +528,7 @@ const VisitorLog = () => {
             return ((curr - prev) / prev) * 100;
         };
 
-        const currentSource = currentVisits[0]?.referrer ? new URL(currentVisits[0].referrer).hostname : '-';
+
 
         // Count specific metrics for comparison
         const countCampaigns = (list) => {
@@ -616,7 +606,7 @@ const VisitorLog = () => {
                         stats.campaigns[key].count++;
                         if (orders.length) stats.campaigns[key].orders += orders.length;
                     }
-                } catch (e) { }
+                } catch { /* ignore */ }
             }
         });
 
@@ -703,7 +693,7 @@ const VisitorLog = () => {
                 if (form.campaign) u.searchParams.set(`${prefix}_campaign`, form.campaign);
 
                 return u.toString();
-            } catch (e) { return 'Invalid URL'; }
+            } catch { return 'Invalid URL'; }
         }, [form]);
 
         const copyToClipboard = () => {
@@ -859,9 +849,8 @@ const VisitorLog = () => {
                         paginatedVisits.map((visit) => {
                             // Analysis Logic
                             const actions = visit.actions || [];
-                            const pageViews = actions.filter(a => a.type === 'page_view');
-                            const entryPage = pageViews[0] || null;
-                            const exitPage = pageViews[pageViews.length - 1] || null;
+
+
 
                             // Calculate Duration
                             const startTime = actions.length > 0 ? actions[0].time : 0;
@@ -869,21 +858,8 @@ const VisitorLog = () => {
                             const durationSeconds = endTime - startTime;
 
                             // Parse UTMs/MTMs from Entry URL
-                            const getUTMs = (url) => {
-                                if (!url) return null;
-                                try {
-                                    const urlObj = new URL(url);
-                                    const params = new URLSearchParams(urlObj.search);
 
-                                    const source = params.get('utm_source') || params.get('mtm_source');
-                                    const medium = params.get('utm_medium') || params.get('mtm_medium');
-                                    const campaign = params.get('utm_campaign') || params.get('mtm_campaign') || params.get('mtm_cid');
 
-                                    if (source || medium || campaign) return { source, medium, campaign };
-                                } catch (e) { return null; }
-                                return null;
-                            };
-                            const utms = entryPage ? getUTMs(entryPage.url) : null;
 
                             // --- NEW LAYOUT: Matomo/Screenshot Style ---
                             return (

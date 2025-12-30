@@ -83,7 +83,6 @@ const SyncSettings = ({ settings, updateSettings }) => {
     };
 
     return (
-    return (
         <form onSubmit={handleSave} className="fade-in">
             <div className="settings-content-header">
                 <h2 className="settings-title">Data Synchronization</h2>
