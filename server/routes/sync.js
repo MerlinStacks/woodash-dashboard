@@ -8,8 +8,15 @@ const router = express.Router();
 router.post('/start', (req, res) => {
     const { storeUrl, consumerKey, consumerSecret, authMethod, accountId, options } = req.body;
 
-    if (!storeUrl || !consumerKey || !consumerSecret || !accountId) {
-        return res.status(400).json({ error: "Missing required parameters (storeUrl, keys, accountId)" });
+    const missingParams = [];
+    if (!storeUrl) missingParams.push('storeUrl');
+    if (!consumerKey) missingParams.push('consumerKey');
+    if (!consumerSecret) missingParams.push('consumerSecret');
+    if (!accountId) missingParams.push('accountId');
+
+    if (missingParams.length > 0) {
+        console.error('[Sync API] Missing parameters:', missingParams, 'Received:', { ...req.body, consumerKey: '***', consumerSecret: '***' });
+        return res.status(400).json({ error: `Missing required parameters: ${missingParams.join(', ')}` });
     }
 
     syncManager.startSync(

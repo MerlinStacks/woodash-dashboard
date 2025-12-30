@@ -150,10 +150,10 @@ export const SyncProvider = ({ children }) => {
         try {
             // Note: We sync ALL entities by default now, incremental handles the filtering.
             await axios.post('/api/sync/start', {
-                storeUrl: activeAccount.wc_url,
-                consumerKey: activeAccount.consumer_key,
-                consumerSecret: activeAccount.consumer_secret,
-                authMethod: activeAccount.auth_method || 'basic', // Default to basic
+                storeUrl: settings.storeUrl,
+                consumerKey: settings.consumerKey,
+                consumerSecret: settings.consumerSecret,
+                authMethod: settings.authMethod || 'basic', // Default to basic
                 accountId: parseInt(activeAccount.id, 10),
                 options: {
                     products: true,
