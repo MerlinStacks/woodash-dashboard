@@ -180,6 +180,11 @@ export const SyncProvider = ({ children }) => {
 
                     // Bulk Put (Upsert) to correct table
                     const tableName = getTableName(entity);
+
+                    if (entity === 'reviews') {
+                        console.log(`[Sync] Downloading ${rows.length} reviews. Sample:`, rows[0]);
+                    }
+
                     await db.table(tableName).bulkPut(rows);
                     log(`Downloaded ${rows.length} ${entity}. Sample Account ID: ${rows[0].account_id}`, 'success');
                 }

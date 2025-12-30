@@ -110,6 +110,16 @@ const ReviewsPage = () => {
                 </div>
 
                 <div className="page-actions">
+                    <button
+                        className="btn btn-secondary"
+                        onClick={async () => {
+                            const all = await db.reviews.toArray();
+                            console.log("DEBUG: All Local Reviews:", all);
+                            toast.info(`Logged ${all.length} reviews to console`);
+                        }}
+                    >
+                        Debug Data
+                    </button>
                     <div className="btn-group" style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px' }}>
                         {['all', 'approved', 'hold', 'spam'].map(f => (
                             <button
