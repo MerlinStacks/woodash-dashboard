@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useAccount } from '../context/AccountContext';
+import { useSettings } from '../context/SettingsContext';
+import { fetchCustomer } from '../services/api';
 import { db } from '../db/db';
 import { ArrowLeft, Mail, MapPin, Phone, ShoppingBag, Calendar, DollarSign, Plus, Trash2, StickyNote } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -11,11 +14,44 @@ const CustomerDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const customerId = parseInt(id);
+    const { activeAccount } = useAccount();
+    const { settings } = useSettings();
+    const [notFound, setNotFound] = useState(false);
 
     // Fetch data
-    const customer = useLiveQuery(() => db.customers.get(customerId).then(result => result === undefined ? null : result), [customerId]);
+    const customer = useLiveQuery(async () => {
+        if (!activeAccount) return undefined;
+        // Fix: Use Compound Key [account_id, id]
+        const local = await db.customers.get([activeAccount.id, customerId]);
+        if (local) return local;
+        // Return null to trigger fallback fetch mechanism
+        return null;
+    }, [activeAccount, customerId]);
+
     const orders = useLiveQuery(() => db.orders.where('customer_id').equals(customerId).reverse().sortBy('date_created'), [customerId]);
     const notes = useLiveQuery(() => db.customer_notes.where('customer_id').equals(customerId).reverse().sortBy('date_created'), [customerId]);
+
+    // Fallback: Fetch from Server if not in Dexie
+    React.useEffect(() => {
+        const syncCustomer = async () => {
+            if (customer === null && activeAccount && settings?.storeUrl && !notFound) {
+                try {
+                    const remote = await fetchCustomer(settings, customerId);
+                    if (remote && remote.id) {
+                        // Normalize and Save
+                        await db.customers.put({ ...remote, account_id: activeAccount.id });
+                        toast.success("Customer synced from server");
+                    } else {
+                        setNotFound(true);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch customer", e);
+                    setNotFound(true);
+                }
+            }
+        };
+        syncCustomer();
+    }, [customer, activeAccount, settings, customerId, notFound]);
 
     const [noteContent, setNoteContent] = useState('');
 
@@ -71,8 +107,8 @@ const CustomerDetails = () => {
     const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
     const getInitials = (first, last) => `${(first || '')[0] || ''}${(last || '')[0] || ''}`.toUpperCase();
 
-    if (customer === undefined) return <div className="p-8">Loading customer...</div>;
-    if (customer === null) return (
+    if (customer === undefined || (customer === null && !notFound)) return <div className="p-8">Loading customer...</div>;
+    if (customer === null && notFound) return (
         <div className="p-8 text-center">
             <h3>Customer not found</h3>
             <p className="text-muted">The customer with ID #{customerId} could not be found in the local database.</p>

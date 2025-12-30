@@ -141,6 +141,12 @@ export const fetchCustomers = async (settings, params = {}) => {
     return unwrap(res);
 };
 
+export const fetchCustomer = async (settings, id) => {
+    const client = createClient(settings);
+    const res = await client.get(`/customers/${id}`);
+    return res.data;
+};
+
 // --- Reports ---
 
 export const fetchReports = async (settings, params = {}) => {
