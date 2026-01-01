@@ -5,7 +5,7 @@ const fastify = Fastify({
     logger: true
 });
 
-fastify.setErrorHandler((error, request, reply) => {
+fastify.setErrorHandler((error: any, request, reply) => {
     request.log.error(error);
     const statusCode = error.statusCode || 500;
 

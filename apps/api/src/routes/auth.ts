@@ -57,7 +57,6 @@ export async function authRoutes(fastify: FastifyInstance) {
             httpOnly: true,
             secure: false, // Ensure this is false for HTTP
             sameSite: 'lax',
-            path: '/',
             maxAge: 60 * 60 * 24 * 7
         });
 
