@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import SettingsPage from './pages/Settings';
 import AdminLayout from './layouts/AdminLayout'; // Keep Layouts sync for perceived perf
 import DashboardLayout from './layouts/DashboardLayout';
@@ -57,15 +57,14 @@ const PageLoader = () => (
   </div>
 );
 
-import { AuthProvider } from './context/auth'; // New Auth Context
+
 import { RequireAuth } from './components/RequireAuth'; // New Route Wrapper
 import { PermissionGuard } from './components/PermissionGuard'; // RBAC Wrapper
 import { SyncProvider } from './context/SyncContext';
 import SyncOverlay from './components/SyncOverlay';
 import { PresenceProvider } from './context/PresenceContext';
-import { SettingsProvider } from './context/SettingsContext';
 import { useAnalytics } from './lib/analytics'; // Beacon
-import { AccountProvider } from './context/AccountContext'; // Explicitly add AccountProvider if it was implicit/missing? It was implicitly likely wrapped or missing. Wait, AccountProvider used to be missing in App.jsx? Ah, DashboardLayout used useAccount. Where was AccountProvider? It must have been missing or wrapped higher up? No, DashboardLayout imports useAccount. If AccountProvider wasn't in App.jsx, the app would crash. Let me check the original App.jsx again.
+
 
 // Original App.jsx didn't show AccountProvider? 
 // Lines 72-78 showed AuthProvider, SyncProvider, SettingsProvider, Router, PresenceProvider.
@@ -80,77 +79,69 @@ function App() {
   useAnalytics(); // Auto-track page views
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <AccountProvider>
-          <SettingsProvider>
-            <SyncProvider>
-              <Router>
-                <PresenceProvider>
-                  <React.Suspense fallback={<PageLoader />}>
-                    <Routes>
-                      <Route path="/login" element={<LoginPage />} />
+      <SyncProvider>
+        <PresenceProvider>
+          <React.Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
 
-                      <Route element={
-                        <RequireAuth>
-                          <DashboardLayout />
-                        </RequireAuth>
-                      }>
-                        <Route path="/" element={<DashboardHome />} />
-                        <Route path="/orders" element={<OrdersPage />} />
-                        <Route path="/orders/new" element={<CreateOrderPage />} />
-                        <Route path="/orders/:id" element={<OrderDetailsPage />} />
-                        <Route path="/products" element={<ProductsPage />} />
-                        <Route path="/inventory" element={<InventoryPage />} />
-                        <Route path="/suppliers" element={<SuppliersPage />} />
-                        <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
-                        <Route path="/products/new" element={<CreateProductPage />} />
-                        <Route path="/products/:id" element={<ProductDetailsPage />} />
-                        <Route path="/customers" element={<CustomersPage />} />
-                        <Route path="/customers/:id" element={<CustomerDetailsPage />} />
-                        <Route path="/carts" element={<CartsPage />} />
-                        <Route path="/automations" element={<AutomationsPage />} />
-                        <Route path="/automations/new" element={<EmailFlowBuilder />} />
-                        <Route path="/automations/:id" element={<EmailFlowBuilder />} />
-                        <Route path="/visitors" element={<VisitorLogPage />} />
-                        <Route path="/users" element={<UsersPage />} />
-                        <Route path="/coupons" element={<CouponsPage />} />
-                        <Route path="/analytics" element={<AnalyticsPage />} />
-                        <Route path="/scanner" element={<ProductionScanner />} />
-                        <Route path="/analytics/reports" element={<ReportsPage />} />
-                        <Route path="/analytics/products" element={<ProductReportsPage />} />
-                        <Route path="/analytics/behaviour" element={<BehaviourPage />} />
-                        <Route path="/analytics/forecasting" element={<ForecastingPage />} />
-                        <Route path="/reviews" element={<ReviewsPage />} />
-                        <Route path="/inbox" element={<InboxPage />} />
-                        <Route path="/invoices/builder" element={<InvoiceBuilder />} />
-                        <Route path="/help" element={<HelpPage />} />
-                        <Route path="/marketing" element={<MarketingPage />} />
-                        <Route path="/settings" element={<SettingsPage />} />
-                      </Route>
+              <Route element={
+                <RequireAuth>
+                  <DashboardLayout />
+                </RequireAuth>
+              }>
+                <Route path="/" element={<DashboardHome />} />
+                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/orders/new" element={<CreateOrderPage />} />
+                <Route path="/orders/:id" element={<OrderDetailsPage />} />
+                <Route path="/products" element={<ProductsPage />} />
+                <Route path="/inventory" element={<InventoryPage />} />
+                <Route path="/suppliers" element={<SuppliersPage />} />
+                <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
+                <Route path="/products/new" element={<CreateProductPage />} />
+                <Route path="/products/:id" element={<ProductDetailsPage />} />
+                <Route path="/customers" element={<CustomersPage />} />
+                <Route path="/customers/:id" element={<CustomerDetailsPage />} />
+                <Route path="/carts" element={<CartsPage />} />
+                <Route path="/automations" element={<AutomationsPage />} />
+                <Route path="/automations/new" element={<EmailFlowBuilder />} />
+                <Route path="/automations/:id" element={<EmailFlowBuilder />} />
+                <Route path="/visitors" element={<VisitorLogPage />} />
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/coupons" element={<CouponsPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/scanner" element={<ProductionScanner />} />
+                <Route path="/analytics/reports" element={<ReportsPage />} />
+                <Route path="/analytics/products" element={<ProductReportsPage />} />
+                <Route path="/analytics/behaviour" element={<BehaviourPage />} />
+                <Route path="/analytics/forecasting" element={<ForecastingPage />} />
+                <Route path="/reviews" element={<ReviewsPage />} />
+                <Route path="/inbox" element={<InboxPage />} />
+                <Route path="/invoices/builder" element={<InvoiceBuilder />} />
+                <Route path="/help" element={<HelpPage />} />
+                <Route path="/marketing" element={<MarketingPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
 
-                      {/* Admin Routes */}
-                      <Route path="/admin" element={
-                        <RequireAuth>
-                          <PermissionGuard requiredPermission="admin_access">
-                            <AdminLayout />
-                          </PermissionGuard>
-                        </RequireAuth>
-                      }>
-                        <Route index element={<AdminDashboard />} />
-                        <Route path="accounts" element={<AdminAccountsPage />} />
-                        <Route path="logs" element={<AdminLogsPage />} />
-                        <Route path="tools" element={<AdminToolsPage />} />
-                      </Route>
-                    </Routes>
-                  </React.Suspense>
-                  <AIChat />
-                  <SyncOverlay />
-                </PresenceProvider>
-              </Router>
-            </SyncProvider>
-          </SettingsProvider>
-        </AccountProvider>
-      </AuthProvider>
+              {/* Admin Routes */}
+              <Route path="/admin" element={
+                <RequireAuth>
+                  <PermissionGuard requiredPermission="admin_access">
+                    <AdminLayout />
+                  </PermissionGuard>
+                </RequireAuth>
+              }>
+                <Route index element={<AdminDashboard />} />
+                <Route path="accounts" element={<AdminAccountsPage />} />
+                <Route path="logs" element={<AdminLogsPage />} />
+                <Route path="tools" element={<AdminToolsPage />} />
+              </Route>
+            </Routes>
+          </React.Suspense>
+          <AIChat />
+          <SyncOverlay />
+        </PresenceProvider>
+      </SyncProvider>
     </ErrorBoundary >
   );
 }
