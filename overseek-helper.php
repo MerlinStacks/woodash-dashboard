@@ -194,7 +194,7 @@ if (!class_exists('OverSeek_Helper')) {
 
                 register_rest_route($ns, '/visitor-log', [
                     'methods' => 'GET',
-                    'callback' => function($req) { return rest_ensure_response($this->get_visitor_log_data()); },
+                    'callback' => function($req) { return $this->get_visitor_log_data($req->get_params()); }, // Pass params, return response object directly
                     'permission_callback' => [$this, 'auth_check']
                 ]);
 
@@ -277,11 +277,54 @@ if (!class_exists('OverSeek_Helper')) {
             return ['count' => (int) $count];
         }
 
-        public function get_visitor_log_data() {
+        public function get_visitor_log_data($params = []) {
             global $wpdb;
             $table_name = $wpdb->prefix . 'overseek_visits';
-            $visits = $wpdb->get_results("SELECT * FROM $table_name ORDER BY last_activity DESC LIMIT 50");
-            return $visits ?: [];
+
+            $page = isset($params['page']) ? max(1, intval($params['page'])) : 1;
+            $per_page = isset($params['per_page']) ? max(1, intval($params['per_page'])) : 50;
+            $offset = ($page - 1) * $per_page;
+
+            $where_clauses = ["1=1"];
+            $query_args = [];
+
+            // Date Filtering
+            if (!empty($params['after'])) {
+                $where_clauses[] = "last_activity >= %s";
+                $query_args[] = $params['after'];
+            }
+            if (!empty($params['before'])) {
+                $where_clauses[] = "last_activity <= %s";
+                $query_args[] = $params['before'];
+            }
+
+            // Explicit search/filter? (Optional future proofing)
+            // if (!empty($params['dataset']) && $params['dataset'] === 'bounced') ...
+
+            $where_sql = implode(' AND ', $where_clauses);
+
+            // 1. Get Total Count for Pagination Headers
+            $count_sql = "SELECT COUNT(*) FROM $table_name WHERE $where_sql";
+            $total_records = !empty($query_args) 
+                ? $wpdb->get_var($wpdb->prepare($count_sql, $query_args)) 
+                : $wpdb->get_var($count_sql);
+
+            $total_pages = ceil($total_records / $per_page);
+
+            // 2. Get Page Data
+            // Note: Prepended args to match the WHERE clause order, then LIMIT/OFFSET
+            $sql = "SELECT * FROM $table_name WHERE $where_sql ORDER BY last_activity DESC LIMIT %d OFFSET %d";
+            $query_args[] = $per_page;
+            $query_args[] = $offset;
+
+            $visits = $wpdb->get_results($wpdb->prepare($sql, $query_args));
+
+            // Return as REST Response to set headers
+            $response = new WP_REST_Response($visits ?: []);
+            $response->header('X-WP-Total', $total_records);
+            $response->header('X-WP-TotalPages', $total_pages);
+            
+            return $response;
         }
 
         public function get_carts_data() {

@@ -2,21 +2,21 @@ version: '3.8'
 
 services:
   # 1. Frontend (Nginx serving React App)
-  frontend:
+  app-web:
     build:
-      context: .
+      context: ./apps/web
       dockerfile: Dockerfile
     restart: always
     ports:
-      - "${FRONTEND_PORT:-5173}:80"
+      - "${FRONTEND_PORT:-8080}:8080"
     depends_on:
-      backend:
-         condition: service_healthy
+      app-api:
+        condition: service_healthy
 
   # 2. Backend (Node.js API)
-  backend:
+  app-api:
     build:
-      context: ./server
+      context: ./apps/api
       dockerfile: Dockerfile
     restart: always
     environment:
@@ -24,6 +24,8 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - PORT=4000
       - REDIS_URL=${REDIS_URL}
+    ports:
+      - "4000:4000"
     depends_on:
       db:
         condition: service_healthy
@@ -32,36 +34,63 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:4000/health"]
+      test: [ "CMD", "wget", "--spider", "http://localhost:4000/health" ]
       interval: 30s
       timeout: 10s
       retries: 5
 
   # 3. Database (PostgreSQL)
   db:
-      image: postgres:15-alpine
-      restart: always
-      environment:
-        - POSTGRES_USER=user
-        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-        - POSTGRES_DB=overseek
-      volumes:
-        - postgres_data:/var/lib/postgresql/data
-      healthcheck:
-        test: ["CMD-SHELL", "pg_isready -U user -d overseek"]
-        interval: 10s
-        timeout: 5s
-        retries: 5
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=overseek
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d overseek" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # 4. Redis (Cache)
   redis:
     image: redis:alpine
     restart: always
     healthcheck:
-        test: ["CMD", "redis-cli", "ping"]
-        interval: 10s
-        timeout: 5s
-        retries: 5
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 5. Object Storage (MinIO)
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-password}
+    volumes:
+      - minio_data:/data
+
+  # 6. Proxy (Traefik) - Optional ingress
+  proxy:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:8080"
+    ports:
+      - "8090:8080" # Map host 8090 to Traefik 8080 (Avoid host 80)
+      - "8888:8080" # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
   postgres_data:
+  minio_data:
