@@ -21,7 +21,7 @@ services:
     restart: always
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgres://user:${POSTGRES_PASSWORD:-password}@db:5432/overseek
       - PORT=4000
       - REDIS_URL=${REDIS_URL}
     ports:
@@ -34,7 +34,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "http://localhost:4000/health" ]
+      test: "wget --no-verbose --tries=1 --spider http://127.0.0.1:4000/health || exit 1"
       interval: 30s
       timeout: 10s
       retries: 5
@@ -45,7 +45,7 @@ services:
     restart: always
     environment:
       - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
       - POSTGRES_DB=overseek
     volumes:
       - postgres_data:/var/lib/postgresql/data
