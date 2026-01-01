@@ -725,14 +725,14 @@ Phase 3: The Brain (Commerce) [COMPLETED]
 Phase 4: The Nervous System (Auto) [COMPLETED]
 
 - [x] Canvas: ReactFlow implementation with Cycle Guard (`EmailFlowBuilder.jsx`).
-- [ ] Email: MJML renderer. (Pending)
+- [x] Email: MJML renderer implemented (`EmailDesigner.jsx` + `/api/email/render`).
 - [x] Events: Outgoing Webhook dispatcher.
 
 Phase 5: The Workshop & Logistics [PARTIAL]
 
-- [ ] Logic: Custom Status Mapping, Asset Scraper.
+- [x] Logic: Custom Status Mapping (Kanban), Asset Scraper (MinIO hook).
 - [x] UI: Kanban Board, Job Card PDF Generator (`InvoiceBuilder.jsx`).
-- [ ] Scanner: Barcode Mode (HID Listener).
+- [x] Scanner: Barcode Mode (HID Listener).
 - [x] Dispatch: Label API Integration & RMA Portal (PDF Generation acts as Label prototype).
 
 Phase 6: The Voice & Network [COMPLETED]

@@ -39,6 +39,7 @@ const InboxPage = React.lazy(() => import('./pages/Inbox'));
 const HelpPage = React.lazy(() => import('./pages/Help'));
 const MarketingPage = React.lazy(() => import('./pages/Marketing'));
 const ProductionScanner = React.lazy(() => import('./pages/ProductionScanner'));
+const ProductionPage = React.lazy(() => import('./pages/Production'));
 
 import AIChat from './components/AIChat';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -111,6 +112,7 @@ function App() {
                 <Route path="/coupons" element={<CouponsPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/scanner" element={<ProductionScanner />} />
+                <Route path="/production" element={<ProductionPage />} />
                 <Route path="/analytics/reports" element={<ReportsPage />} />
                 <Route path="/analytics/products" element={<ProductReportsPage />} />
                 <Route path="/analytics/behaviour" element={<BehaviourPage />} />

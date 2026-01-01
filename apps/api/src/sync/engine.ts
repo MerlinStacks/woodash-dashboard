@@ -1,4 +1,5 @@
 import { sql, inArray } from 'drizzle-orm';
+import { scrapeOrderAssets } from '../lib/scraper.js';
 import { db } from '../db/index.js';
 import { syncState, products, orders, reviews, customers, coupons } from '../db/schema.js';
 import { AxiosInstance } from 'axios';
@@ -91,6 +92,10 @@ export const syncEntity = async (
                 }
             }
             await saveBatch(entity, accountId, items);
+
+            if (entity === 'orders') {
+                scrapeOrderAssets(items).catch(e => console.error('[Scraper] Background error:', e));
+            }
         }
         page++;
     } while (page <= totalPages);

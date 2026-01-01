@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from 'sonner';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import './EmailDesigner.css';
@@ -13,6 +14,7 @@ import {
     AlertTriangle, CheckCircle, Info
 } from 'lucide-react';
 import { validateEmail } from './EmailValidator';
+import { renderEmail } from '../../services/api';
 
 const STRUCTURE_TOOLS = [
     { type: '1-col', label: '1 Column', icon: Square, layout: [1] },
@@ -1209,6 +1211,27 @@ export default function EmailDesigner({ initialData, onClose, onSave }) {
                         <div style={{ color: '#94a3b8', marginBottom: '10px', fontSize: '0.9rem' }}>
                             Edit the generating HTML directly.
                             <span style={{ color: '#ef4444', marginLeft: '10px' }}>Warning: Switching back to Visual mode may overwrite custom code additions if they don't match the block structure.</span>
+                        </div>
+                        <div style={{ marginBottom: '10px' }}>
+                            <button
+                                className="btn btn-primary"
+                                onClick={async () => {
+                                    try {
+                                        toast.info('Compiling MJML...');
+                                        const res = await renderEmail({ blocks, globalStyles });
+                                        if (res.html) {
+                                            setHtmlCode(res.html);
+                                            toast.success('Compiled successfully!');
+                                        }
+                                    } catch (e) {
+                                        console.error(e);
+                                        toast.error('Compilation failed');
+                                    }
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Zap size={16} /> Compile with MJML Engine
+                            </button>
                         </div>
                         <textarea
                             className="form-input"

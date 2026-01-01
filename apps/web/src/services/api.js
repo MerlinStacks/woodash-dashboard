@@ -391,7 +391,14 @@ export const geocodeAddress = async (address) => {
     return null;
 };
 
+
 export const restartServer = async () => {
     const response = await axios.post('/api/admin/restart');
     return response.data;
 };
+
+export const renderEmail = async (templateData) => {
+    const response = await axios.post('/api/email/render', templateData);
+    return response.data;
+};
+

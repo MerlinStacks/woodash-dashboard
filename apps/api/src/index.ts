@@ -21,7 +21,8 @@ fastify.setErrorHandler((error: any, request, reply) => {
 });
 
 fastify.register(cors, {
-    origin: '*' // Configure safely later
+    origin: true, // Reflect request origin to allow credentials
+    credentials: true
 });
 
 import cookie from '@fastify/cookie';
@@ -52,8 +53,12 @@ import { marketingRoutes } from './routes/marketing.js';
 fastify.register(marketingRoutes, { prefix: '/api/marketing' });
 fastify.register(adminRoutes, { prefix: '/api/admin' });
 fastify.register(proxyRoutes, { prefix: '/api/proxy' });
+
 import { dbRoutes } from './routes/db.js';
 fastify.register(dbRoutes, { prefix: '/api/db' });
+
+import { emailRoutes } from './routes/email.js';
+fastify.register(emailRoutes, { prefix: '/api/email' });
 
 
 fastify.get('/health', async (request, reply) => {

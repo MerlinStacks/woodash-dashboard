@@ -38,12 +38,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const login = async (credentials: any) => {
-        const res = await axios.post('/api/auth/login', credentials);
+        const res = await axios.post('/api/auth/login', credentials, { withCredentials: true });
         setUser(res.data.user);
     };
 
     const logout = async () => {
-        await axios.post('/api/auth/logout');
+        await axios.post('/api/auth/logout', {}, { withCredentials: true });
         setUser(null);
     };
 
