@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, uniqueIndex, jsonb, bigint } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, uniqueIndex, jsonb, bigint, boolean } from 'drizzle-orm/pg-core';
 
 export const syncState = pgTable('sync_state', {
     accountId: integer('account_id').notNull(),
@@ -53,6 +53,7 @@ export const users = pgTable('users', {
     passwordHash: text('password_hash').notNull(),
     fullName: text('full_name'),
     defaultStoreId: integer('default_store_id').references(() => stores.id),
+    isSuperAdmin: boolean('is_super_admin').default(false),
     createdAt: timestamp('created_at').defaultNow()
 });
 

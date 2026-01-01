@@ -7,7 +7,9 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
 
     // Public Endpoint (No Auth Required, but tracks Session ID from Cookie/Header if present)
     fastify.post('/event', async (req: any, reply) => {
-        const { event, properties, url } = req.body;
+        const { event, properties, url } = req.body || {};
+
+        if (!event) return reply.status(400).send({ error: "Event name required" });
 
         // Try to identify user from session cookie if present (Auth Middleware not forced here)
         // But we can parse it if we want deeper integration. 
