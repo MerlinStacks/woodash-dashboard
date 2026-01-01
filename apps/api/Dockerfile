@@ -11,7 +11,7 @@ COPY . .
 RUN npm run build
 
 # Prune dev dependencies for production
-RUN npm prune --production
+# RUN npm prune --production
 
 # Stage 2: Production Runner
 FROM node:22-alpine

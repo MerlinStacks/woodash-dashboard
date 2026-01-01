@@ -1,10 +1,10 @@
 
-import * as Minio from 'minio';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const Minio = require('minio');
 
-// Helper to handle both CommonJS and ESM usage of minio if needed, 
-// but 'minio' package exports Client class.
-// Note: new Minio.Client if wildcard import works, or new Client if named.
-// The wildcard import `import * as Minio` results in Minio.Client.
+// Minio package exports the Client constuctor directly or as a property property depending on version/bundling
+// Usually const Minio = require('minio'); var minioClient = new Minio.Client(..);
 
 const minioClient = new Minio.Client({
     endPoint: process.env.MINIO_ENDPOINT || 'localhost',
@@ -18,7 +18,6 @@ export const bucketExists = async (bucket: string) => {
     try {
         return await minioClient.bucketExists(bucket);
     } catch (e) {
-        // console.error(e); 
         return false;
     }
 }
@@ -28,8 +27,8 @@ export const ensureBucket = async (bucket: string) => {
     if (!exists) {
         try {
             await minioClient.makeBucket(bucket, 'us-east-1');
-        } catch (e) {
-            console.error(`Failed to create bucket ${bucket}:`, e);
+        } catch (e: any) {
+            console.error(`Failed to create bucket ${bucket}:`, e.message);
         }
     }
 }

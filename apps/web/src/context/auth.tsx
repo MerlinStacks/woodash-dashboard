@@ -14,6 +14,7 @@ interface AuthContextType {
     isLoading: boolean;
     login: (credentials: any) => Promise<void>;
     logout: () => Promise<void>;
+    hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,8 +48,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
     };
 
+    const hasPermission = (permission: string) => {
+        if (!user) return false;
+        if (user.isSuperAdmin) return true;
+        // Todo: Implement role-based checks here
+        return false;
+    };
+
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+        <AuthContext.Provider value={{ user, isLoading, login, logout, hasPermission }}>
             {children}
         </AuthContext.Provider>
     );

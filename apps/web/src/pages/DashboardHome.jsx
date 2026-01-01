@@ -299,8 +299,8 @@ const DashboardHome = () => {
                     </div>
 
                     <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {visitorLogs.length > 0 ? (
-                            visitorLogs.map((visit) => (
+                        {visitorLogs && visitorLogs.length > 0 ? (
+                            (visitorLogs || []).map((visit) => (
                                 <div key={visit.id} style={{
                                     padding: '12px 16px',
                                     borderBottom: '1px solid var(--border-glass)',

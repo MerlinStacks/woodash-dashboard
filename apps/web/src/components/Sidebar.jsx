@@ -225,10 +225,10 @@ const Sidebar = ({ collapsed, toggleCollapsed, mobileOpen, closeMobile }) => {
             </div>
 
             <nav className="nav-menu">
-                {visibleNavGroups.map((group, groupIdx) => (
+                {(visibleNavGroups || []).map((group, groupIdx) => (
                     <div key={groupIdx} className="nav-group">
                         {group.title && <div className="nav-group-title">{group.title}</div>}
-                        {group.items.map((item) => {
+                        {(group.items || []).map((item) => {
                             if (item.children) {
                                 const isExpanded = expandedItems[item.label] && (!collapsed || mobileOpen);
                                 const isActiveParent = location.pathname.startsWith(item.path);
@@ -248,7 +248,7 @@ const Sidebar = ({ collapsed, toggleCollapsed, mobileOpen, closeMobile }) => {
                                         </div>
                                         {isExpanded && (!collapsed || mobileOpen) && (
                                             <div className="submenu">
-                                                {item.children.map(child => (
+                                                {(item.children || []).map(child => (
                                                     <NavLink
                                                         key={child.label}
                                                         to={child.path}
