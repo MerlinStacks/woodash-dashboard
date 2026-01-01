@@ -1,0 +1,22 @@
+
+> @overseek/web@0.0.0 build
+> vite build
+
+[36mvite v7.3.0 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 108 modules transformed.
+[31m✗[39m Build failed in 1.02s
+[31merror during build:
+[31mCould not resolve "../context/AuthContext" from "src/pages/Users.jsx"[31m
+file: [36mC:/Users/ratte/Desktop/Dashboard/apps/web/src/pages/Users.jsx[31m
+    at getRollupError (file:///C:/Users/ratte/Desktop/Dashboard/node_modules/.pnpm/rollup@4.54.0/node_modules/rollup/dist/es/shared/parseAst.js:401:41)
+    at error (file:///C:/Users/ratte/Desktop/Dashboard/node_modules/.pnpm/rollup@4.54.0/node_modules/rollup/dist/es/shared/parseAst.js:397:42)
+    at ModuleLoader.handleInvalidResolvedId (file:///C:/Users/ratte/Desktop/Dashboard/node_modules/.pnpm/rollup@4.54.0/node_modules/rollup/dist/es/shared/node-entry.js:21661:24)
+    at file:///C:/Users/ratte/Desktop/Dashboard/node_modules/.pnpm/rollup@4.54.0/node_modules/rollup/dist/es/shared/node-entry.js:21621:26[39m
+npm error Lifecycle script `build` failed with error:
+npm error code 1
+npm error path C:\Users\ratte\Desktop\Dashboard\apps\web
+npm error workspace @overseek/web@0.0.0
+npm error location C:\Users\ratte\Desktop\Dashboard\apps\web
+npm error command failed
+npm error command C:\windows\system32\cmd.exe /d /s /c vite build

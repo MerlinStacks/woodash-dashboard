@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Shield, Mail, Trash2, RefreshCw, Pencil, X, Layout } from 'lucide-react';
 import { db } from '../db/db';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import md5 from 'md5';
 import { toast, Toaster } from 'sonner';
 import RoleEditor from '../components/RoleEditor';
