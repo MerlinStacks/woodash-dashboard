@@ -15,9 +15,8 @@ async function seed() {
         console.log('Store already exists, skipping creation.');
     } else {
         const [newStore] = await db.insert(stores).values({
-            name: 'My Store',
-            domain: 'localhost',
-            status: 'active'
+            url: 'http://localhost:3000',
+            settings: { name: 'My Store', status: 'active', domain: 'localhost' }
         }).returning();
         storeId = newStore.id;
         console.log('Created Default Store:', newStore.id);
@@ -28,7 +27,7 @@ async function seed() {
     for (const r of rolesList) {
         const check = await db.select().from(roles).where(eq(roles.name, r));
         if (check.length === 0) {
-            await db.insert(roles).values({ name: r, permissions: [] });
+            await db.insert(roles).values({ name: r });
             console.log(`Created Role: ${r}`);
         }
     }

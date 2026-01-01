@@ -12,6 +12,7 @@ import AISettings from '../components/settings/AISettings';
 import SystemStatus from '../components/settings/SystemStatus';
 
 import BackupSettings from '../components/settings/BackupSettings';
+import ProductionSettings from '../components/settings/ProductionSettings';
 import AppearanceSettings from '../components/settings/AppearanceSettings';
 import AutoTagSettings from '../components/settings/AutoTagSettings';
 import MarketingSettings from '../components/settings/MarketingSettings';
@@ -31,6 +32,8 @@ const Settings = () => {
         { id: 'email', label: 'Email Services', icon: Mail, desc: 'SMTP configuration' },
         { id: 'ai', label: 'Intelligence', icon: Cpu, desc: 'AI assistant models' },
         { id: 'chat', label: 'Live Chat', icon: MessageCircle, desc: 'Widget & Business Hours' },
+        { id: 'chat', label: 'Live Chat', icon: MessageCircle, desc: 'Widget & Business Hours' },
+        { id: 'production', label: 'Production', icon: Server, desc: 'Kanban Stages' },
         { id: 'backup', label: 'Backup & Restore', icon: Database, desc: 'Export/Import dashboard data' },
     ];
 
@@ -97,6 +100,10 @@ const Settings = () => {
 
                     {activeTab === 'backup' && (
                         <BackupSettings />
+                    )}
+
+                    {activeTab === 'production' && (
+                        <ProductionSettings settings={settings} updateSettings={updateSettings} />
                     )}
 
                     {activeTab === 'status' && (

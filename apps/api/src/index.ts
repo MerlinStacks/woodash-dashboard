@@ -10,7 +10,7 @@ fastify.register(cors, {
 });
 
 import cookie from '@fastify/cookie';
-import { authRoutes } from './routes/auth';
+
 
 // Register Plugins
 fastify.register(cookie, {
