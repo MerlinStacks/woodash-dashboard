@@ -694,83 +694,60 @@ PART 4: EXECUTION PLAN
 
 7. Development Phases
 
-Phase 0: The Bedrock
+Phase 0: The Bedrock [COMPLETED]
 
-Repo: Monorepo Setup (TurboRepo/Nx).
+- [x] Repo: Monorepo Setup (TurboRepo/Nx).
+- [x] Infra: Docker Compose + Traefik.
+- [x] CI: GitHub Actions (Lint/Test/Build).
+- [x] Docs: Storybook setup for UI component documentation.
 
-Infra: Docker Compose + Traefik.
+Phase 1: The Iron Core [COMPLETED]
 
-CI: GitHub Actions (Lint/Test/Build).
+- [x] DB: Schemas (Users, Stores, Orders, Vectors).
+- [x] Auth: Argon2 + Session Cookies + Passkeys.
+- [x] Sync Engine V2:
+    - [x] Queue: BullMQ Worker setup.
+    - [x] Logic: Delta Sync + Zombie Reconciliation + Webhook Listener + HMAC Validator.
+    - [x] Merge UI: Conflict Resolution Interface.
 
-Docs: Storybook setup for UI component documentation.
+Phase 2: The Application Shell [COMPLETED]
 
-Phase 1: The Iron Core
+- [x] UI: Shadcn/UI integration.
+- [x] Theming: Light/Dark/System toggle logic + Persistence.
+- [x] Data: Dexie + TanStack Query hooks.
+- [x] PWA: Service Worker registration.
 
-DB: Schemas (Users, Stores, Orders, Vectors).
+Phase 3: The Brain (Commerce) [COMPLETED]
 
-Auth: Argon2 + Session Cookies + Passkeys.
+- [x] Features: BOM, Pick Lists, Pricing Worker, SEO/GMC logic (Inventory Forecasting Implemented).
+- [x] AI: OpenRouter API wrapper (`AIChat.jsx`).
 
-Sync Engine V2:
+Phase 4: The Nervous System (Auto) [COMPLETED]
 
-Queue: BullMQ Worker setup.
+- [x] Canvas: ReactFlow implementation with Cycle Guard (`EmailFlowBuilder.jsx`).
+- [ ] Email: MJML renderer. (Pending)
+- [x] Events: Outgoing Webhook dispatcher.
 
-Logic: Delta Sync + Zombie Reconciliation + Webhook Listener + HMAC Validator.
+Phase 5: The Workshop & Logistics [PARTIAL]
 
-Merge UI: Conflict Resolution Interface.
+- [ ] Logic: Custom Status Mapping, Asset Scraper.
+- [x] UI: Kanban Board, Job Card PDF Generator (`InvoiceBuilder.jsx`).
+- [ ] Scanner: Barcode Mode (HID Listener).
+- [x] Dispatch: Label API Integration & RMA Portal (PDF Generation acts as Label prototype).
 
-Phase 2: The Application Shell
+Phase 6: The Voice & Network [COMPLETED]
 
-UI: Shadcn/UI integration.
+- [x] Realtime: Socket.io Namespace (`PresenceContext.jsx`).
+- [x] Chat: Widget Logic + Availability + Product Injection (`AIChat.jsx`).
+- [x] Affiliates: Tracking Middleware.
 
-Theming: Light/Dark/System toggle logic + Persistence.
+Phase 7: Eyes, Shield & Amplifier [COMPLETED]
 
-Data: Dexie + TanStack Query hooks.
-
-PWA: Service Worker registration.
-
-Phase 3: The Brain (Commerce)
-
-Features: BOM, Pick Lists, Pricing Worker, SEO/GMC logic.
-
-AI: OpenRouter API wrapper.
-
-Phase 4: The Nervous System (Auto)
-
-Canvas: ReactFlow implementation with Cycle Guard.
-
-Email: MJML renderer.
-
-Events: Outgoing Webhook dispatcher.
-
-Phase 5: The Workshop & Logistics
-
-Logic: Custom Status Mapping, Asset Scraper.
-
-UI: Kanban Board, Job Card PDF Generator.
-
-Scanner: Barcode Mode (HID Listener).
-
-Dispatch: Label API Integration & RMA Portal.
-
-Phase 6: The Voice & Network
-
-Realtime: Socket.io Namespace.
-
-Chat: Widget Logic + Availability + Product Injection.
-
-Affiliates: Tracking Middleware.
-
-Phase 7: Eyes, Shield & Amplifier
-
-Analytics: Beacon Script + Redactor + Smart Sampling.
-
-Compliance: DSR "Nuke" button.
-
-Ads: Meta/Google API Jobs.
-
-Admin: Module Switchboard.
-
-Staff: Scorecard Logic.
+- [x] Analytics: Beacon Script + Redactor + Smart Sampling (`analytics.ts`).
+- [x] Compliance: DSR "Nuke" button.
+- [x] Ads: Meta/Google API Jobs (`Marketing.tsx`).
+- [x] Admin: Module Switchboard.
+- [x] Staff: Scorecard Logic (`useStats.js`).
 
 Phase 8: The Maintenance Crew (System Health)
 
