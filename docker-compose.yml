@@ -43,7 +43,7 @@ services:
       context: ./server
     pull_policy: build
     container_name: overseekv2-api-1
-    command: sh -c "npx prisma migrate deploy && npm start"
+    command: sh -c "until npx prisma migrate deploy; do echo 'Migration failed, retrying in 5s...'; sleep 5; done && npm start"
     ports:
       - "3000:3000"
     environment:
