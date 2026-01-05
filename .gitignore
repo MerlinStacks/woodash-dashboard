@@ -37,3 +37,10 @@ api_logs.txt
 Thumbs.db
 
 logs.txt
+
+# Agent & Debug
+debug_logs.txt
+bugs.md
+task.md
+implementation_plan.md
+walkthrough.md

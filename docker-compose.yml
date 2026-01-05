@@ -41,7 +41,7 @@ services:
   api:
     build:
       context: ./server
-    image: overseek-api:latest
+    pull_policy: build
     container_name: overseekv2-api-1
     command: sh -c "npx prisma generate && npx ts-node src/index.ts"
     ports:
@@ -65,7 +65,7 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
-    image: overseek-web:latest
+    pull_policy: build
     ports:
       - "5173:5173"
     environment:
