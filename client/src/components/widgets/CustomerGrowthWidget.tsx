@@ -46,10 +46,9 @@ export function CustomerGrowthWidget({ className, dateRange }: WidgetProps) {
                             </defs>
                             <XAxis
                                 dataKey="date"
-                                // @ts-ignore
-                                tickFormatter={(str: any) => {
-                                    const d = new Date(String(str));
-                                    return isNaN(d.getTime()) ? String(str) : d.toLocaleDateString('en-US', { month: 'short' });
+                                tickFormatter={(value: string | number) => {
+                                    const d = new Date(String(value));
+                                    return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('en-US', { month: 'short' });
                                 }}
                                 fontSize={12}
                                 tickLine={false}
@@ -57,13 +56,11 @@ export function CustomerGrowthWidget({ className, dateRange }: WidgetProps) {
                             />
                             <YAxis hide />
                             <Tooltip
-                                // @ts-ignore
-                                labelFormatter={(label: any) => {
+                                labelFormatter={(label: string | number) => {
                                     const d = new Date(String(label));
                                     return isNaN(d.getTime()) ? String(label) : d.toLocaleDateString();
                                 }}
-                                // @ts-ignore
-                                formatter={(value: any) => [value, 'New Customers']}
+                                formatter={(value: number | string | Array<number | string> | undefined) => [value, 'New Customers']}
                             />
                             <Area
                                 type="monotone"

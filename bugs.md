@@ -12,8 +12,8 @@
 - [x] `analytics.ts`: Dynamic currency fetching (Completed)
 
 ## Technical Debt being addressed
-- [ ] `EmailSettings.tsx`: Refactor needed. Currently using `@ts-nocheck`.
-- [ ] `SalesChartWidget.tsx`, `CustomerGrowthWidget.tsx`: Explicitly type formatters instead of `@ts-ignore`.
+- [x] `EmailSettings.tsx`: Refactor needed. Currently using `@ts-nocheck`.
+- [x] `SalesChartWidget.tsx`, `CustomerGrowthWidget.tsx`: Explicitly type formatters instead of `@ts-ignore`.
 
 ## Discovered Issues
-- [ ] `Account` model missing `webhookSecret` (Schema update pending migration).
+- [x] `Account` model missing `webhookSecret` (Schema update pending migration).

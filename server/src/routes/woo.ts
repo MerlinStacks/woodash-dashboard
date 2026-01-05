@@ -27,7 +27,11 @@ router.get('/products', async (req: Request, res: Response) => {
         if (!accountId) return res.status(400).json({ error: 'No account selected' });
 
         const woo = await WooService.forAccount(accountId);
-        const products = await woo.getProducts({ per_page: 20 });
+        // Pass standard Woo query params (search, page, per_page, etc.)
+        const products = await woo.getProducts({
+            ...req.query,
+            per_page: Number(req.query.per_page) || 20
+        });
 
         res.json(products);
     } catch (error: any) {

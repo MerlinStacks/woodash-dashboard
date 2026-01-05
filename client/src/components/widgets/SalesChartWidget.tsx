@@ -94,10 +94,9 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                             <XAxis
                                 dataKey="date"
-                                // @ts-ignore
-                                tickFormatter={(str: any) => {
+                                tickFormatter={(value: string | number) => {
                                     // If strict "Day X" string, keep it. Else format date.
-                                    const s = String(str);
+                                    const s = String(value);
                                     if (s.startsWith('Day')) return s;
                                     const d = new Date(s);
                                     return isNaN(d.getTime()) ? s : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
@@ -111,18 +110,16 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
                                 fontSize={10}
                                 tickLine={false}
                                 axisLine={false}
-                                tickFormatter={(value) => `$${value}`}
+                                tickFormatter={(value: number) => `$${value}`}
                             />
                             <Tooltip
-                                // @ts-ignore
-                                labelFormatter={(label: any) => {
+                                labelFormatter={(label: string | number) => {
                                     const str = String(label);
                                     if (str.startsWith('Day')) return str;
                                     const d = new Date(str);
                                     return isNaN(d.getTime()) ? str : d.toLocaleDateString();
                                 }}
-                                // @ts-ignore
-                                formatter={(value: any, name: string) => [
+                                formatter={(value: number | string | Array<number | string> | undefined, name: string | number) => [
                                     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value) || 0),
                                     name === 'sales' ? 'Current Period' : 'Comparison'
                                 ]}

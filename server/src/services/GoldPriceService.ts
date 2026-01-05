@@ -17,8 +17,29 @@ export class GoldPriceService {
      */
     static async fetchLivePrice(currency = 'USD'): Promise<number | null> {
         if (!API_TOKEN) {
-            Logger.warn('GoldPriceService: No API Token configured');
-            return null;
+            // Fallback to public endpoint
+            try {
+                Logger.info('GoldPriceService: No API Token, using public endpoint');
+                // This endpoint returns Ounce price in USD
+                const response = await axios.get('https://data-asg.goldprice.org/dbXRates/USD', {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    }
+                });
+
+                if (response.data && response.data.items && response.data.items.length > 0) {
+                    const item = response.data.items[0];
+                    if (item.xauPrice) {
+                        const pricePerOunce = item.xauPrice;
+                        const pricePerGram = pricePerOunce / 31.1034768;
+                        return pricePerGram;
+                    }
+                }
+                return null;
+            } catch (error) {
+                Logger.error('GoldPriceService: Error fetching public price', { error: (error as Error).message });
+                return null;
+            }
         }
 
         try {

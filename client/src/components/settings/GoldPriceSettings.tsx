@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount } from '../../context/AccountContext';
 import { useAccountFeature } from '../../hooks/useAccountFeature';
 import { RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -9,6 +9,13 @@ export function GoldPriceSettings() {
     const isEnabled = useAccountFeature('GOLD_PRICE_CALCULATOR');
     const [isLoading, setIsLoading] = useState(false);
     const [priceInput, setPriceInput] = useState(currentAccount?.goldPrice?.toString() || '0');
+
+    // Sync input when account updates (e.g. from Refresh)
+    useEffect(() => {
+        if (currentAccount?.goldPrice !== undefined) {
+            setPriceInput(currentAccount.goldPrice.toString());
+        }
+    }, [currentAccount?.goldPrice]);
 
     if (!isEnabled) return null;
 

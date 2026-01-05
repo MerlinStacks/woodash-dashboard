@@ -60,24 +60,23 @@ model Account {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users        AccountUser[]
-  adAccounts   AdAccount[]
-  features     AccountFeature[]
-  dashboards   DashboardLayout[]
+  users         AccountUser[]
+  adAccounts    AdAccount[]
+  features      AccountFeature[]
+  dashboards    DashboardLayout[]
   emailAccounts EmailAccount[]
-  SyncState    SyncState[]
-  SyncLog      SyncLog[]
-  WooOrder     WooOrder[]
-  WooProduct   WooProduct[]
-  WooCustomer  WooCustomer[]
-  WooReview    WooReview[]
-  Notification Notification[]
-  Supplier     Supplier[]
+  SyncState     SyncState[]
+  SyncLog       SyncLog[]
+  WooOrder      WooOrder[]
+  WooProduct    WooProduct[]
+  WooCustomer   WooCustomer[]
+  WooReview     WooReview[]
+  Notification  Notification[]
+  Supplier      Supplier[]
 
   // Chat & Support
   conversations   Conversation[]
   cannedResponses CannedResponse[]
-
 
   // Marketing & Automation
   marketingCampaigns   MarketingCampaign[]
@@ -270,10 +269,10 @@ model WooOrder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  reviews WooReview[]
+
   @@unique([accountId, wooId])
   @@index([accountId, dateCreated])
-
-  reviews WooReview[]
 }
 
 model WooProduct {
@@ -297,7 +296,7 @@ model WooProduct {
   height             Decimal? @db.Decimal(10, 2)
 
   // SEO & Scoring
-  seoScore Int? @default(0) // 0-100
+  seoScore Int?  @default(0) // 0-100
   seoData  Json? @default("{}") // { focusKeyword: "...", analysis: [...] }
 
   merchantCenterScore  Int?  @default(0) // 0-100
@@ -376,7 +375,7 @@ model BOM {
 }
 
 model BOMItem {
-  id             String @id @default(uuid())
+  id             String  @id @default(uuid())
   bomId          String
   supplierItemId String?
   childProductId String?
@@ -457,13 +456,13 @@ model WooReview {
   updatedAt DateTime @updatedAt
 
   reviewerEmail String?
-  
+
   // Relations
   wooCustomerId String?
   customer      WooCustomer? @relation(fields: [wooCustomerId], references: [id])
 
   wooOrderId String?
-  order      WooOrder?    @relation(fields: [wooOrderId], references: [id])
+  order      WooOrder? @relation(fields: [wooOrderId], references: [id])
 
   @@unique([accountId, wooId])
 }
@@ -538,8 +537,6 @@ model CannedResponse {
   @@unique([accountId, shortcut])
 }
 
-
-
 // --------------------------------------
 // Help Center
 // --------------------------------------
@@ -604,8 +601,8 @@ model MarketingCampaign {
   accountId String
   name      String
 
-  subject String
-  content String @db.Text // Rendered HTML
+  subject    String
+  content    String @db.Text // Rendered HTML
   designJson Json? // For drag-and-drop builder state
 
   status String @default("DRAFT") // DRAFT, SCHEDULED, SENDING, SENT, FAILED
@@ -677,8 +674,8 @@ model AutomationEnrollment {
   // Context data (e.g. invalidating if a new order comes in, or storing the Order ID that triggered this)
   contextData Json?
 
-  status         String @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
-  currentNodeId  String? // React Flow Node ID tracking progress
+  status        String  @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  currentNodeId String? // React Flow Node ID tracking progress
 
   nextRunAt DateTime? // When to process the next step
 
@@ -760,23 +757,23 @@ model AnalyticsEvent {
 // --------------------------------------
 
 model EmailAccount {
-  id        String   @id @default(uuid())
+  id        String @id @default(uuid())
   accountId String
-  name      String   // e.g. "Support IP"
-  email     String   // e.g. "support@myapp.com"
-  
+  name      String // e.g. "Support IP"
+  email     String // e.g. "support@myapp.com"
+
   // Connection Settings
-  host      String
-  port      Int
-  username  String
-  password  String   // Encrypt in real app!
-  isSecure  Boolean  @default(true)
-  
-  type      String   @default("SMTP") // SMTP, IMAP
-  isDefault Boolean  @default(false)
-  
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  
+  host     String
+  port     Int
+  username String
+  password String // Encrypt in real app!
+  isSecure Boolean @default(true)
+
+  type      String  @default("SMTP") // SMTP, IMAP
+  isDefault Boolean @default(false)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

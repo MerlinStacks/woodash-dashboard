@@ -15,7 +15,7 @@ export function GoldPricePanel({ product, onChange }: GoldPricePanelProps) {
 
     if (!isEnabled) return null;
 
-    const goldPrice = currentAccount?.goldPrice || 0;
+    const goldPrice = Number(currentAccount?.goldPrice) || 0;
     const weight = product.weight ? parseFloat(product.weight) : 0;
     const isApplied = product.isGoldPriceApplied || false;
 

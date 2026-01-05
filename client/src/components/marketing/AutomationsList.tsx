@@ -24,7 +24,7 @@ export function AutomationsList({ onEdit }: { onEdit: (id: string, name: string)
             const res = await fetch('/api/marketing/automations', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'x-account-id': currentAccount.id
+                    'x-account-id': currentAccount?.id || ''
                 }
             });
             if (res.ok) {
@@ -53,7 +53,7 @@ export function AutomationsList({ onEdit }: { onEdit: (id: string, name: string)
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
-                    'x-account-id': currentAccount.id
+                    'x-account-id': currentAccount?.id || ''
                 },
                 body: JSON.stringify({ ...newItem, steps: defaultSteps, isActive: false })
             });
@@ -86,7 +86,7 @@ export function AutomationsList({ onEdit }: { onEdit: (id: string, name: string)
             const detailRes = await fetch(`/api/marketing/automations/${aut.id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'x-account-id': currentAccount.id
+                    'x-account-id': currentAccount?.id || ''
                 }
             });
             const detail = await detailRes.json();
@@ -96,7 +96,7 @@ export function AutomationsList({ onEdit }: { onEdit: (id: string, name: string)
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
-                    'x-account-id': currentAccount.id
+                    'x-account-id': currentAccount?.id || ''
                 },
                 body: JSON.stringify({ ...detail, isActive: !aut.isActive })
             });
@@ -112,7 +112,7 @@ export function AutomationsList({ onEdit }: { onEdit: (id: string, name: string)
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'x-account-id': currentAccount.id
+                    'x-account-id': currentAccount?.id || ''
                 }
             });
             fetchData();

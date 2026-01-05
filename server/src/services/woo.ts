@@ -107,6 +107,25 @@ export class WooService {
         return this.requestWithRetry('get', 'products/reviews', { ...params, per_page: params.per_page || 20 });
     }
 
+    async getProduct(id: number) {
+        if (this.isDemo) {
+            const product = MOCK_PRODUCTS.find(p => p.id === id);
+            if (!product) throw new Error("Product not found (Demo)");
+            return product;
+        }
+        const response = await this.requestWithRetry('get', `products/${id}`);
+        return response.data;
+    }
+
+    async updateProduct(id: number, data: any) {
+        if (this.isDemo) {
+            console.log(`[Demo] Updated Product ${id}:`, data);
+            return { ...MOCK_PRODUCTS.find(p => p.id === id), ...data };
+        }
+        const response = await this.api.put(`products/${id}`, data);
+        return response.data;
+    }
+
     async getSystemStatus() {
         if (this.isDemo) return Promise.resolve({ environment: { version: "8.0.0" } });
         return this.requestWithRetry('get', 'system_status');

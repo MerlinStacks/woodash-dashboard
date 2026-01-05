@@ -46,6 +46,10 @@ import { AutomationEngine } from './services/AutomationEngine';
 QueueFactory.init();
 
 const automationEngine = new AutomationEngine(); // Keep for event listeners
+import { InventoryService } from './services/InventoryService';
+
+// Initialize Inventory Listeners
+InventoryService.setupListeners();
 
 const app = express();
 

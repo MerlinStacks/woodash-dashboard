@@ -1,17 +1,17 @@
-// @ts-nocheck
-
 import { useState, useEffect } from 'react';
-import { Mail, Plus, Trash2, CheckCircle, XCircle, Loader2, Server, Globe, Save } from 'lucide-react';
+import { Mail, Plus, Trash2, CheckCircle, XCircle, Loader2, Server, Save } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 
 interface EmailAccount {
     id: string;
+    accountId: string;
     name: string;
     email: string;
     host: string;
     port: number;
     username: string;
+    password?: string;
     type: 'SMTP' | 'IMAP';
     isSecure: boolean;
 }
@@ -199,7 +199,7 @@ export function EmailSettings() {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                     placeholder="e.g. Support Inbox"
                                     value={editingAccount.name || ''}
-                                    onChange={(e) => setEditingAccount({ ...editingAccount!, name: e.target.value })}
+                                    onChange={(e) => setEditingAccount(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
                                 />
                             </div>
                             <div>
@@ -209,7 +209,7 @@ export function EmailSettings() {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                     placeholder="support@example.com"
                                     value={editingAccount.email || ''}
-                                    onChange={(e) => setEditingAccount({ ...editingAccount!, email: e.target.value })}
+                                    onChange={(e) => setEditingAccount(prev => prev ? ({ ...prev, email: e.target.value }) : null)}
                                 />
                             </div>
                         </div>
@@ -225,7 +225,7 @@ export function EmailSettings() {
                                     <select
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                         value={editingAccount.type}
-                                        onChange={(e) => setEditingAccount({ ...editingAccount!, type: e.target.value as 'SMTP' | 'IMAP' })}
+                                        onChange={(e) => setEditingAccount(prev => prev ? ({ ...prev, type: e.target.value as 'SMTP' | 'IMAP' }) : null)}
                                     >
                                         <option value="SMTP">SMTP (Sending)</option>
                                         <option value="IMAP">IMAP (Receiving)</option>
@@ -238,7 +238,7 @@ export function EmailSettings() {
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                         placeholder="smtp.gmail.com"
                                         value={editingAccount.host || ''}
-                                        onChange={(e) => setEditingAccount({ ...editingAccount!, host: e.target.value })}
+                                        onChange={(e) => setEditingAccount(prev => prev ? ({ ...prev, host: e.target.value }) : null)}
                                     />
                                 </div>
                             </div>
@@ -250,7 +250,7 @@ export function EmailSettings() {
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                         placeholder="587"
                                         value={editingAccount.port || ''}
-                                        onChange={(e) => setEditingAccount({ ...editingAccount!, port: parseInt(e.target.value) })}
+                                        onChange={(e) => setEditingAccount(prev => prev ? ({ ...prev, port: parseInt(e.target.value) }) : null)}
                                     />
                                 </div>
                                 <div>
@@ -259,7 +259,7 @@ export function EmailSettings() {
                                         type="text"
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                         value={editingAccount.username || ''}
-                                        onChange={(e) => setEditingAccount({ ...editingAccount!, username: e.target.value })}
+                                        onChange={(e) => setEditingAccount(prev => prev ? ({ ...prev, username: e.target.value }) : null)}
                                     />
                                 </div>
                                 <div>
@@ -268,8 +268,8 @@ export function EmailSettings() {
                                         type="password"
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                         placeholder="••••••••"
-                                        value={editingAccount.password || ''} // In real edit, we wouldn't show this or handle it carefully
-                                        onChange={(e) => setEditingAccount({ ...editingAccount!, password: e.target.value })}
+                                        value={editingAccount.password || ''}
+                                        onChange={(e) => setEditingAccount(prev => prev ? ({ ...prev, password: e.target.value }) : null)}
                                     />
                                 </div>
                             </div>
@@ -278,7 +278,7 @@ export function EmailSettings() {
                                     type="checkbox"
                                     id="secure"
                                     checked={editingAccount.isSecure}
-                                    onChange={(e) => setEditingAccount({ ...editingAccount!, isSecure: e.target.checked })}
+                                    onChange={(e) => setEditingAccount(prev => prev ? ({ ...prev, isSecure: e.target.checked }) : null)}
                                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
                                 <label htmlFor="secure" className="text-sm text-gray-700">Use Secure Connection (TLS/SSL)</label>
