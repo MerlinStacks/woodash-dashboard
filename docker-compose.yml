@@ -56,8 +56,6 @@ services:
       - elasticsearch
     extra_hosts:
       - "host.docker.internal:host-gateway" # Allow container to reach host
-    extra_hosts:
-      - "host.docker.internal:host-gateway" # Allow container to reach host
 
   web:
     build:
@@ -68,8 +66,6 @@ services:
       - "5173:5173"
     environment:
       VITE_API_URL: http://localhost:3000
-    depends_on:
-      - api
     depends_on:
       - api
 

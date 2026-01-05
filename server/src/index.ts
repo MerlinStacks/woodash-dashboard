@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Force Restart Trigger
+console.log('[Dev] Touching file to trigger restart');
 import { server } from './app';
 import { SchedulerService } from './services/SchedulerService';
 import { startWorkers } from './workers';
