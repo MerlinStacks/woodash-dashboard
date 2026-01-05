@@ -1,0 +1,30 @@
+# Base stage
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache openssl
+
+# Copy package files
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+# Build for production
+RUN npm run build
+
+# Expose port
+EXPOSE 3000
+
+# Start command (can be overridden by docker-compose)
+CMD ["npm", "start"]

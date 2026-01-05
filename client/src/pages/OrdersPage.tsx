@@ -1,0 +1,201 @@
+import { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useAccount } from '../context/AccountContext';
+import { formatDate } from '../utils/format';
+import { Loader2, RefreshCw, Search } from 'lucide-react';
+import { Pagination } from '../components/ui/Pagination';
+import { OrderPreviewModal } from '../components/orders/OrderPreviewModal';
+
+interface Order {
+    id: number;
+    status: string;
+    total: number;
+    currency: string;
+    date_created: string;
+    billing: {
+        first_name: string;
+        last_name: string;
+        email: string;
+    };
+    line_items: Array<{
+        name: string;
+        quantity: number;
+    }>;
+}
+
+export function OrdersPage() {
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(20);
+    const [totalPages, setTotalPages] = useState(1);
+    const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+
+    const { token } = useAuth();
+    const { currentAccount } = useAccount();
+
+    useEffect(() => {
+        fetchOrders();
+    }, [currentAccount, token, searchQuery, page, limit]);
+
+    async function fetchOrders() {
+        if (!currentAccount || !token) return;
+
+        setIsLoading(true);
+        try {
+            const endpoint = searchQuery
+                ? `/api/sync/orders/search?q=${encodeURIComponent(searchQuery)}&page=${page}&limit=${limit}`
+                : `/api/sync/orders/search?page=${page}&limit=${limit}`; // Empty query = match_all
+
+            const res = await fetch(endpoint, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id
+                }
+            });
+
+            if (!res.ok) throw new Error('Failed to fetch orders');
+
+            const data = await res.json();
+            setOrders(data.orders || data); // Handle both object and array response (fallback)
+            if (data.totalPages) setTotalPages(data.totalPages);
+            else setTotalPages(1); // Standard fallback
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    // Reset page on search
+    useEffect(() => {
+        setPage(1);
+    }, [searchQuery]);
+
+    async function handleSync() {
+        if (!currentAccount || !token) return;
+        setIsSyncing(true);
+        try {
+            const res = await fetch('/api/sync/orders', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id
+                }
+            });
+            if (!res.ok) throw new Error('Sync failed');
+            const result = await res.json();
+            alert(`Synced ${result.synced} orders!`);
+            fetchOrders(); // Refresh list
+        } catch (err) {
+            alert('Sync failed. Check backend logs.');
+        } finally {
+            setIsSyncing(false);
+        }
+    }
+
+    return (
+        <div className="space-y-6">
+            <OrderPreviewModal
+                orderId={selectedOrderId}
+                isOpen={!!selectedOrderId}
+                onClose={() => setSelectedOrderId(null)}
+            />
+
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+                    <span className="text-sm text-gray-500">Store: {currentAccount?.name}</span>
+                </div>
+
+                <div className="flex gap-3">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search orders..."
+                            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+
+                    <button
+                        onClick={handleSync}
+                        disabled={isSyncing}
+                        className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                        <RefreshCw size={18} className={isSyncing ? "animate-spin" : ""} />
+                        {isSyncing ? 'Syncing...' : 'Sync Orders'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500 font-semibold">
+                            <th className="px-6 py-4">Order</th>
+                            <th className="px-6 py-4">Date</th>
+                            <th className="px-6 py-4">Status</th>
+                            <th className="px-6 py-4">Customer</th>
+                            <th className="px-6 py-4">Total</th>
+                            <th className="px-6 py-4">Items</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {isLoading ? (
+                            <tr><td colSpan={6} className="p-12 text-center"><Loader2 className="animate-spin inline text-blue-600" /></td></tr>
+                        ) : orders.length === 0 ? (
+                            <tr><td colSpan={6} className="p-12 text-center text-gray-500">No orders found. Try syncing!</td></tr>
+                        ) : (
+                            orders.map((order) => (
+                                <tr
+                                    key={order.id}
+                                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                    onClick={() => setSelectedOrderId(order.id)}
+                                >
+                                    <td className="px-6 py-4 font-medium text-blue-600 outline-none">#{order.id}</td>
+                                    <td className="px-6 py-4 text-gray-600 text-sm">{formatDate(order.date_created)}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                        ${order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                                                    order.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                                            {order.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-900">
+                                        <div className="font-medium">{order.billing.first_name} {order.billing.last_name}</div>
+                                        <div className="text-gray-500 text-xs">{order.billing.email}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm font-medium">
+                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(order.total)}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                        {order.line_items.length} items
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+                {!isLoading && orders.length > 0 && (
+                    <Pagination
+                        currentPage={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        itemsPerPage={limit}
+                        onItemsPerPageChange={(newLimit) => {
+                            setLimit(newLimit);
+                            setPage(1);
+                        }}
+                        allowItemsPerPage={true}
+                    />
+                )}
+            </div>
+        </div >
+    );
+}

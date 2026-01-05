@@ -1,0 +1,269 @@
+// @ts-ignore
+import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
+import { useAuth } from '../context/AuthContext';
+import { useAccount } from '../context/AccountContext';
+import { renderWidget, WidgetRegistry } from '../components/widgets/WidgetRegistry';
+import { Loader2, Plus, X } from 'lucide-react';
+import _ from 'lodash';
+import { useRef, useLayoutEffect, useState, useEffect } from 'react';
+import { getDateRange, getComparisonRange, DateRangeOption, ComparisonOption } from '../utils/dateUtils';
+
+// Custom WidthProvider HOC since the library's export is broken in ESM
+const withWidth = (WrappedComponent: any) => {
+    return (props: any) => {
+        const ref = useRef<HTMLDivElement>(null);
+        const [width, setWidth] = useState(1200);
+
+        useLayoutEffect(() => {
+            if (!ref.current) return;
+            const observer = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    setWidth(entry.contentRect.width);
+                }
+            });
+            observer.observe(ref.current);
+            return () => observer.disconnect();
+        }, []);
+
+        return (
+            <div ref={ref} className={props.className} style={{ width: '100%', height: '100%' }}>
+                <WrappedComponent
+                    {...props}
+                    width={width}
+                    className="" // clear class on child to avoid conflicts
+                />
+            </div>
+        );
+    };
+};
+
+const ResponsiveGridLayoutWithWidth = withWidth(ResponsiveGridLayout);
+
+interface WidgetInstance {
+    id: string; // Generated ID or DB ID
+    widgetKey: string;
+    position: { x: number, y: number, w: number, h: number };
+    settings?: any;
+}
+
+export function DashboardPage() {
+    const { token } = useAuth();
+    const { currentAccount } = useAccount();
+    const [widgets, setWidgets] = useState<WidgetInstance[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [showAddWidget, setShowAddWidget] = useState(false);
+
+    // Date State
+    const [dateOption, setDateOption] = useState<DateRangeOption>('today');
+    const [comparisonOption, setComparisonOption] = useState<ComparisonOption>('previous_period');
+
+    useEffect(() => {
+        fetchLayout();
+    }, [currentAccount, token]);
+
+    async function fetchLayout() {
+        if (!currentAccount) return;
+        setIsLoading(true);
+        try {
+            const res = await fetch('/api/dashboard', {
+                headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
+            });
+            const data = await res.json();
+
+            // Transform DB widgets to state
+            const mapped = data.widgets.map((w: any) => ({
+                id: w.id, // Use unique ID for key
+                widgetKey: w.widgetKey,
+                position: typeof w.position === 'string' ? JSON.parse(w.position) : w.position,
+                settings: w.settings
+            }));
+            setWidgets(mapped);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    const onLayoutChange = (layout: any, _layouts: any) => {
+        // Update local state positions
+        const newWidgets = widgets.map(w => {
+            const match = layout.find((l: any) => l.i === w.id);
+            if (match) {
+                return {
+                    ...w,
+                    position: { x: match.x, y: match.y, w: match.w, h: match.h }
+                };
+            }
+            return w;
+        });
+
+        if (!_.isEqual(widgets, newWidgets)) {
+            setWidgets(newWidgets);
+            debouncedSave(newWidgets);
+        }
+    };
+
+    const debouncedSave = _.debounce(async (newWidgets: WidgetInstance[]) => {
+        setIsSaving(true);
+        try {
+            await fetch('/api/dashboard', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount!.id
+                },
+                body: JSON.stringify({
+                    widgets: newWidgets.map(w => ({
+                        widgetKey: w.widgetKey,
+                        position: w.position,
+                        settings: w.settings
+                    }))
+                })
+            });
+        } catch (err) {
+            console.error("Save failed", err);
+        } finally {
+            setIsSaving(false);
+        }
+    }, 2000);
+
+    // Map to RGL layout format
+    const rglLayout = widgets.map(w => ({
+        i: w.id,
+        x: w.position.x,
+        y: w.position.y,
+        w: w.position.w,
+        h: w.position.h
+    }));
+
+    const addWidget = (key: string) => {
+        const entry = WidgetRegistry[key];
+        const newWidget: WidgetInstance = {
+            id: `new-${Date.now()}`,
+            widgetKey: key,
+            position: { x: 0, y: Infinity, w: entry.defaultW, h: entry.defaultH }
+        };
+        const updated = [...widgets, newWidget];
+        setWidgets(updated);
+        debouncedSave(updated);
+        setShowAddWidget(false);
+    };
+
+    const removeWidget = (id: string) => {
+        const updated = widgets.filter(w => w.id !== id);
+        setWidgets(updated);
+        debouncedSave(updated);
+    };
+
+    // Calculate dates
+    const dateRange = getDateRange(dateOption);
+    const comparisonRange = getComparisonRange(dateRange, comparisonOption);
+
+    if (isLoading) return <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-blue-600" size={32} /></div>;
+
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+                    <p className="text-sm text-gray-500">Overview of your store performance.</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Date Logic Controls */}
+                    <div className="flex bg-white border border-gray-200 rounded-lg shadow-sm">
+                        <select
+                            value={dateOption}
+                            onChange={(e) => setDateOption(e.target.value as DateRangeOption)}
+                            className="bg-transparent border-r border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:bg-gray-50"
+                        >
+                            <option value="today">Today</option>
+                            <option value="7d">Last 7 Days</option>
+                            <option value="30d">Last 30 Days</option>
+                            <option value="90d">Last 90 Days</option>
+                            <option value="ytd">Year to Date</option>
+                            <option value="all">All Time</option>
+                        </select>
+                        <select
+                            value={comparisonOption}
+                            onChange={(e) => setComparisonOption(e.target.value as ComparisonOption)}
+                            className="bg-transparent px-3 py-2 text-sm text-gray-500 outline-none focus:bg-gray-50"
+                        >
+                            <option value="none">No Comparison</option>
+                            <option value="previous_period">vs Previous Period</option>
+                            <option value="previous_year">vs Previous Year</option>
+                        </select>
+                    </div>
+
+
+                    <div className="h-6 w-px bg-gray-300 mx-2 hidden md:block"></div>
+
+                    {isSaving && <span className="text-xs text-gray-400 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Saving...</span>}
+
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowAddWidget(!showAddWidget)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                        >
+                            <Plus size={16} /> Add Widget
+                        </button>
+
+                        {showAddWidget && (
+                            <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-2">
+                                <div className="px-3 py-2 border-b border-gray-50 text-xs font-semibold text-gray-500 uppercase">Available Widgets</div>
+                                {Object.entries(WidgetRegistry).map(([key, entry]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => addWidget(key)}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                                    >
+                                        {entry.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <ResponsiveGridLayoutWithWidth
+                className="layout"
+                layouts={{ lg: rglLayout }}
+                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+                cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+                rowHeight={100}
+                onLayoutChange={(l: any, all: any) => onLayoutChange(l, all)}
+                isDraggable={true}
+                isResizable={true}
+                draggableHandle=".drag-handle"
+            >
+                {widgets.map(w => (
+                    <div key={w.id} className="bg-transparent h-full relative group">
+                        {/* Drag Handle Overlay */}
+                        <div className="drag-handle absolute top-2 right-2 p-1 cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 rounded z-10 hover:bg-white text-gray-500">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="12" r="1" /><circle cx="9" cy="5" r="1" /><circle cx="9" cy="19" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="15" cy="19" r="1" /></svg>
+                        </div>
+                        <button
+                            onClick={() => removeWidget(w.id)}
+                            className="absolute top-2 right-8 p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 rounded z-10 hover:bg-red-50 hover:text-red-500 text-gray-400"
+                            title="Remove Widget"
+                        >
+                            <X size={14} />
+                        </button>
+                        {renderWidget(w.widgetKey, {
+                            settings: w.settings,
+                            className: "h-full",
+                            dateRange,
+                            comparison: comparisonRange
+                        })}
+                    </div>
+                ))}
+            </ResponsiveGridLayoutWithWidth>
+        </div>
+    );
+}

@@ -1,0 +1,48 @@
+{
+    "name": "overseek-server",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "nodemon -r ts-node/register src/index.ts",
+        "build": "tsc",
+        "start": "node dist/index.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+        "@bull-board/api": "^5.10.2",
+        "@bull-board/express": "^5.10.2",
+        "@elastic/elasticsearch": "^8.11.0",
+        "@prisma/client": "^5.22.0",
+        "@types/bcryptjs": "^2.4.6",
+        "@types/geoip-lite": "^1.4.4",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@types/multer": "^2.0.0",
+        "@woocommerce/woocommerce-rest-api": "^1.0.2",
+        "bcryptjs": "^3.0.3",
+        "bullmq": "^5.1.0",
+        "cors": "^2.8.5",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2",
+        "geoip-lite": "^1.4.10",
+        "helmet": "^7.1.0",
+        "imap-simple": "^5.1.0",
+        "ioredis": "^5.3.2",
+        "jsonwebtoken": "^9.0.3",
+        "multer": "^2.0.2",
+        "nodemailer": "^7.0.12",
+        "pg": "^8.11.3",
+        "prisma": "^5.22.0",
+        "socket.io": "^4.8.3",
+        "winston": "^3.11.0"
+    },
+    "devDependencies": {
+        "@types/cors": "^2.8.17",
+        "@types/express": "^4.17.21",
+        "@types/imap-simple": "^4.2.10",
+        "@types/node": "^20.10.4",
+        "@types/nodemailer": "^7.0.4",
+        "nodemon": "^3.0.2",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.3.3"
+    }
+}

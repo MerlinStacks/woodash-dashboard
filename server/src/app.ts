@@ -1,0 +1,176 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { Client } from '@elastic/elasticsearch';
+import authRoutes from './routes/auth';
+import accountRoutes from './routes/account';
+import wooRoutes from './routes/woo';
+import syncRoutes from './routes/sync';
+import webhookRoutes from './routes/webhook';
+import adsRoutes from './routes/ads';
+import dashboardRoutes from './routes/dashboard';
+import path from 'path';
+import analyticsRoutes from './routes/analytics';
+import productsRoutes from './routes/products';
+import customersRoutes from './routes/customers';
+import searchRoutes from './routes/search';
+import aiRoutes from './routes/ai';
+import notificationRoutes from './routes/notifications';
+import inventoryRoutes from './routes/inventory';
+import reviewRoutes from './routes/reviews';
+import helpRoutes from './routes/help';
+import trackingRoutes from './routes/tracking';
+import markersRoutes from './routes/marketing'; // corrected below
+import marketingRoutes from './routes/marketing';
+import emailRoutes from './routes/email';
+import ordersRoutes from './routes/orders'; // Mount Orders API
+import segmentsRoutes from './routes/segments';
+
+import { esClient } from './utils/elastic';
+
+import http from 'http';
+import { Server } from 'socket.io';
+import { createChatRouter } from './routes/chat';
+import { ChatService } from './services/ChatService';
+import { QueueFactory, QUEUES } from './services/queue/QueueFactory';
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
+import { EventBus, EVENTS } from './services/events';
+import { AutomationEngine } from './services/AutomationEngine';
+
+// Init Queues for Bull Board
+QueueFactory.init();
+
+const automationEngine = new AutomationEngine(); // Keep for event listeners
+
+const app = express();
+
+// Security & Middleware
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Global: Disable caching for all API responses to ensure fresh data
+app.use((req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    next();
+});
+
+// Create HTTP server and Socket.IO
+const server = http.createServer(app);
+// Force restart
+const io = new Server(server, {
+    cors: {
+        origin: process.env.CORS_ORIGIN || "*", // Allow all for dev, tighten in prod
+        methods: ["GET", "POST"]
+    }
+});
+
+// Initialize Chat Service
+const chatService = new ChatService(io);
+
+import adminRoutes from './routes/admin';
+
+// Routes
+app.use('/api/admin', adminRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/accounts', accountRoutes);
+app.use('/api/woo', wooRoutes);
+app.use('/api/sync', syncRoutes);
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/ads', adsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/products', productsRoutes);
+app.use('/api/customers', customersRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/help', helpRoutes);
+app.use('/api/tracking', trackingRoutes);
+app.use('/api/marketing', marketingRoutes); // Mount Marketing API
+app.use('/api/email', emailRoutes);
+app.use('/api/segments', segmentsRoutes);
+app.use('/api/orders', ordersRoutes); // Mount Orders API
+
+// Mount Chat Routes
+app.use('/api/chat', createChatRouter(chatService));
+
+// Mount Bull Board
+console.log('[BullBoard] Initializing Bull Board...');
+const serverAdapter = QueueFactory.createBoard();
+console.log('[BullBoard] Mounting at /admin/queues');
+app.use('/admin/queues', serverAdapter.getRouter());
+
+// Listen for Automation Events
+EventBus.on(EVENTS.ORDER.CREATED, async (data) => {
+    // console.log('Event Received: Order Created', data.accountId);
+    await automationEngine.processTrigger(data.accountId, 'ORDER_CREATED', data.order);
+});
+
+EventBus.on(EVENTS.REVIEW.LEFT, async (data) => {
+    await automationEngine.processTrigger(data.accountId, 'REVIEW_LEFT', data.review);
+});
+
+EventBus.on(EVENTS.EMAIL.RECEIVED, async (data) => {
+    await chatService.handleIncomingEmail(data);
+});
+
+// Health Check
+app.get('/health', async (req: Request, res: Response) => {
+    let esStatus = 'disconnected';
+    try {
+        const health = await esClient.cluster.health();
+        esStatus = health.status;
+        if (esStatus !== 'red') { // Basic check, ideally wait for green/yellow
+            // Ensure indices exist
+            const { IndexingService } = require('./services/search/IndexingService');
+            await IndexingService.initializeIndices();
+        }
+    } catch (error) {
+        // console.error('Elasticsearch health check failed');
+        esStatus = 'unreachable';
+    }
+
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        services: {
+            elasticsearch: esStatus,
+            socket: 'active'
+        }
+    });
+});
+
+// Socket.io Connection Logic
+io.on('connection', (socket) => {
+    // console.log('New client connected:', socket.id);
+
+    socket.on('join:account', (accountId) => {
+        socket.join(`account:${accountId}`);
+    });
+
+    socket.on('join:conversation', (convId) => {
+        socket.join(`conversation:${convId}`);
+    });
+
+    socket.on('leave:conversation', (convId) => {
+        socket.leave(`conversation:${convId}`);
+    });
+
+    socket.on('disconnect', () => {
+        // console.log('Client disconnected:', socket.id);
+    });
+});
+
+export { app, server, io, automationEngine };

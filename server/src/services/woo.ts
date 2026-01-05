@@ -1,0 +1,115 @@
+import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api";
+import https from 'https';
+import { PrismaClient } from '@prisma/client';
+import { MOCK_PRODUCTS, MOCK_ORDERS, MOCK_CUSTOMERS, MOCK_REVIEWS } from './mockWooData';
+
+const prisma = new PrismaClient();
+
+interface WooCredentials {
+    url: string;
+    consumerKey: string;
+    consumerSecret: string;
+}
+
+export class WooService {
+    private api: WooCommerceRestApi;
+    private maxRetries = 3;
+    private isDemo = false;
+
+    constructor(creds: WooCredentials) {
+        // Extract hostname for SNI
+        const url = new URL(creds.url);
+
+        this.api = new WooCommerceRestApi({
+            url: creds.url,
+            consumerKey: creds.consumerKey,
+            consumerSecret: creds.consumerSecret,
+            version: "wc/v3",
+            queryStringAuth: true, // Useful for some hosting providers
+            axiosConfig: {
+                // Fixes SSL Alert 112 (Unrecognized Name) by sending SNI
+                httpsAgent: new https.Agent({
+                    rejectUnauthorized: false,
+                    servername: url.hostname
+                })
+            }
+        });
+
+        // Detect Demo Mode (Strictly for the demo domain only)
+        // if (creds.url.includes("demo.overseek.com") || creds.url.includes("example.com")) {
+        //     this.isDemo = true;
+        //     console.log("[WooService] Demo Mode Activated for URL:", creds.url);
+        // }
+    }
+
+    static async forAccount(accountId: string) {
+        const account = await prisma.account.findUnique({
+            where: { id: accountId }
+        });
+
+        if (!account) throw new Error("Account not found");
+        if (!account.wooUrl || !account.wooConsumerKey || !account.wooConsumerSecret) {
+            throw new Error("Account missing WooCommerce credentials");
+        }
+
+        return new WooService({
+            url: account.wooUrl,
+            consumerKey: account.wooConsumerKey,
+            consumerSecret: account.wooConsumerSecret
+        });
+    }
+
+    private async requestWithRetry(method: string, endpoint: string, params: any = {}): Promise<any> {
+        let retries = 0;
+        while (retries < this.maxRetries) {
+            try {
+                const response = await this.api.get(endpoint, params);
+                return {
+                    data: response.data,
+                    total: parseInt(response.headers['x-wp-total'] || '0', 10),
+                    totalPages: parseInt(response.headers['x-wp-totalpages'] || '0', 10)
+                };
+            } catch (error: any) {
+                // Check for 429 Too Many Requests
+                if (error.response && error.response.status === 429) {
+                    retries++;
+                    const waitTime = Math.pow(2, retries) * 1000; // Exponential backoff: 2s, 4s, 8s
+                    console.warn(`[WooService] Rate limited on ${endpoint}. Retrying in ${waitTime}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    continue;
+                }
+
+                // Throw specific error for other cases
+                console.error(`[WooService] Error fetching ${endpoint}:`, error.message);
+                throw error;
+            }
+        }
+        throw new Error(`Failed to fetch ${endpoint} after ${this.maxRetries} retries`);
+    }
+
+    async getOrders(params: { after?: string; page?: number; per_page?: number } = {}) {
+        if (this.isDemo) return Promise.resolve({ data: MOCK_ORDERS, total: MOCK_ORDERS.length, totalPages: 1 });
+        return this.requestWithRetry('get', 'orders', { ...params, per_page: params.per_page || 20 });
+    }
+
+    async getProducts(params: { after?: string; page?: number; per_page?: number } = {}) {
+        if (this.isDemo) return Promise.resolve({ data: MOCK_PRODUCTS, total: MOCK_PRODUCTS.length, totalPages: 1 });
+        return this.requestWithRetry('get', 'products', { ...params, per_page: params.per_page || 20 });
+    }
+
+    async getCustomers(params: { after?: string; page?: number; per_page?: number } = {}) {
+        if (this.isDemo) return Promise.resolve({ data: MOCK_CUSTOMERS, total: MOCK_CUSTOMERS.length, totalPages: 1 });
+        return this.requestWithRetry('get', 'customers', { ...params, per_page: params.per_page || 20 });
+    }
+
+    async getReviews(params: { after?: string; page?: number; per_page?: number } = {}) {
+        if (this.isDemo) return Promise.resolve({ data: MOCK_REVIEWS, total: MOCK_REVIEWS.length, totalPages: 1 });
+        return this.requestWithRetry('get', 'products/reviews', { ...params, per_page: params.per_page || 20 });
+    }
+
+    async getSystemStatus() {
+        if (this.isDemo) return Promise.resolve({ environment: { version: "8.0.0" } });
+        return this.requestWithRetry('get', 'system_status');
+    }
+
+}

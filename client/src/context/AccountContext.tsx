@@ -1,0 +1,98 @@
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth } from './AuthContext';
+
+export interface Account {
+    id: string;
+    name: string;
+    domain: string | null;
+    wooUrl: string;
+    wooConsumerKey?: string;
+    openRouterApiKey?: string;
+    aiModel?: string;
+    appearance?: {
+        logoUrl?: string;
+        primaryColor?: string;
+        appName?: string;
+    };
+    goldPrice?: number;
+    goldPriceCurrency?: string;
+    features?: { featureKey: string; isEnabled: boolean }[];
+}
+
+interface AccountContextType {
+    accounts: Account[];
+    currentAccount: Account | null;
+    isLoading: boolean;
+    refreshAccounts: () => Promise<void>;
+    setCurrentAccount: (account: Account) => void;
+}
+
+const AccountContext = createContext<AccountContextType | undefined>(undefined);
+
+export function AccountProvider({ children }: { children: ReactNode }) {
+    const { token } = useAuth();
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const refreshAccounts = async () => {
+        if (!token) {
+            setAccounts([]);
+            setCurrentAccount(null);
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/accounts', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setAccounts(data);
+
+                // Try to find the account we should show:
+                // 1. The account currently in state (if we are just refreshing data)
+                // 2. The account saved in localStorage (if we just reloaded the page)
+                // 3. The first account in the list (fallback)
+                const savedId = localStorage.getItem('selectedAccountId');
+                const targetId = currentAccount?.id || savedId;
+
+                const accountToSelect = data.find((a: Account) => a.id === targetId) || (data.length > 0 ? data[0] : null);
+
+                if (accountToSelect) {
+                    setCurrentAccount(accountToSelect);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch accounts', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Persist selection to localStorage whenever it changes
+    useEffect(() => {
+        if (currentAccount?.id) {
+            localStorage.setItem('selectedAccountId', currentAccount.id);
+        }
+    }, [currentAccount?.id]);
+
+    useEffect(() => {
+        refreshAccounts();
+    }, [token]);
+
+    return (
+        <AccountContext.Provider value={{ accounts, currentAccount, isLoading, refreshAccounts, setCurrentAccount }}>
+            {children}
+        </AccountContext.Provider>
+    );
+}
+
+export function useAccount() {
+    const context = useContext(AccountContext);
+    if (context === undefined) {
+        throw new Error('useAccount must be used within an AccountProvider');
+    }
+    return context;
+}
