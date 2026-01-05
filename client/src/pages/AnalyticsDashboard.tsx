@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import VisitorLogWidget from '../components/widgets/VisitorLogWidget';
 import EcommerceLogWidget from '../components/widgets/EcommerceLogWidget';
 import { BarChart3, Users, Globe, Search } from 'lucide-react';

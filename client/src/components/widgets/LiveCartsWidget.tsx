@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ShoppingCart, Clock, User as UserIcon } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '../ui/card'; // Adjust generic UI imports
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card'; // Adjust generic UI imports
 import { formatDistanceToNow } from 'date-fns';
 
 interface CartSession {
