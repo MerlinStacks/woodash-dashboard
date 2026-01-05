@@ -43,7 +43,6 @@ services:
       context: ./server
     pull_policy: build
     container_name: overseekv2-api-1
-    command: sh -c "npx prisma generate && npx ts-node src/index.ts"
     ports:
       - "3000:3000"
     environment:
@@ -57,9 +56,8 @@ services:
       - elasticsearch
     extra_hosts:
       - "host.docker.internal:host-gateway" # Allow container to reach host
-    volumes:
-      - ./server:/app
-      - server_node_modules:/app/node_modules
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # Allow container to reach host
 
   web:
     build:
@@ -72,9 +70,8 @@ services:
       VITE_API_URL: http://localhost:3000
     depends_on:
       - api
-    volumes:
-      - ./client:/app
-      - /app/node_modules
+    depends_on:
+      - api
 
 volumes:
   postgres_data:

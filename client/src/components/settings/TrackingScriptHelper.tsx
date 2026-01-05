@@ -43,7 +43,17 @@ export function TrackingScriptHelper() {
                 <Info className="flex-shrink-0 w-5 h-5 text-blue-600 mt-0.5" />
                 <div className="text-sm text-blue-800">
                     <p className="font-medium mb-1">Installation Required</p>
-                    <p>To enable Live View and abandoned cart tracking, you must add this tracking code to your WooCommerce store's <code>header.php</code> or via a plugin like "Insert Headers and Footers".</p>
+                    <p>To enable Live View and abandoned cart tracking, you must install the official OverSeek WooCommerce plugin.</p>
+                    <div className="mt-3">
+                        <a
+                            href={`${apiUrl}/uploads/plugins/overseek-wc-plugin.zip`}
+                            download
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
+                            Download Plugin
+                        </a>
+                    </div>
                 </div>
             </div>
 

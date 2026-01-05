@@ -196,4 +196,29 @@ export class TrackingService {
             orderBy: { createdAt: 'desc' }
         });
     }
+
+    /**
+     * Find Abandoned Carts
+     * Sessions with cartValue > 0, email set, inactive for X mins, not yet notified
+     */
+    static async findAbandonedCarts(accountId: string, thresholdMinutes: number = 30) {
+        const cutoff = new Date(Date.now() - thresholdMinutes * 60 * 1000);
+
+        return prisma.analyticsSession.findMany({
+            where: {
+                accountId,
+                cartValue: { gt: 0 },
+                email: { not: null },
+                lastActiveAt: { lt: cutoff },
+                abandonedNotificationSentAt: null
+            }
+        });
+    }
+
+    static async markAbandonedNotificationSent(sessionId: string) {
+        return prisma.analyticsSession.update({
+            where: { id: sessionId },
+            data: { abandonedNotificationSentAt: new Date() }
+        });
+    }
 }

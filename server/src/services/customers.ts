@@ -25,14 +25,13 @@ export class CustomersService {
         try {
             const response = await esClient.search({
                 index: 'customers',
-                body: {
-                    query: {
-                        bool: { must }
-                    },
-                    from,
-                    size: limit,
-                    sort: [{ totalSpent: { order: 'desc' } }] // Sort by VIP status default
-                }
+                query: {
+                    bool: { must }
+                },
+                from,
+                size: limit,
+                sort: [{ totalSpent: { order: 'desc' } }],
+                track_total_hits: true
             });
 
             const hits = response.hits.hits.map(hit => ({
@@ -41,6 +40,7 @@ export class CustomersService {
             }));
 
             const total = (response.hits.total as any).value || 0;
+            console.log(`[CustomerSearch] Query="${query}" Page=${page} Recalculated Total=${total}`);
 
             return {
                 customers: hits,

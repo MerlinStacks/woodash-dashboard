@@ -45,7 +45,7 @@ export function AdminSidebar() {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-2 px-3 space-y-1">
+            <div className="flex-1 overflow-y-auto py-2 px-3 space-y-1 no-scrollbar">
                 {navItems.map((item) => (
                     <NavLink
                         key={item.path}

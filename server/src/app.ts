@@ -14,6 +14,7 @@ import webhookRoutes from './routes/webhook';
 import adsRoutes from './routes/ads';
 import dashboardRoutes from './routes/dashboard';
 import path from 'path';
+import { prisma } from './utils/prisma';
 import analyticsRoutes from './routes/analytics';
 import productsRoutes from './routes/products';
 import customersRoutes from './routes/customers';
@@ -37,7 +38,10 @@ import { esClient } from './utils/elastic';
 import http from 'http';
 import { Server } from 'socket.io';
 import { createChatRouter } from './routes/chat';
+import { createPublicChatRouter } from './routes/chat-public'; // New
+import widgetRouter from './routes/widget'; // New
 import { ChatService } from './services/ChatService';
+import { TrackingService } from './services/TrackingService';
 import { QueueFactory, QUEUES } from './services/queue/QueueFactory';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
@@ -118,8 +122,10 @@ const io = new Server(server, {
 const chatService = new ChatService(io);
 
 import adminRoutes from './routes/admin';
+import debugRoutes from './routes/debug';
 
 // Routes
+app.use('/api/debug', debugRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/accounts', accountRoutes);
@@ -147,6 +153,8 @@ app.use('/api/audits', auditsRouter);
 
 // Mount Chat Routes
 app.use('/api/chat', createChatRouter(chatService));
+app.use('/api/chat/public', createPublicChatRouter(chatService)); // Public API
+app.use('/api/chat', widgetRouter); // Serves /api/chat/widget.js
 
 // Mount Bull Board
 console.log('[BullBoard] Initializing Bull Board...');
@@ -273,5 +281,47 @@ io.on('connection', (socket) => {
         }
     });
 });
+
+// --- CRON / SCHEDULERS ---
+
+// 1. Automation Ticker (Run every minute)
+setInterval(async () => {
+    try {
+        await automationEngine.runTicker();
+    } catch (e) {
+        console.error('Ticker Error', e);
+    }
+}, 60000);
+
+// 2. Abandoned Cart Detection (Every 5 mins)
+setInterval(async () => {
+    try {
+        // Fetch valid account IDs (optimize in prod to stream or batch)
+        const accounts = await prisma.account.findMany({
+            select: { id: true }
+        });
+
+        for (const acc of accounts) {
+            try {
+                // Find carts abandoned for > 30 mins
+                const abandonedSessions = await TrackingService.findAbandonedCarts(acc.id, 30);
+
+                for (const session of abandonedSessions) {
+                    console.log(`[AbandonedCart] Found session ${session.id} for account ${acc.id}`);
+
+                    // Trigger Automation
+                    await automationEngine.processTrigger(acc.id, 'ABANDONED_CART', session);
+
+                    // Mark as processed regardless of whether automation ran (to avoiding looping)
+                    await TrackingService.markAbandonedNotificationSent(session.id);
+                }
+            } catch (err) {
+                console.error(`[AbandonedCart] Error for account ${acc.id}`, err);
+            }
+        }
+    } catch (e) {
+        console.error('Abandoned Cart Cron Error', e);
+    }
+}, 5 * 60 * 1000);
 
 export { app, server, io, automationEngine };

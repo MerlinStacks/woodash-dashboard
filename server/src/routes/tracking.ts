@@ -100,34 +100,64 @@ router.get('/tracking.js', (req, res) => {
     // 4. WooCommerce Events (jQuery)
     if (typeof jQuery !== 'undefined') {
         jQuery(document.body).on('added_to_cart', function(e, fragments, cart_hash, button) {
-             // We need cart total. WooCommerce fragments might contain it.
-             // fragments['div.widget_shopping_cart_content'] usually has HTML.
-             // Better to just trigger an "update_cart" event which might fetch cart?
-             // Or assume backend will fetch/sync?
-             // Actually, for "Live Cart" value, we can try to parse it or just trigger.
+            let total = 0;
+            try {
+                // Attempt 1: Parse from fragments if available
+                if (fragments && fragments['div.widget_shopping_cart_content']) {
+                    const div = document.createElement('div');
+                    div.innerHTML = fragments['div.widget_shopping_cart_content'];
+                    // Try common selectors for subtotal
+                    const amountEl = div.querySelector('.woocommerce-mini-cart__total .amount') || 
+                                     div.querySelector('.total .amount');
+                    if (amountEl) {
+                         const text = amountEl.textContent || '';
+                         // Remove currency symbols and non-numeric chars (keep dot/comma)
+                         // Simple parse: remove non-digits/dots. Handle 1,000.00 vs 1.000,00?
+                         // For now, assume standard dot decimal or simple cleanup.
+                         const clean = text.replace(/[^0-9.]/g, '');
+                         total = parseFloat(clean) || 0;
+                    }
+                }
+            } catch (err) {
+                console.error('OverSeek: Error parsing cart', err);
+            }
              
-             // Simplest: Send 'add_to_cart'.
-             // To get the actual value, we might need to look at specific DOM elements or global wc objects if exposed.
-             // 'wc_cart_params' is sometimes available.
-             
-             // Let's rely on 'wc_fragments_refreshed' or similar updates.
-             sendEvent('add_to_cart');
+            sendEvent('add_to_cart', { total: total });
         });
 
-        jQuery(document.body).on('removed_from_cart', function() {
-            sendEvent('remove_from_cart');
+        jQuery(document.body).on('removed_from_cart', function(e, fragments, cart_hash, button) {
+            // Similar logic for removal, if fragments are passed (often they are in newer WC)
+            // If not, we might need to wait a tick and scrape the DOM.
+            setTimeout(() => {
+                let total = 0;
+                const amountEl = document.querySelector('.woocommerce-mini-cart__total .amount') || 
+                                 document.querySelector('.total .amount');
+                if (amountEl) {
+                     const text = amountEl.textContent || '';
+                     const clean = text.replace(/[^0-9.]/g, '');
+                     total = parseFloat(clean) || 0;
+                }
+                sendEvent('remove_from_cart', { total: total });
+            }, 500);
         });
 
-        // Try to scrape cart total from common selectors if possible?
-        // Or cleaner: Client sends update, we don't have total.
-        // Wait, the plan said "Listening for WooCommerce events... to update cart contents and value."
-        // Doing this strictly client-side without access to the store's backend is hard unless we parse HTML.
-        // Standard WooCommerce AJAX cart response usually updates fragments.
-        // We can parse the fragments if we want.
+    // 5. Checkout Email Capture (Abandoned Cart)
+    const emailField = document.querySelector('input#billing_email');
+    if (emailField) {
+        emailField.addEventListener('blur', function(e) {
+            const email = e.target.value;
+            if (email && email.includes('@')) {
+                 sendEvent('checkout_start', { email: email });
+            }
+        });
         
-        // For V1, sending the event is good.
-        // If we want value, we can try to find the cart total element.
-        // '.woocommerce-mini-cart__total' or similar.
+        // Also capture on change if they use autofill
+        emailField.addEventListener('change', function(e) {
+             const email = e.target.value;
+             if (email && email.includes('@')) {
+                  sendEvent('checkout_start', { email: email });
+             }
+        });
     }
 
     // Periodic Heartbeat (keep session alive)

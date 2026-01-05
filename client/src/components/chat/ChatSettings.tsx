@@ -11,12 +11,15 @@ export function ChatSettings() {
 
     // Default config
     const [config, setConfig] = useState({
+        position: 'bottom-right',
+        showOnMobile: true,
         autoReply: {
             enabled: false,
             message: "Thanks for your message! We'll get back to you shortly."
         },
         businessHours: {
             enabled: false,
+            // ... (rest of business hours unchanged)
             days: {
                 mon: { open: '09:00', close: '17:00', isOpen: true },
                 tue: { open: '09:00', close: '17:00', isOpen: true },
@@ -71,6 +74,35 @@ export function ChatSettings() {
     return (
         <div className="bg-white rounded-xl shadow border border-gray-200 p-6 space-y-8">
             <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Widget Appearance</h3>
+                <div className="grid gap-6 md:grid-cols-2">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Position</label>
+                        <select
+                            value={config.position || 'bottom-right'}
+                            onChange={e => setConfig({ ...config, position: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        >
+                            <option value="bottom-right">Bottom Right</option>
+                            <option value="bottom-left">Bottom Left</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Visibility</label>
+                        <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                            <input
+                                type="checkbox"
+                                checked={config.showOnMobile ?? true}
+                                onChange={e => setConfig({ ...config, showOnMobile: e.target.checked })}
+                                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-600">Show on Mobile Devices</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="border-t pt-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Auto-Reply</h3>
                 <div className="flex items-center gap-4 mb-4">
                     <input
