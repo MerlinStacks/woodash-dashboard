@@ -450,7 +450,11 @@ class OverSeek_Server_Tracking
 
 		if (is_product()) {
 			global $product;
-			if ($product) {
+			// Ensure $product is a valid WC_Product object (can be ID on some themes)
+			if ($product && !is_object($product)) {
+				$product = wc_get_product($product);
+			}
+			if ($product && is_object($product)) {
 				$payload['productId'] = $product->get_id();
 				$payload['productName'] = $product->get_name();
 				$payload['productPrice'] = floatval($product->get_price());
