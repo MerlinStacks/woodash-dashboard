@@ -80,7 +80,8 @@ app.use(cors({
 }));
 
 // Rate Limiting: 2000 requests per 15 minutes per IP (Accommodate 2s polling)
-import rateLimit from 'express-rate-limit';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 2000, // Increased from 100 to support polling
