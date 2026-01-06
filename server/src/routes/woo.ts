@@ -79,13 +79,25 @@ router.post('/configure', async (req: Request, res: Response) => {
         }
 
         // Push configuration to the plugin
-        // We send the origin as the API URL, and the account ID
-        const result = await woo.updatePluginSettings({
-            account_id: accountId,
-            api_url: cleanOrigin
-        });
-
-        res.json({ success: true, plugin_response: result });
+        try {
+            const result = await woo.updatePluginSettings({
+                account_id: accountId,
+                api_url: cleanOrigin
+            });
+            res.json({ success: true, plugin_response: result });
+        } catch (pluginError: any) {
+             console.error('Plugin Settings Update Failed:', pluginError.message);
+             
+             // Check if it's a 401 Unauthorized during the write operation
+             if (pluginError.response && pluginError.response.status === 401) {
+                 return res.status(401).json({
+                     error: 'Configuration failed. Your API Key appears to be "Read Only". Please generate new WooCommerce keys with "Read/Write" permissions.',
+                     details: pluginError.response.data
+                 });
+             }
+             
+             throw pluginError; // Re-throw to be caught by the outer error handler for generic errors
+        }
     } catch (error: any) {
         const errorDetails = {
             message: error.message,

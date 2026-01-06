@@ -37,14 +37,24 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
         req.accountId = accountId;
 
         // Strict enforcement for specific routes
-        if (!accountId && (
-            req.originalUrl.includes('/customers') ||
-            req.originalUrl.includes('/products') ||
-            req.originalUrl.includes('/marketing') ||
-            req.originalUrl.includes('/orders') || // Added orders to strict enforcement
-            req.originalUrl.includes('/analytics') ||
-            req.originalUrl.includes('/woo/configure')
-        )) {
+        // Strict enforcement for specific routes (Business Logic)
+        const STRICT_ACCOUNT_ROUTES = [
+            '/customers',
+            '/products',
+            '/marketing',
+            '/orders',
+            '/analytics',
+            '/woo/configure',
+            '/inventory',
+            '/invoices',
+            '/email',
+            '/segments',
+            '/audits'
+        ];
+
+        const isStrictRoute = STRICT_ACCOUNT_ROUTES.some(route => req.originalUrl.includes(route));
+
+        if (!accountId && isStrictRoute) {
             return res.status(400).json({ error: 'No account selected' });
         }
 

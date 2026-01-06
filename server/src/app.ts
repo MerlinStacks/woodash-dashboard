@@ -101,6 +101,10 @@ app.use(helmet({
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Request Logging
+import { requestLogger } from './middleware/requestLogger';
+app.use(requestLogger);
+
 // Global: Disable caching for all API responses to ensure fresh data
 app.use((req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');

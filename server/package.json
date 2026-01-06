@@ -32,10 +32,13 @@
         "jsonwebtoken": "^9.0.3",
         "multer": "^2.0.2",
         "nodemailer": "^7.0.12",
+        "otplib": "^12.0.1",
         "pg": "^8.11.3",
         "prisma": "^5.22.0",
+        "qrcode": "^1.5.4",
         "socket.io": "^4.8.3",
-        "winston": "^3.11.0"
+        "winston": "^3.11.0",
+        "zod": "^4.3.5"
     },
     "devDependencies": {
         "@types/cors": "^2.8.17",

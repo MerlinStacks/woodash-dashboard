@@ -13,7 +13,7 @@ echo "[Startup] Running database migrations..."
 MAX_RETRIES=30
 COUNT=0
 
-until npx prisma migrate deploy; do
+until npx prisma db push --accept-data-loss; do
   COUNT=$((COUNT+1))
   if [ $COUNT -ge $MAX_RETRIES ]; then
     echo "[Startup] Migration failed after $MAX_RETRIES attempts. Exiting."

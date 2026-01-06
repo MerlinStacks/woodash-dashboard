@@ -23,6 +23,16 @@ model User {
   shiftStart   String? // e.g. "09:00"
   shiftEnd     String? // e.g. "17:00"
   isSuperAdmin Boolean  @default(false)
+  
+  // Password Reset
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
+  // Two-Factor Auth
+  twoFactorSecret    String? // Store encrypted ideally, but raw for MVP
+  isTwoFactorEnabled Boolean @default(false)
+  twoFactorBackupCodes Json? @default("[]")
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -30,6 +40,19 @@ model User {
   dashboards            DashboardLayout[]
   assignedConversations Conversation[]
   auditLogs             AuditLog[]
+  refreshTokens         RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  ipAddress String?
+  userAgent String?
 }
 
 model Account {

@@ -189,7 +189,7 @@ export function InventoryPage() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                                    <div dangerouslySetInnerHTML={{ __html: product.price ? `$${product.price}` : '-' }} />
+                                                    {product.price ? `$${product.price}` : '-'}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <button

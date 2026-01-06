@@ -11,6 +11,12 @@ import { IndexingService } from './services/search/IndexingService';
 
 const port = process.env.PORT || 3000;
 
+if (!process.env.JWT_SECRET) {
+  console.warn('[SECURITY] WARNING: JWT_SECRET is not defined in environment variables. Using unsafe default.');
+} else if (process.env.JWT_SECRET === 'super-secret-dev-key') {
+  console.warn('[SECURITY] WARNING: JWT_SECRET is set to the default insecure key. Please change this in production.');
+}
+
 // Global Error Handlers to prevent silent crashes
 process.on('uncaughtException', (error) => {
   console.error('[CRITICAL] Uncaught Exception:', error);
