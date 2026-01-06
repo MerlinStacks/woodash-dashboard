@@ -28,3 +28,5 @@
     - User noted `overseek-integration-single.php`.
     - Found identical strict permission check.
     - Status: Applied fix to single-file version as well.
+    - **Outcome:** User still reports 401.
+    - **Action:** Adding server-side pre-check (`getSystemStatus`) to verify credentials. This will isolate if the issue is *Bad Keys* vs *Plugin Permissions*.

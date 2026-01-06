@@ -64,6 +64,20 @@ router.post('/configure', async (req: Request, res: Response) => {
             woo = await WooService.forAccount(accountId);
         }
 
+
+        // Validate credentials against a standard endpoint first
+        try {
+            // Check system status (requires read access)
+            // If this fails, the credentials themselves are likely invalid or have very low permissions
+            await woo.getSystemStatus();
+        } catch (authError: any) {
+            console.error('Credential Verification Failed:', authError.message);
+            return res.status(401).json({
+                error: 'Invalid WooCommerce Credentials. Please check your Consumer Key and Secret.',
+                details: authError.message
+            });
+        }
+
         // Push configuration to the plugin
         // We send the origin as the API URL, and the account ID
         const result = await woo.updatePluginSettings({
