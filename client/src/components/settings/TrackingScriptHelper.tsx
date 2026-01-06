@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Copy, Check, Info, Monitor, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
-import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 
 export function TrackingScriptHelper() {
     const { currentAccount } = useAccount();
+    const { token } = useAuth();
     const [copied, setCopied] = useState(false);
 
     // Status Check State
@@ -14,13 +16,17 @@ export function TrackingScriptHelper() {
     const checkConnection = async () => {
         setCheckStatus('loading');
         try {
-            const { data } = await api.get('/tracking/status', {
-                headers: { 'x-account-id': currentAccount.id }
-            });
+            // Using the api helper which expects: (endpoint, token, accountId)
+            // It returns the data directly, not { data }
+            const result = await api.get<{ connected: boolean; lastSignal: string | null }>(
+                '/api/tracking/status',
+                token || undefined,
+                currentAccount.id
+            );
 
-            if (data.connected) {
+            if (result.connected) {
                 setCheckStatus('connected');
-                setLastSignal(data.lastSignal);
+                setLastSignal(result.lastSignal);
             } else {
                 setCheckStatus('inactive');
                 setLastSignal(null);
@@ -121,8 +127,8 @@ export function TrackingScriptHelper() {
                     {/* Status Feedback */}
                     {checkStatus !== 'idle' && (
                         <div className={`mt-4 p-3 rounded-md text-sm border flex items-start gap-3 ${checkStatus === 'connected' ? 'bg-green-50 border-green-200 text-green-800' :
-                                checkStatus === 'inactive' ? 'bg-amber-50 border-amber-200 text-amber-800' :
-                                    'bg-red-50 border-red-200 text-red-800'
+                            checkStatus === 'inactive' ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                                'bg-red-50 border-red-200 text-red-800'
                             }`}>
                             {checkStatus === 'connected' && <Check className="w-5 h-5 text-green-600 flex-shrink-0" />}
                             {checkStatus === 'inactive' && <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />}
