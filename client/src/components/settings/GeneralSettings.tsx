@@ -107,7 +107,10 @@ export function GeneralSettings() {
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to configure plugin');
+            if (!res.ok) {
+                console.error('Plugin Config Error Data:', data);
+                throw new Error(data.error || 'Failed to configure plugin');
+            }
 
             alert('Plugin configured successfully! The settings have been pushed to your WooCommerce site.');
         } catch (error: any) {

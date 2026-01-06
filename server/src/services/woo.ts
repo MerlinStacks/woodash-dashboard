@@ -203,7 +203,8 @@ export class WooService {
             url: this.url,
             consumerKey: this.consumerKey,
             consumerSecret: this.consumerSecret,
-            version: "overseek/v1" as any, // Target our custom namespace
+            // @ts-ignore
+            version: "overseek/v1", // Target our custom namespace
             queryStringAuth: true,
             axiosConfig: this.axiosConfig
         });

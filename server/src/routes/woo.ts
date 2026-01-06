@@ -84,7 +84,7 @@ router.post('/configure', async (req: Request, res: Response) => {
         }
 
         res.status(500).json({
-            error: userMessage,
+            error: `${userMessage} (${error.message}) - ${JSON.stringify(error.response?.data || {})}`,
             technical_details: error.message,
             woo_response: error.response?.data
         });
