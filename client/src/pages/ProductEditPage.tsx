@@ -108,6 +108,7 @@ export function ProductEditPage() {
         height: '',
         cogs: '',
         supplierId: '',
+        binLocation: '',
         images: [] as any[]
     });
 
@@ -365,7 +366,7 @@ export function ProductEditPage() {
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">SEO Health</h3>
                                 <div className="flex gap-2">
-                                    <SeoScoreBadge score={seoResult.score} size="md" />
+                                    <SeoScoreBadge score={seoResult.score || 0} size="md" />
                                 </div>
                             </div>
                             <SeoAnalysisPanel
@@ -429,7 +430,7 @@ export function ProductEditPage() {
                                     </span>
                                 </h1>
                                 <div className="flex items-center gap-3 mt-1">
-                                    <SeoScoreBadge score={seoResult.score} size="sm" />
+                                    <SeoScoreBadge score={seoResult.score || 0} size="sm" />
                                     <MerchantCenterScoreBadge score={product.merchantCenterScore || 0} size="sm" />
                                 </div>
                                 <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">

@@ -46,7 +46,9 @@ router.post('/configure', async (req: Request, res: Response) => {
         const { origin } = req.body; // Client sends its current origin
 
         if (!accountId) return res.status(400).json({ error: 'No account selected' });
-        if (!origin) return res.status(400).json({ error: 'Origin URL is required' });
+        // Clean origin to remove trailing slash
+        const cleanOrigin = origin ? origin.replace(/\/$/, '') : '';
+        if (!cleanOrigin) return res.status(400).json({ error: 'Origin URL is required' });
 
         const woo = await WooService.forAccount(accountId);
 
@@ -54,7 +56,7 @@ router.post('/configure', async (req: Request, res: Response) => {
         // We send the origin as the API URL, and the account ID
         const result = await woo.updatePluginSettings({
             account_id: accountId,
-            api_url: origin
+            api_url: cleanOrigin
         });
 
         res.json({ success: true, plugin_response: result });
@@ -64,19 +66,26 @@ router.post('/configure', async (req: Request, res: Response) => {
             response: error.response?.data,
             status: error.response?.status,
             headers: error.response?.headers,
-            config: {
-                url: error.config?.url,
-                method: error.config?.method,
-                baseURL: error.config?.baseURL
-            }
+            url: error.config?.url
         };
         console.error('Woo Configuration Error:', JSON.stringify(errorDetails, null, 2));
-        // Write to a temporary debug file
+
+        // Write to a temporary debug file for deeper inspection if needed
         require('fs').writeFileSync('debug_woo_error.json', JSON.stringify(errorDetails, null, 2));
 
+        // Determine a friendlier error message
+        let userMessage = 'Failed to configure plugin';
+        if (error.response?.status === 404) {
+            userMessage = 'Plugin endpoint not found on your store. Please ensure the OverSeek Helper Plugin is installed and active.';
+        } else if (error.code === 'ENOTFOUND') {
+            userMessage = 'Could not DNS resolve your store URL. Please check your domain settings.';
+        } else if (error.message.includes('ECONNREFUSED')) {
+            userMessage = 'Connection refused. Is your store server reachable?';
+        }
+
         res.status(500).json({
-            error: 'Failed to configure plugin',
-            details: error.message,
+            error: userMessage,
+            technical_details: error.message,
             woo_response: error.response?.data
         });
     }

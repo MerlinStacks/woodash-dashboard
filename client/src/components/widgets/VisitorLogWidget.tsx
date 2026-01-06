@@ -99,7 +99,7 @@ const VisitorLogWidget: React.FC = () => {
                                 <Clock className="w-3 h-3 shrink-0" />
                                 <span>{formatDistanceToNow(new Date(v.lastActiveAt), { addSuffix: true })}</span>
                             </div>
-                            <div className="col-span-2 text-right truncate text-gray-400" title={v.referrer}>
+                            <div className="col-span-2 text-right truncate text-gray-400" title={v.referrer || 'Direct'}>
                                 {v.referrer ? new URL(v.referrer).hostname.replace('www.', '') : 'Direct'}
                             </div>
                         </div>

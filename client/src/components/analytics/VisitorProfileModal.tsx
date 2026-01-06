@@ -22,6 +22,7 @@ interface VisitorData {
         os?: string;
         referrer?: string;
         utmSource?: string;
+        utmMedium?: string;
         lastActiveAt: string;
         wooCustomerId?: number;
     };

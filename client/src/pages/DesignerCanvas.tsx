@@ -51,12 +51,14 @@ export function DesignerCanvas({ layout, items, selectedId, onLayoutChange, onSe
     return (
         <div className="flex-1 overflow-y-auto p-8 relative">
             <div className="max-w-[210mm] mx-auto min-h-[297mm] bg-white shadow-xl relative scale-100 origin-top">
+                {/* @ts-ignore */}
                 <ResponsiveGridLayout
                     className="layout"
                     layouts={{ lg: layout }}
                     breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
                     cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
                     rowHeight={30}
+                    // @ts-ignore
                     width={794}
                     onLayoutChange={onLayoutChange}
                     isDroppable={true}

@@ -83,8 +83,8 @@ export function ReportBuilder({ initialConfig, autoRun = false, viewMode = false
             const data = await AnalyticsService.generateReport(token, currentAccount.id, {
                 metrics,
                 dimension,
-                startDate: range.startDate,
-                endDate: range.endDate
+                startDate: new Date(range.startDate),
+                endDate: new Date(range.endDate)
             });
 
             setResults(data);

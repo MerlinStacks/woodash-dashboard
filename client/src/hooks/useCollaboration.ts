@@ -28,8 +28,8 @@ export const useCollaboration = (documentId: string) => {
 
         const presenceUser = {
             id: user.id || 'unknown',
-            name: `${user.firstName} ${user.lastName}`,
-            avatarUrl: user.avatarUrl, // Assuming this exists on user object
+            name: user.fullName || user.email || 'Unknown User',
+            avatarUrl: user.avatarUrl || undefined, // Type safety
             color: sessionColor
         };
 

@@ -84,18 +84,30 @@ export function OrdersPage() {
         if (!currentAccount || !token) return;
         setIsSyncing(true);
         try {
-            const res = await fetch('/api/sync/orders', {
+            const res = await fetch('/api/sync/manual', {
                 method: 'POST',
                 headers: {
+                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                     'X-Account-ID': currentAccount.id
-                }
+                },
+                body: JSON.stringify({
+                    accountId: currentAccount.id,
+                    types: ['orders']
+                })
             });
+
             if (!res.ok) throw new Error('Sync failed');
+
             const result = await res.json();
-            alert(`Synced ${result.synced} orders!`);
-            fetchOrders(); // Refresh list
+            alert(`Sync started! Status: ${result.status}`);
+
+            // Wait a bit before refreshing to allow some items to process? 
+            // Better to just let the user refresh manually or poll, but for now just wait 2s
+            setTimeout(fetchOrders, 2000);
+
         } catch (err) {
+            console.error(err);
             alert('Sync failed. Check backend logs.');
         } finally {
             setIsSyncing(false);

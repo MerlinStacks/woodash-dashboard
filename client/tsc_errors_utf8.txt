@@ -1,0 +1,27 @@
+﻿src/components/analytics/VisitorProfileModal.tsx(131,47): error TS2339: Property 'utmMedium' does not exist on type '{ id: string; visitorId: string; email?: string | undefined; ipAddress?: string | undefined; city?: string | undefined; country?: string | undefined; deviceType?: string | undefined; browser?: string | undefined; ... 4 more ...; wooCustomerId?: number | undefined; }'.
+src/components/analytics/VisitorProfileModal.tsx(134,99): error TS2339: Property 'utmMedium' does not exist on type '{ id: string; visitorId: string; email?: string | undefined; ipAddress?: string | undefined; city?: string | undefined; country?: string | undefined; deviceType?: string | undefined; browser?: string | undefined; ... 4 more ...; wooCustomerId?: number | undefined; }'.
+src/components/invoicing/InvoiceRenderer.tsx(105,17): error TS2322: Type '{ children: Element[]; className: string; layouts: { lg: any[]; }; breakpoints: { lg: number; md: number; sm: number; xs: number; xxs: number; }; cols: { lg: number; md: number; sm: number; xs: number; xxs: number; }; ... 4 more ...; margin: [...]; }' is not assignable to type 'IntrinsicAttributes & Omit<LegacyResponsiveReactGridLayoutProps<string>, "width"> & WidthProviderProps'.
+  Property 'width' does not exist on type 'IntrinsicAttributes & Omit<LegacyResponsiveReactGridLayoutProps<string>, "width"> & WidthProviderProps'.
+src/components/marketing/CampaignsList.tsx(104,37): error TS18047: 'currentAccount' is possibly 'null'.
+src/components/marketing/FlowNodes.tsx(21,42): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/marketing/FlowNodes.tsx(22,57): error TS2322: Type '{}' is not assignable to type 'ReactNode'.
+src/components/marketing/FlowNodes.tsx(32,42): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/marketing/FlowNodes.tsx(33,27): error TS2339: Property 'subject' does not exist on type '{}'.
+src/components/marketing/FlowNodes.tsx(33,110): error TS2339: Property 'subject' does not exist on type '{}'.
+src/components/marketing/FlowNodes.tsx(43,42): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/marketing/FlowNodes.tsx(54,47): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/ReportBuilder.tsx(86,17): error TS2322: Type 'string' is not assignable to type 'Date'.
+src/components/ReportBuilder.tsx(87,17): error TS2322: Type 'string' is not assignable to type 'Date'.
+src/components/settings/EmailSettings.tsx(106,37): error TS18047: 'currentAccount' is possibly 'null'.
+src/hooks/useCollaboration.ts(31,27): error TS2339: Property 'firstName' does not exist on type 'User'.
+src/hooks/useCollaboration.ts(31,45): error TS2339: Property 'lastName' does not exist on type 'User'.
+src/pages/DesignerCanvas.tsx(61,21): error TS2322: Type '{ children: Element[]; className: string; layouts: { lg: any[]; }; breakpoints: { lg: number; md: number; sm: number; xs: number; xxs: number; }; cols: { lg: number; md: number; sm: number; xs: number; xxs: number; }; rowHeight: number; width: number; onLayoutChange: (layout: any) => void; isDroppable: true; }' is not assignable to type 'IntrinsicAttributes & Omit<LegacyResponsiveReactGridLayoutProps<string>, "width"> & WidthProviderProps'.
+  Property 'width' does not exist on type 'IntrinsicAttributes & Omit<LegacyResponsiveReactGridLayoutProps<string>, "width"> & WidthProviderProps'.
+src/pages/InvoiceDesigner.tsx(30,90): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/InvoiceDesigner.tsx(97,73): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/InvoiceDesigner.tsx(99,93): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/ProductEditPage.tsx(150,17): error TS2353: Object literal may only specify known properties, and 'binLocation' does not exist in type 'SetStateAction<{ name: string; sku: string; price: string; salePrice: string; stockStatus: string; description: string; short_description: string; focusKeyword: string; isGoldPriceApplied: boolean; weight: string; ... 5 more ...; images: any[]; }>'.
+src/pages/ProductEditPage.tsx(208,39): error TS2339: Property 'binLocation' does not exist on type '{ name: string; sku: string; price: string; salePrice: string; stockStatus: string; description: string; short_description: string; focusKeyword: string; isGoldPriceApplied: boolean; weight: string; ... 5 more ...; images: any[]; }'.

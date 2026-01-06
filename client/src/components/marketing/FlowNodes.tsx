@@ -18,8 +18,8 @@ const NodeWrapper = ({ children, title, icon: Icon, colorClass = "bg-white", bor
 export const TriggerNode = memo(({ data }: NodeProps) => {
     return (
         <NodeWrapper title="Trigger" icon={Zap} borderClass="border-blue-400">
-            <div className="font-medium">{data.label}</div>
-            <div className="text-xs text-gray-500 mt-1">{data.description || 'Starts the automation'}</div>
+            <div className="font-medium">{data.label as string}</div>
+            <div className="text-xs text-gray-500 mt-1">{(data.description as string) || 'Starts the automation'}</div>
             <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-blue-500" />
         </NodeWrapper>
     );
@@ -29,8 +29,8 @@ export const ActionNode = memo(({ data }: NodeProps) => {
     return (
         <NodeWrapper title="Action" icon={Mail} borderClass="border-green-400">
             <Handle type="target" position={Position.Top} className="w-3 h-3 bg-gray-400" />
-            <div className="font-medium">{data.label}</div>
-            {data.config?.subject && <div className="text-xs text-gray-500 truncate mt-1">Subj: {data.config.subject}</div>}
+            <div className="font-medium">{data.label as string}</div>
+            {(data.config as any)?.subject && <div className="text-xs text-gray-500 truncate mt-1">Subj: {(data.config as any).subject}</div>}
             <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-green-500" />
         </NodeWrapper>
     );
@@ -40,7 +40,7 @@ export const DelayNode = memo(({ data }: NodeProps) => {
     return (
         <NodeWrapper title="Delay" icon={Clock} borderClass="border-yellow-400">
             <Handle type="target" position={Position.Top} className="w-3 h-3 bg-gray-400" />
-            <div className="font-medium">{data.label}</div>
+            <div className="font-medium">{data.label as string}</div>
             <div className="text-xs text-gray-500 mt-1">Wait for specified time</div>
             <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-yellow-500" />
         </NodeWrapper>
@@ -51,7 +51,7 @@ export const ConditionNode = memo(({ data }: NodeProps) => {
     return (
         <NodeWrapper title="Condition" icon={Split} borderClass="border-orange-400">
             <Handle type="target" position={Position.Top} className="w-3 h-3 bg-gray-400" />
-            <div className="font-medium mb-2">{data.label}</div>
+            <div className="font-medium mb-2">{data.label as string}</div>
 
             <div className="flex justify-between items-center text-xs mt-2 font-semibold">
                 <div className="relative">

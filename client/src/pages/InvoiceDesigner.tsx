@@ -24,7 +24,7 @@ export function InvoiceDesigner() {
     // Initial Load
     useEffect(() => {
         const fetchTemplate = async () => {
-            if (id && currentAccount) {
+            if (id && currentAccount && token) {
                 try {
                     setIsLoading(true);
                     const template: any = await api.get(`/api/invoices/templates/${id}`, token, currentAccount.id);
@@ -82,7 +82,7 @@ export function InvoiceDesigner() {
     };
 
     const saveTemplate = async () => {
-        if (!currentAccount) return;
+        if (!currentAccount || !token) return;
         setIsLoading(true);
         try {
             const payload = {
@@ -138,7 +138,7 @@ export function InvoiceDesigner() {
                     layout={layout}
                     items={items}
                     selectedId={selectedId}
-                    onLayoutChange={setLayout}
+                    onLayoutChange={(l: any) => setLayout(l)}
                     onSelect={setSelectedId}
                 />
 

@@ -104,7 +104,7 @@ export function ForecastChart({ dateRange }: ForecastProps) {
                 </div>
             </div>
 
-            <div className="h-64 w-full">
+            <div className="w-full" style={{ height: '300px' }}>
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                         <defs>

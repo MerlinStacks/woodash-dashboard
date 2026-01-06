@@ -1,0 +1,5 @@
+﻿src/components/ReportBuilder.tsx(86,17): error TS1117: An object literal cannot have multiple properties with the same name.
+src/pages/InvoiceDesigner.tsx(97,73): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/InvoiceDesigner.tsx(99,93): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.

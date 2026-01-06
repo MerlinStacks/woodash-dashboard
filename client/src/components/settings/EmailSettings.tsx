@@ -94,6 +94,7 @@ export function EmailSettings() {
     };
 
     const handleTestConnection = async (accountData: Partial<EmailAccount>) => {
+        if (!currentAccount) return { success: false, message: 'No account selected' };
         setIsTesting(true);
         setTestResult(null);
 

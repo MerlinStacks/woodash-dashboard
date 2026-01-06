@@ -96,6 +96,7 @@ export function CampaignsList({ onEdit }: { onEdit: (id: string, name: string, s
 
     async function handleDelete(id: string) {
         if (!confirm('Are you sure?')) return;
+        if (!currentAccount) return;
         try {
             await fetch(`/api/marketing/campaigns/${id}`, {
                 method: 'DELETE',
