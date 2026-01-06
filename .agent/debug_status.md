@@ -1,14 +1,19 @@
-# Debug Status: WooCommerce Plugin Incompatible Archive
+# Debug Status
 
+**Start Time:** 2026-01-06T13:03:31+11:00
 **Current Phase:** Resolved
-**Attempt Count:** 1
-**Hypothesis:** The generated zip file was missing the top-level directory required by WordPress.
 
-## Logs
-- [Start] Initialized debugging session.
-- [Reproduction] `repro_archive.ts` confirmed: `Compress-Archive` creates a flat zip (files at root). Fail.
-- [Verification] Hypothesis confirmed. Fix requires ensuring a top-level directory in the zip.
-- [Fix] Implemented temporary directory strategy in `build_plugin.ts`: Copy plugin to `temp/overseek-wc-plugin`, then zip `temp/*`.
-- [Validation] `repro_archive_fix.ts` passed.
-- [Deployment] Updated `build_plugin.ts` and rebuilt plugin.
-- [Result] Verified zip contains `overseek-wc-plugin/` at root. SUCCESS.
+## Phase 0: State & Safety
+- [x] Workspace identified: `c:\Users\ratte\Desktop\OverSeekv2`
+- [x] Initial Hypothesis: The zip archive structure does not match what WordPress expects.
+
+## Phase 1: Isolation & Reproduction
+- [x] Locate plugin source: `overseek-wc-plugin` directory.
+- [x] Confirmed missing build process was likely causing manual zipping errors (e.g. creating zip files without the root folder).
+
+## Phase 2: The Fix Loop
+- [x] Created `scripts/build_plugin.ps1` to automate strict zip generation.
+- [x] Created `overseek-wc-plugin/overseek-integration-single.php` as a fallback.
+
+## Phase 3: Verification
+- [x] Verified zip structure contains root folder `overseek-wc-plugin`.
