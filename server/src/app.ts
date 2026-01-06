@@ -25,7 +25,6 @@ import inventoryRoutes from './routes/inventory';
 import reviewRoutes from './routes/reviews';
 import helpRoutes from './routes/help';
 import trackingRoutes from './routes/tracking';
-import markersRoutes from './routes/marketing'; // corrected below
 import marketingRoutes from './routes/marketing';
 import emailRoutes from './routes/email';
 import ordersRoutes from './routes/orders'; // Mount Orders API
@@ -49,6 +48,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { EventBus, EVENTS } from './services/events';
 import { AutomationEngine } from './services/AutomationEngine';
+import { Logger } from './utils/logger';
 
 // Init Queues for Bull Board
 QueueFactory.init();
@@ -80,8 +80,7 @@ app.use(cors({
 }));
 
 // Rate Limiting: 2000 requests per 15 minutes per IP (Accommodate 2s polling)
-// @ts-ignore
-const rateLimit = require('express-rate-limit');
+import rateLimit from 'express-rate-limit';
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 2000, // Increased from 100 to support polling
@@ -169,11 +168,12 @@ app.use('/api/chat', createChatRouter(chatService));
 app.use('/api/chat/public', createPublicChatRouter(chatService)); // Public API
 app.use('/api/chat', widgetRouter); // Serves /api/chat/widget.js
 
-// Mount Bull Board
+// Mount Bull Board (Protected - Super Admin Only)
 console.log('[BullBoard] Initializing Bull Board...');
 const serverAdapter = QueueFactory.createBoard();
-console.log('[BullBoard] Mounting at /admin/queues');
-app.use('/admin/queues', serverAdapter.getRouter());
+console.log('[BullBoard] Mounting at /admin/queues (Protected)');
+import { requireAuth, requireSuperAdmin } from './middleware/auth';
+app.use('/admin/queues', requireAuth, requireSuperAdmin, serverAdapter.getRouter());
 
 // Listen for Automation Events
 EventBus.on(EVENTS.ORDER.CREATED, async (data) => {
@@ -302,39 +302,22 @@ setInterval(async () => {
     try {
         await automationEngine.runTicker();
     } catch (e) {
-        console.error('Ticker Error', e);
+        Logger.error('Ticker Error', { error: e });
     }
 }, 60000);
 
-// 2. Abandoned Cart Detection (Every 5 mins)
-setInterval(async () => {
-    try {
-        // Fetch valid account IDs (optimize in prod to stream or batch)
-        const accounts = await prisma.account.findMany({
-            select: { id: true }
-        });
+// 2. Abandoned Cart Detection - REMOVED: Handled by SchedulerService.ts to prevent duplicates
 
-        for (const acc of accounts) {
-            try {
-                // Find carts abandoned for > 30 mins
-                const abandonedSessions = await TrackingService.findAbandonedCarts(acc.id, 30);
-
-                for (const session of abandonedSessions) {
-                    console.log(`[AbandonedCart] Found session ${session.id} for account ${acc.id}`);
-
-                    // Trigger Automation
-                    await automationEngine.processTrigger(acc.id, 'ABANDONED_CART', session);
-
-                    // Mark as processed regardless of whether automation ran (to avoiding looping)
-                    await TrackingService.markAbandonedNotificationSent(session.id);
-                }
-            } catch (err) {
-                console.error(`[AbandonedCart] Error for account ${acc.id}`, err);
-            }
-        }
-    } catch (e) {
-        console.error('Abandoned Cart Cron Error', e);
-    }
-}, 5 * 60 * 1000);
+// Global Error Handler (must be last middleware)
+app.use((err: Error, req: Request, res: Response, next: Function) => {
+    Logger.error('Unhandled Error', {
+        error: err.message,
+        stack: err.stack,
+        path: req.path,
+        method: req.method
+    });
+    res.status(500).json({ error: 'Internal Server Error' });
+});
 
 export { app, server, io, automationEngine };
+

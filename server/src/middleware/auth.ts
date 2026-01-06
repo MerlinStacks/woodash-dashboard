@@ -4,6 +4,12 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+interface JwtPayload {
+    userId: string;
+    iat: number;
+    exp: number;
+}
+
 export interface AuthRequest extends Request {
     user?: {
         id: string;
@@ -25,7 +31,7 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
     }
 
     try {
-        const decoded: any = verifyToken(token);
+        const decoded = verifyToken(token) as JwtPayload;
         const accountId = req.headers['x-account-id'] as string;
 
         req.user = {

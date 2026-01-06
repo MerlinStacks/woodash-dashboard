@@ -1,12 +1,14 @@
 
 import { PrismaClient } from '@prisma/client';
 import { hash, genSalt } from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
-    const email = 'admin@overseek.com';
-    const password = 'password123';
+    const email = process.env.ADMIN_EMAIL || 'admin@overseek.com';
+    // Use env variable or generate secure random password
+    const password = process.env.ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
     const fullName = 'System Admin';
 
     console.log(`Creating user: ${email}`);

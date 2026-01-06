@@ -74,6 +74,9 @@ setInterval(() => {
  * GET /api/tracking/tracking.js
  */
 router.get('/tracking.js', (req, res) => {
+    const accountId = req.query.id;
+    console.log(`[Tracking] Script requested for account=${accountId}, referer=${req.headers.referer || 'none'}`);
+
     const script = `
 (function() {
     // Dynamic Endpoint Generation
@@ -263,6 +266,9 @@ router.post('/events', async (req, res) => {
 
         // Log origin for forensics (non-blocking)
         const origin = req.headers.origin || req.headers.referer || 'unknown';
+
+        // Debug: Log incoming event
+        console.log(`[Tracking] Event received: type=${type}, account=${accountId}, origin=${origin}`);
 
         let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
         if (Array.isArray(ip)) ip = ip[0];
