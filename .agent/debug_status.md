@@ -22,3 +22,7 @@
 - [x] Added `declare_compatibility( 'custom_order_tables' )`.
 - [x] Added `POST overseek/v1/settings` endpoint to plugin.
 - [x] Added `updatePluginSettings()` capability to `WooService` on server.
+
+## Phase 5: UI & UX
+- [x] Added Auto-Configure button to Dashboard.
+- [x] Removed manual inputs from Plugin Settings (Use Read-Only display).

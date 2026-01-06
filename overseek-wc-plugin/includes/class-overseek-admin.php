@@ -47,17 +47,32 @@ class OverSeek_Admin {
 				<?php do_settings_sections( 'overseek_options_group' ); ?>
 				<table class="form-table">
 					<tr valign="top">
+						<th scope="row">Connection Status</th>
+						<td>
+							<?php 
+								$api_url = get_option( 'overseek_api_url' ); 
+								$account_id = get_option( 'overseek_account_id' );
+								
+								if ( $api_url && $account_id ) {
+									echo '<span style="color: green; font-weight: bold;">&#10003; Connected</span>';
+								} else {
+									echo '<span style="color: red; font-weight: bold;">&#10007; Not Connected</span>';
+								}
+							?>
+						</td>
+					</tr>
+					<tr valign="top">
 						<th scope="row">API URL</th>
 						<td>
-							<input type="text" name="overseek_api_url" value="<?php echo esc_attr( get_option( 'overseek_api_url', 'https://api.overseek.com' ) ); ?>" class="regular-text" />
-							<p class="description">The base URL for the OverSeek API (e.g., https://api.overseek.com).</p>
+							<code><?php echo esc_html( get_option( 'overseek_api_url', 'Not configured' ) ); ?></code>
+							<p class="description">Managed automatically by OverSeek.</p>
 						</td>
 					</tr>
 					<tr valign="top">
 						<th scope="row">Account ID</th>
 						<td>
-							<input type="text" name="overseek_account_id" value="<?php echo esc_attr( get_option( 'overseek_account_id' ) ); ?>" class="regular-text" />
-							<p class="description">Your unique OverSeek Account ID.</p>
+							<code><?php echo esc_html( get_option( 'overseek_account_id', 'Not configured' ) ); ?></code>
+							<p class="description">Managed automatically by OverSeek.</p>
 						</td>
 					</tr>
 					<tr valign="top">
