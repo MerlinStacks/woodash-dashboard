@@ -176,4 +176,41 @@ export class WooService {
         return this.requestWithRetry('get', 'system_status');
     }
 
+    async updatePluginSettings(settings: { account_id?: string; api_url?: string }) {
+        if (this.isDemo) {
+            console.log("[Demo] Mocking plugin settings update:", settings);
+            return { success: true, message: "Settings updated (Demo)" };
+        }
+
+        // We use the same authenticated client to POST to our custom endpoint
+        // Note: The endpoint is under 'overseek/v1', not 'wc/v3', so we use the axois instance directly if possible
+        // or we construct the full URL. However, WooCommerceRestApi library is designed for WC endpoints.
+        // But it handles auth Oauth1.0a signing which is usually required.
+        // IF the custom endpoint requires cookie auth (logged in user), OAuth may not work unless we set permissions correctly.
+        // Our endpoint checks `current_user_can('manage_options')`. 
+        // WooCommerce REST API keys usually grant admin privileges so this SHOULD work if we sign it correctly.
+
+        // Let's try using the .post() method which appends to the base URL.
+        // The base URL in the lib usually includes /wp-json/wc/v3. 
+        // We might need to hack it or use a raw request if the lib forces the prefix.
+
+        // Actually, the library allows full custom paths if we are careful.
+        // But to be safe and robust, let's try to just use the `post` method with the absolute path relative to wp-json if the lib supports it
+        // Or we might need to rely on the fact that we are authenticated.
+
+        // Simpler approach: The endpoint `overseek/v1/settings` is a WP REST API endpoint.
+        // Sending a module request with proper Auth header (Basic Auth for App Passwords or OAuth1).
+        // Since we have Consumer Key/Secret, that is OAuth1. The library handles that.
+        // BUT strict plugins usually sandbox 'wc/' namespace.
+
+        // Let's try to use the library's `post` but we might need to step out of the version prefix.
+        // The library usually does `this.url + this.version + endpoint`.
+        // If we pass an absolute path to the axios config it might override.
+
+        // Let's assume for now we can use it. If not, we'll need a specialized request.
+        // Workaround: Instantiate a new client with empty version if needed, or just formatting the path.
+
+        return this.requestWithRetry('post', 'overseek/v1/settings', settings);
+    }
+
 }

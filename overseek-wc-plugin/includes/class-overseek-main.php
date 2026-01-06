@@ -31,6 +31,7 @@ class OverSeek_Main {
 	public function __construct() {
 		$this->load_dependencies();
 		$this->init_hooks();
+		$this->declare_compatibility();
 	}
 
 	/**
@@ -42,6 +43,9 @@ class OverSeek_Main {
 
 		// Load Frontend Class
 		require_once OVERSEEK_WC_PLUGIN_DIR . 'includes/class-overseek-frontend.php';
+		
+		// Load API Class
+		require_once OVERSEEK_WC_PLUGIN_DIR . 'includes/class-overseek-api.php';
 	}
 
 	/**
@@ -56,6 +60,21 @@ class OverSeek_Main {
 		// Initialize Frontend
 		$this->frontend = new OverSeek_Frontend();
 		add_action( 'wp_head', array( $this->frontend, 'print_scripts' ) );
+		
+		// Initialize API
+		$api = new OverSeek_API();
+		add_action( 'rest_api_init', array( $api, 'register_routes' ) );
+	}
+	
+	/**
+	 * Declare Compatibility with HPOS
+	 */
+	private function declare_compatibility() {
+		add_action( 'before_woocommerce_init', function() {
+			if ( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
+				\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', OVERSEEK_WC_PLUGIN_DIR . 'overseek-integration.php', true );
+			}
+		} );
 	}
 
 	/**

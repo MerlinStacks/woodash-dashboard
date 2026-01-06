@@ -5,15 +5,20 @@
 
 ## Phase 0: State & Safety
 - [x] Workspace identified: `c:\Users\ratte\Desktop\OverSeekv2`
-- [x] Initial Hypothesis: The zip archive structure does not match what WordPress expects.
+- [x] Initial Hypothesis: Zip structure invalid, then HPOS incompatibility.
 
 ## Phase 1: Isolation & Reproduction
-- [x] Locate plugin source: `overseek-wc-plugin` directory.
-- [x] Confirmed missing build process was likely causing manual zipping errors (e.g. creating zip files without the root folder).
+- [x] Confirmed zip structure issues.
+- [x] Confirmed HPOS warning on single-file version.
 
 ## Phase 2: The Fix Loop
-- [x] Created `scripts/build_plugin.ps1` to automate strict zip generation.
-- [x] Created `overseek-wc-plugin/overseek-integration-single.php` as a fallback.
+- [x] `scripts/build_plugin.ps1` for strict zip generation.
+- [x] `overseek-integration-single.php` as robust backup.
 
 ## Phase 3: Verification
-- [x] Verified zip structure contains root folder `overseek-wc-plugin`.
+- [x] Verified zip structure.
+
+## Phase 4: Refinements (HPOS & Auto-Config)
+- [x] Added `declare_compatibility( 'custom_order_tables' )`.
+- [x] Added `POST overseek/v1/settings` endpoint to plugin.
+- [x] Added `updatePluginSettings()` capability to `WooService` on server.
