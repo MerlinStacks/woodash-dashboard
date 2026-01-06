@@ -234,7 +234,7 @@ add_action( 'rest_api_init', function () {
 		'methods'  => 'POST',
 		'callback' => 'overseek_update_settings_callback',
 		'permission_callback' => function () {
-			return current_user_can( 'manage_options' );
+			return current_user_can( 'manage_woocommerce' ) || current_user_can( 'manage_options' );
 		}
 	) );
 } );

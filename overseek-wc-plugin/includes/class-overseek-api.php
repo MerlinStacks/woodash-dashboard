@@ -19,7 +19,7 @@ class OverSeek_API {
             'methods'  => 'POST',
             'callback' => array( $this, 'update_settings_callback' ),
             'permission_callback' => function () {
-                return current_user_can( 'manage_options' );
+                return current_user_can( 'manage_woocommerce' ) || current_user_can( 'manage_options' );
             }
         ) );
     }
