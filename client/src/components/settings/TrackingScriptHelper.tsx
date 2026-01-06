@@ -16,6 +16,9 @@ export function TrackingScriptHelper() {
     // Test Event State
     const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
+    // Get the base API URL (e.g. https://api.overseek.com or the current domain)
+    const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+
     const sendTestEvent = async () => {
         setTestStatus('loading');
         try {
@@ -23,7 +26,7 @@ export function TrackingScriptHelper() {
             const testVisitorId = `test-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
             // Send a test pageview event directly to the tracking endpoint
-            await fetch('/api/tracking/events', {
+            await fetch(`${apiUrl}/api/tracking/events`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -77,9 +80,6 @@ export function TrackingScriptHelper() {
 
 
     const [configCopied, setConfigCopied] = useState(false);
-
-    // Get the base API URL (e.g. https://api.overseek.com or the current domain)
-    const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
 
     const connectionConfig = JSON.stringify({
         apiUrl: apiUrl,
