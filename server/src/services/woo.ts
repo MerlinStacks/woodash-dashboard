@@ -24,10 +24,28 @@ export class WooService {
     private isDemo = false;
     private accountId?: string;
 
+    // Store credentials for custom requests
+    private url: string;
+    private consumerKey: string;
+    private consumerSecret: string;
+    private axiosConfig: any;
+
     constructor(creds: WooCredentials) {
         this.accountId = creds.accountId;
+        this.url = creds.url;
+        this.consumerKey = creds.consumerKey;
+        this.consumerSecret = creds.consumerSecret;
+
         // Extract hostname for SNI
-        const url = new URL(creds.url);
+        const urlObj = new URL(creds.url);
+
+        this.axiosConfig = {
+            // Fixes SSL Alert 112 (Unrecognized Name) by sending SNI
+            httpsAgent: new https.Agent({
+                rejectUnauthorized: false,
+                servername: urlObj.hostname
+            })
+        };
 
         this.api = new WooCommerceRestApi({
             url: creds.url,
@@ -35,13 +53,7 @@ export class WooService {
             consumerSecret: creds.consumerSecret,
             version: "wc/v3",
             queryStringAuth: true, // Useful for some hosting providers
-            axiosConfig: {
-                // Fixes SSL Alert 112 (Unrecognized Name) by sending SNI
-                httpsAgent: new https.Agent({
-                    rejectUnauthorized: false,
-                    servername: url.hostname
-                })
-            }
+            axiosConfig: this.axiosConfig
         });
 
         // Detect Demo Mode (Strictly for the demo domain only)
@@ -188,12 +200,12 @@ export class WooService {
         // The library appends version to the URL. We want `wp-json/overseek/v1`.
         // If we set version to 'overseek/v1', it constructs `wp-json/overseek/v1`.
         const customApi = new WooCommerceRestApi({
-            url: this.api.url,
-            consumerKey: this.api.consumerKey,
-            consumerSecret: this.api.consumerSecret,
+            url: this.url,
+            consumerKey: this.consumerKey,
+            consumerSecret: this.consumerSecret,
             version: "overseek/v1", // Target our custom namespace
             queryStringAuth: true,
-            axiosConfig: this.api.axiosConfig
+            axiosConfig: this.axiosConfig
         });
 
         // The endpoint is 'settings', resulting in `.../wp-json/overseek/v1/settings`
