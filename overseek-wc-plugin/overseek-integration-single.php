@@ -267,6 +267,14 @@ add_action('rest_api_init', function () {
 			return current_user_can('manage_woocommerce') || current_user_can('manage_options');
 		}
 	));
+
+	// Public health check endpoint - no auth required
+	// Used by Overseek dashboard to verify plugin installation
+	register_rest_route('overseek/v1', '/health', array(
+		'methods' => 'GET',
+		'callback' => 'overseek_health_check_callback',
+		'permission_callback' => '__return_true' // Public endpoint
+	));
 });
 
 function overseek_update_settings_callback($request)
@@ -286,6 +294,36 @@ function overseek_update_settings_callback($request)
 	update_option('overseek_enable_chat', '1');
 
 	return new WP_REST_Response(array('success' => true, 'message' => 'Settings updated successfully'), 200);
+}
+
+/**
+ * Health check callback - returns plugin status for dashboard verification.
+ */
+function overseek_health_check_callback($request)
+{
+	$account_id = get_option('overseek_account_id');
+	$api_url = get_option('overseek_api_url');
+	$tracking_enabled = get_option('overseek_enable_tracking');
+	$chat_enabled = get_option('overseek_enable_chat');
+
+	// Optionally verify the account ID matches the query param
+	$query_account_id = $request->get_param('account_id');
+	$account_match = empty($query_account_id) || $query_account_id === $account_id;
+
+	return new WP_REST_Response(array(
+		'success' => true,
+		'plugin' => 'overseek-wc',
+		'version' => OVERSEEK_WC_VERSION,
+		'configured' => !empty($account_id) && !empty($api_url),
+		'accountId' => $account_id ?: null,
+		'accountMatch' => $account_match,
+		'trackingEnabled' => (bool) $tracking_enabled,
+		'chatEnabled' => (bool) $chat_enabled,
+		'woocommerceActive' => class_exists('WooCommerce'),
+		'woocommerceVersion' => defined('WC_VERSION') ? WC_VERSION : null,
+		'siteUrl' => home_url(),
+		'timestamp' => gmdate('c'),
+	), 200);
 }
 
 /**
@@ -577,8 +615,19 @@ class OverSeek_Server_Tracking
 	public function track_product_view()
 	{
 		global $product;
-		if (!$product)
+
+		// Ensure $product is a valid WC_Product object
+		if (!$product) {
 			return;
+		}
+
+		// If $product is an ID (int or string), convert to product object
+		if (!is_object($product)) {
+			$product = wc_get_product($product);
+			if (!$product) {
+				return;
+			}
+		}
 
 		$categories = array();
 		$terms = get_the_terms($product->get_id(), 'product_cat');

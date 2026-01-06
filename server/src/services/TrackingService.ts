@@ -131,16 +131,13 @@ export class TrackingService {
 
         // Session Stitching: Link visitor to customer on login
         if (data.type === 'identify' && data.payload?.customerId) {
-            sessionPayload.customerId = String(data.payload.customerId);
+            // wooCustomerId is an Int in the schema
+            sessionPayload.wooCustomerId = parseInt(String(data.payload.customerId), 10) || null;
             if (data.payload.email) {
                 sessionPayload.email = data.payload.email;
             }
-            if (data.payload.firstName) {
-                sessionPayload.firstName = data.payload.firstName;
-            }
-            if (data.payload.lastName) {
-                sessionPayload.lastName = data.payload.lastName;
-            }
+            // Note: firstName and lastName are not stored on AnalyticsSession
+            // They should be looked up from WooCustomer if needed
         }
 
         // Product View: Store detailed product data
@@ -171,8 +168,8 @@ export class TrackingService {
             }
         });
 
-        const isReturning = !!existingSession;
-        sessionPayload.isReturning = isReturning;
+        // Note: isReturning is computed, not stored in DB
+        // We can derive it from totalVisits > 0 if needed
 
         // Attribution tracking
         const currentSource = sessionPayload.trafficSource || TrackingService.parseTrafficSource(data.referrer || '');

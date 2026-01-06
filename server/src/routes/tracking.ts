@@ -482,6 +482,121 @@ router.get('/status', requireAuth, async (req: any, res) => {
     }
 });
 
+/**
+ * GET /api/tracking/verify-store
+ * Pings the WooCommerce store to verify plugin installation and configuration.
+ */
+router.get('/verify-store', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        // Get the store URL from account settings
+        const account = await prisma.account.findUnique({
+            where: { id: accountId },
+            select: { wooUrl: true, name: true }
+        });
+
+        if (!account?.wooUrl) {
+            return res.json({
+                success: false,
+                error: 'No store URL configured',
+                storeReachable: false,
+                pluginInstalled: false
+            });
+        }
+
+        // Try to ping the store's health check endpoint
+        const healthUrl = `${account.wooUrl}/wp-json/overseek/v1/health?account_id=${accountId}`;
+
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+            const response = await fetch(healthUrl, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal
+            });
+
+            clearTimeout(timeout);
+
+            if (!response.ok) {
+                // Store reachable but endpoint not found (plugin not installed)
+                if (response.status === 404) {
+                    return res.json({
+                        success: false,
+                        storeUrl: account.wooUrl,
+                        storeReachable: true,
+                        pluginInstalled: false,
+                        error: 'OverSeek plugin not detected. Please install and activate the plugin.'
+                    });
+                }
+
+                return res.json({
+                    success: false,
+                    storeUrl: account.wooUrl,
+                    storeReachable: true,
+                    pluginInstalled: false,
+                    error: `Store returned status ${response.status}`
+                });
+            }
+
+            const data = await response.json() as {
+                success: boolean;
+                plugin: string;
+                version: string;
+                configured: boolean;
+                accountId: string | null;
+                accountMatch: boolean;
+                trackingEnabled: boolean;
+                chatEnabled: boolean;
+                woocommerceActive: boolean;
+                woocommerceVersion: string | null;
+            };
+
+            // Plugin is installed - check configuration
+            return res.json({
+                success: true,
+                storeUrl: account.wooUrl,
+                storeName: account.name,
+                storeReachable: true,
+                pluginInstalled: true,
+                pluginVersion: data.version || 'unknown',
+                configured: data.configured,
+                accountMatch: data.accountMatch,
+                trackingEnabled: data.trackingEnabled,
+                chatEnabled: data.chatEnabled,
+                woocommerceActive: data.woocommerceActive,
+                woocommerceVersion: data.woocommerceVersion
+            });
+
+        } catch (fetchError: any) {
+            if (fetchError.name === 'AbortError') {
+                return res.json({
+                    success: false,
+                    storeUrl: account.wooUrl,
+                    storeReachable: false,
+                    pluginInstalled: false,
+                    error: 'Connection timed out. Store may be unreachable or slow.'
+                });
+            }
+
+            return res.json({
+                success: false,
+                storeUrl: account.wooUrl,
+                storeReachable: false,
+                pluginInstalled: false,
+                error: `Failed to connect to store: ${fetchError.message}`
+            });
+        }
+
+    } catch (error) {
+        Logger.error('Store Verification Error', { error });
+        res.status(500).json({ error: 'Failed to verify store connection' });
+    }
+});
+
 // --------------------------------------------------------
 // Analytics Stats & Funnel Endpoints
 // --------------------------------------------------------

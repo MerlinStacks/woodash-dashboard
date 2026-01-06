@@ -1,8 +1,25 @@
 import { useState } from 'react';
-import { Copy, Check, Info, Monitor, RefreshCw, AlertCircle, Zap } from 'lucide-react';
+import { Copy, Check, Info, Monitor, RefreshCw, AlertCircle, Zap, Store, ExternalLink } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
+
+// Type for store verification response
+interface StoreVerificationResult {
+    success: boolean;
+    storeUrl?: string;
+    storeName?: string;
+    storeReachable: boolean;
+    pluginInstalled: boolean;
+    pluginVersion?: string;
+    configured?: boolean;
+    accountMatch?: boolean;
+    trackingEnabled?: boolean;
+    chatEnabled?: boolean;
+    woocommerceActive?: boolean;
+    woocommerceVersion?: string;
+    error?: string;
+}
 
 export function TrackingScriptHelper() {
     const { currentAccount } = useAccount();
@@ -15,6 +32,10 @@ export function TrackingScriptHelper() {
 
     // Test Event State
     const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+    // Store Verification State
+    const [storeStatus, setStoreStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [storeResult, setStoreResult] = useState<StoreVerificationResult | null>(null);
 
     // Get the base API URL (e.g. https://api.overseek.com or the current domain)
     const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
@@ -72,6 +93,30 @@ export function TrackingScriptHelper() {
         } catch (error) {
             console.error('Connection Check Failed:', error);
             setCheckStatus('error');
+        }
+    };
+
+    const verifyStore = async () => {
+        setStoreStatus('loading');
+        setStoreResult(null);
+        try {
+            const result = await api.get<StoreVerificationResult>(
+                '/api/tracking/verify-store',
+                token || undefined,
+                currentAccount?.id || ''
+            );
+
+            setStoreResult(result);
+            setStoreStatus(result.success ? 'success' : 'error');
+        } catch (error) {
+            console.error('Store Verification Failed:', error);
+            setStoreStatus('error');
+            setStoreResult({
+                success: false,
+                storeReachable: false,
+                pluginInstalled: false,
+                error: 'Failed to verify store connection'
+            });
         }
     };
 
@@ -214,6 +259,101 @@ export function TrackingScriptHelper() {
                                         "Could not check status. Ensure your internet is connected."
                                     )}
                                 </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Store Plugin Verification */}
+            <div className="border-t border-gray-100 pt-6">
+                <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <Store size={16} className="text-gray-500" />
+                    Store Plugin Verification
+                </h3>
+
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm text-gray-700 font-medium">Verify WooCommerce Plugin</p>
+                            <p className="text-xs text-gray-500 mt-1">Check if the OverSeek plugin is installed and configured on your store.</p>
+                        </div>
+                        <button
+                            onClick={verifyStore}
+                            disabled={storeStatus === 'loading'}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+                        >
+                            <Store size={14} className={storeStatus === 'loading' ? 'animate-pulse' : ''} />
+                            {storeStatus === 'loading' ? 'Verifying...' : 'Verify Store Plugin'}
+                        </button>
+                    </div>
+
+                    {/* Store Verification Result */}
+                    {storeResult && (
+                        <div className={`p-4 rounded-md text-sm border ${storeResult.success ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                            }`}>
+                            <div className="flex items-start gap-3">
+                                {storeResult.success ? (
+                                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                                ) : (
+                                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                )}
+                                <div className="flex-1 space-y-2">
+                                    <p className={`font-semibold ${storeResult.success ? 'text-green-800' : 'text-amber-800'}`}>
+                                        {storeResult.success ? 'Plugin Verified!' : 'Plugin Issue Detected'}
+                                    </p>
+
+                                    {storeResult.storeUrl && (
+                                        <p className="text-gray-700 text-xs flex items-center gap-1">
+                                            Store: <a href={storeResult.storeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+                                                {storeResult.storeUrl} <ExternalLink size={10} />
+                                            </a>
+                                        </p>
+                                    )}
+
+                                    {storeResult.error && (
+                                        <p className="text-amber-700">{storeResult.error}</p>
+                                    )}
+
+                                    {storeResult.success && (
+                                        <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full ${storeResult.pluginInstalled ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                Plugin: {storeResult.pluginVersion || 'Installed'}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full ${storeResult.configured ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                                                Configured: {storeResult.configured ? 'Yes' : 'No'}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full ${storeResult.trackingEnabled ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                                                Tracking: {storeResult.trackingEnabled ? 'Enabled' : 'Disabled'}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full ${storeResult.accountMatch ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                Account Match: {storeResult.accountMatch ? 'Yes' : 'No'}
+                                            </div>
+                                            {storeResult.woocommerceVersion && (
+                                                <div className="flex items-center gap-2 col-span-2">
+                                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                    WooCommerce: v{storeResult.woocommerceVersion}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {!storeResult.pluginInstalled && storeResult.storeReachable && (
+                                        <p className="text-xs text-amber-700 mt-2">
+                                            Your store is reachable but the OverSeek plugin is not detected. Please install and activate the plugin.
+                                        </p>
+                                    )}
+
+                                    {!storeResult.storeReachable && (
+                                        <p className="text-xs text-amber-700 mt-2">
+                                            Could not reach your store. Ensure the store URL is correct and the site is online.
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
