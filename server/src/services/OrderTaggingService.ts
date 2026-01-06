@@ -2,20 +2,73 @@ import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
 
 /**
- * Service for computing order tags from product tags in line items.
- * Tags are extracted from products referenced in order line items.
+ * Tag mapping configuration stored in Account.orderTagMappings
+ */
+interface TagMapping {
+    productTag: string;  // The tag name from WooCommerce product
+    orderTag: string;    // The tag name to apply to orders
+    enabled: boolean;    // Whether this mapping is active
+}
+
+/**
+ * Service for computing order tags from product tags using configurable mappings.
+ * Only applies tags that have an enabled mapping in the account settings.
  */
 export class OrderTaggingService {
 
     /**
-     * Extract unique tags from order line items by looking up product tags.
+     * Get tag mappings for an account
+     */
+    static async getTagMappings(accountId: string): Promise<TagMapping[]> {
+        const account = await prisma.account.findUnique({
+            where: { id: accountId },
+            select: { orderTagMappings: true }
+        });
+
+        if (!account?.orderTagMappings) return [];
+
+        try {
+            const mappings = account.orderTagMappings as TagMapping[];
+            return Array.isArray(mappings) ? mappings : [];
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * Save tag mappings for an account
+     */
+    static async saveTagMappings(accountId: string, mappings: TagMapping[]): Promise<void> {
+        await prisma.account.update({
+            where: { id: accountId },
+            data: { orderTagMappings: mappings as any }
+        });
+        Logger.info('Tag mappings saved', { accountId, count: mappings.length });
+    }
+
+    /**
+     * Extract tags from order line items and apply mappings.
+     * Only returns tags that have an enabled mapping defined.
      * @param accountId - The account ID
      * @param rawOrderData - Raw WooCommerce order data containing line_items
-     * @returns Array of unique tag names
+     * @returns Array of mapped order tag names
      */
     static async extractTagsFromOrder(accountId: string, rawOrderData: any): Promise<string[]> {
         const lineItems = rawOrderData?.line_items || [];
         if (lineItems.length === 0) return [];
+
+        // Get tag mappings for this account
+        const mappings = await this.getTagMappings(accountId);
+        const enabledMappings = mappings.filter(m => m.enabled);
+
+        // If no mappings configured, return empty (user must configure first)
+        if (enabledMappings.length === 0) return [];
+
+        // Build lookup: productTag -> orderTag
+        const mappingLookup = new Map<string, string>();
+        for (const m of enabledMappings) {
+            mappingLookup.set(m.productTag.toLowerCase(), m.orderTag);
+        }
 
         // Get unique product IDs from line items
         const productIds = [...new Set(
@@ -35,7 +88,34 @@ export class OrderTaggingService {
             select: { wooId: true, rawData: true }
         });
 
-        // Extract unique tags across all products
+        // Extract product tags and apply mappings
+        const orderTags = new Set<string>();
+        for (const product of products) {
+            const rawData = product.rawData as any;
+            const tags = rawData?.tags || [];
+            for (const tag of tags) {
+                if (tag?.name) {
+                    const mappedTag = mappingLookup.get(tag.name.toLowerCase());
+                    if (mappedTag) {
+                        orderTags.add(mappedTag);
+                    }
+                }
+            }
+        }
+
+        return Array.from(orderTags);
+    }
+
+    /**
+     * Get all unique product tags across all products for an account.
+     * Used to populate the settings UI with available tags to map.
+     */
+    static async getAllProductTags(accountId: string): Promise<string[]> {
+        const products = await prisma.wooProduct.findMany({
+            where: { accountId },
+            select: { rawData: true }
+        });
+
         const tagSet = new Set<string>();
         for (const product of products) {
             const rawData = product.rawData as any;
@@ -47,81 +127,7 @@ export class OrderTaggingService {
             }
         }
 
-        return Array.from(tagSet);
-    }
-
-    /**
-     * Compute and return tags for a specific order by ID.
-     * @param accountId - The account ID
-     * @param orderId - The internal order UUID
-     * @returns Array of tag names
-     */
-    static async computeOrderTags(accountId: string, orderId: string): Promise<string[]> {
-        const order = await prisma.wooOrder.findUnique({
-            where: { id: orderId }
-        });
-
-        if (!order || order.accountId !== accountId) {
-            return [];
-        }
-
-        return this.extractTagsFromOrder(accountId, order.rawData);
-    }
-
-    /**
-     * Retag all orders for an account. Useful for backfilling tags on existing orders.
-     * @param accountId - The account ID
-     * @returns Summary of retagging operation
-     */
-    static async retagAllOrders(accountId: string): Promise<{ processed: number; tagged: number }> {
-        let processed = 0;
-        let tagged = 0;
-
-        // Process orders in batches
-        const batchSize = 100;
-        let skip = 0;
-        let hasMore = true;
-
-        while (hasMore) {
-            const orders = await prisma.wooOrder.findMany({
-                where: { accountId },
-                select: { id: true, wooId: true, rawData: true },
-                take: batchSize,
-                skip
-            });
-
-            if (orders.length === 0) {
-                hasMore = false;
-                break;
-            }
-
-            for (const order of orders) {
-                const tags = await this.extractTagsFromOrder(accountId, order.rawData);
-                if (tags.length > 0) {
-                    tagged++;
-                }
-                processed++;
-                // Note: Tags are stored in ES, not in Prisma. 
-                // Caller should re-index after computing tags.
-            }
-
-            skip += batchSize;
-            if (orders.length < batchSize) hasMore = false;
-        }
-
-        Logger.info(`Retagging complete`, { accountId, processed, tagged });
-        return { processed, tagged };
-    }
-
-    /**
-     * Get all unique tags used across orders for an account.
-     * This aggregates from ES index.
-     * @param accountId - The account ID
-     * @returns Array of unique tag names
-     */
-    static async getAccountTags(accountId: string): Promise<string[]> {
-        // This will be implemented via ES aggregation in SearchQueryService
-        // Leaving as stub for now
-        return [];
+        return Array.from(tagSet).sort();
     }
 }
+

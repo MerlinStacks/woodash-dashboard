@@ -9,6 +9,7 @@ import { GeneralSettings } from '../components/settings/GeneralSettings';
 import { EmailSettings } from '../components/settings/EmailSettings';
 import { GoldPriceSettings } from '../components/settings/GoldPriceSettings';
 import { InventoryAlertsSettings } from '../components/settings/InventoryAlertsSettings';
+import { OrderTagSettings } from '../components/settings/OrderTagSettings';
 import { LayoutGrid, Palette, MessageSquare, Bot, Activity, RefreshCw, Mail, Package } from 'lucide-react';
 
 type TabId = 'general' | 'appearance' | 'chat' | 'intelligence' | 'analytics' | 'sync' | 'email' | 'inventory';
@@ -65,6 +66,7 @@ export function SettingsPage() {
                     <div className="space-y-6">
                         <GeneralSettings />
                         <GoldPriceSettings />
+                        <OrderTagSettings />
                     </div>
                 )}
 

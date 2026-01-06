@@ -69,8 +69,12 @@ const EcommerceLogWidget: React.FC = () => {
         const who = e.session?.email || 'Guest';
         switch (e.type) {
             case 'add_to_cart':
-                const total = e.payload?.total ? `($${e.payload.total})` : '';
-                return <span><span className="font-semibold text-gray-800">{who}</span> added items to cart {total}</span>;
+                const products = e.payload?.items?.map((item: any) => item.name).filter(Boolean).slice(0, 2);
+                const productLabel = products?.length
+                    ? products.join(', ') + (e.payload?.items?.length > 2 ? ` +${e.payload.items.length - 2} more` : '')
+                    : 'items';
+                const total = e.payload?.total ? ` ($${e.payload.total})` : '';
+                return <span><span className="font-semibold text-gray-800">{who}</span> added <span className="text-gray-700">{productLabel}</span>{total}</span>;
             case 'remove_from_cart':
                 return <span><span className="font-semibold text-gray-800">{who}</span> removed items from cart</span>;
             case 'checkout_start':

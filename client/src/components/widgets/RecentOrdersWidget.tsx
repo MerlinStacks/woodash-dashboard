@@ -37,14 +37,10 @@ export function RecentOrdersWidget({ className }: WidgetProps) {
                 ) : (
                     orders.map(order => (
                         <div key={order.id} className="flex justify-between items-center text-sm p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
-                            <div className="flex gap-3 items-center">
-                                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
-                                    #{order.id}
-                                </div>
-                                <div>
-                                    <p className="font-medium text-gray-900">{order.billing?.first_name || 'Guest'} {order.billing?.last_name}</p>
-                                    <p className="text-xs text-gray-500">{order.line_items?.length || 0} items</p>
-                                </div>
+                            <div>
+                                <p className="text-xs text-gray-500 mb-0.5">#{order.id}</p>
+                                <p className="font-medium text-gray-900">{order.billing?.first_name || 'Guest'} {order.billing?.last_name}</p>
+                                <p className="text-xs text-gray-500">{order.line_items?.length || 0} items</p>
                             </div>
                             <span className="font-medium text-gray-900">
                                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency || 'USD' }).format(order.total)}
