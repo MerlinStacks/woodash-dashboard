@@ -73,8 +73,8 @@ export function TrackingScriptHelper() {
                             {configCopied ? 'Copied!' : 'Copy Config'}
                         </button>
                     </div>
-                    <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto font-mono text-sm leading-relaxed border border-gray-700">
-                        {connectionConfig}
+                    <pre className="bg-slate-900 text-white p-4 rounded-lg overflow-x-auto font-mono text-sm leading-relaxed border border-slate-700 shadow-inner">
+                        <code>{connectionConfig || 'Loading configuration...'}</code>
                     </pre>
                 </div>
                 <p className="text-sm text-gray-500">
