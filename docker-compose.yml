@@ -43,7 +43,6 @@ services:
       context: ./server
     pull_policy: build
     container_name: overseekv2-api-1
-    command: sh -c "until npx prisma migrate deploy; do echo 'Migration failed, retrying in 5s...'; sleep 5; done && npm start"
     ports:
       - "3000:3000"
     environment:
@@ -63,10 +62,12 @@ services:
       context: ./client
       dockerfile: Dockerfile
     pull_policy: build
+    pull_policy: build
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: http://localhost:3000
+      # VITE_API_URL not set so it uses proxy (relative paths)
+      CHOKIDAR_USEPOLLING: "true" # Better for Docker
     depends_on:
       - api
 

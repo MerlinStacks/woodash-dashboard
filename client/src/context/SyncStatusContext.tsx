@@ -50,7 +50,7 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
     const fetchStatus = async () => {
         if (!currentAccount?.id || !token) return;
         try {
-            const url = new URL(`${import.meta.env.VITE_API_URL}/api/sync/active`);
+            const url = new URL('/api/sync/active', window.location.origin);
             url.searchParams.append('accountId', currentAccount.id);
 
             const res = await fetch(url.toString(), {
@@ -66,7 +66,7 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
             }
 
             // Also fetch persistent state
-            const stateRes = await fetch(`${import.meta.env.VITE_API_URL}/api/sync/status?accountId=${currentAccount.id}`, {
+            const stateRes = await fetch(`/api/sync/status?accountId=${currentAccount.id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (stateRes.ok) {
@@ -95,7 +95,7 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
     const controlSync = async (action: 'pause' | 'resume' | 'cancel', queueName?: string, jobId?: string) => {
         if (!currentAccount?.id || !token) return;
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/sync/control`, {
+            const res = await fetch('/api/sync/control', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
     const runSync = async (types?: string[], incremental: boolean = true) => {
         if (!currentAccount?.id || !token) return;
         try {
-            await fetch(`${import.meta.env.VITE_API_URL}/api/sync/manual`, {
+            await fetch('/api/sync/manual', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
