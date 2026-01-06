@@ -1,4 +1,5 @@
 import { prisma } from '../../utils/prisma';
+import { Logger } from '../../utils/logger';
 
 export class OrderTools {
     static async getRecentOrders(accountId: string, limit: number = 5, status?: string) {
@@ -33,7 +34,7 @@ export class OrderTools {
                 customer: `${o.billing?.first_name} ${o.billing?.last_name}`
             }));
         } catch (error) {
-            console.error("Tool Error (getRecentOrders):", error);
+            Logger.error('Tool Error (getRecentOrders)', { error });
             return "Failed to retrieve orders.";
         }
     }

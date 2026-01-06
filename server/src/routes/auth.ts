@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { hashPassword, comparePassword, generateToken } from '../utils/auth';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import multer from 'multer';
@@ -99,8 +100,6 @@ router.post('/register', validate(registerSchema), async (req: Request, res: Res
 
 // LOGIN
 // Strict Rate Limit for Login: 5 attempts per hour
-// @ts-ignore
-const rateLimit = require('express-rate-limit');
 const loginLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 5, // Limit each IP to 5 login requests per hour

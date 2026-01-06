@@ -1,7 +1,9 @@
 
-import express from 'express';
+import express, { Response } from 'express';
+import { AuthenticatedRequest } from '../types/express';
 import { requireAuth } from '../middleware/auth';
 import { ReviewService } from '../services/ReviewService';
+import { Logger } from '../utils/logger';
 
 const router = express.Router();
 const reviewService = new ReviewService();
@@ -9,10 +11,10 @@ const reviewService = new ReviewService();
 router.use(requireAuth);
 
 // Get all reviews
-router.get('/', async (req: any, res) => {
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     try {
         const { page, limit, status, search } = req.query;
-        const accountId = (req as any).accountId;
+        const accountId = req.accountId!;
         const result = await reviewService.getReviews(accountId, {
             page: Number(page),
             limit: Number(limit),
@@ -21,7 +23,7 @@ router.get('/', async (req: any, res) => {
         });
         res.json(result);
     } catch (error) {
-        console.error('Error fetching reviews:', error);
+        Logger.error('Error fetching reviews', { error });
         res.status(500).json({ error: 'Failed to fetch reviews' });
     }
 });
@@ -29,15 +31,15 @@ router.get('/', async (req: any, res) => {
 
 
 // Reply to a review
-router.post('/:id/reply', async (req: any, res) => {
+router.post('/:id/reply', async (req: AuthenticatedRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { reply } = req.body;
-        const accountId = (req as any).accountId;
+        const accountId = req.accountId!;
         const result = await reviewService.replyToReview(accountId, id, reply);
         res.json(result);
     } catch (error) {
-        console.error('Error replying to review:', error);
+        Logger.error('Error replying to review', { error });
         res.status(500).json({ error: 'Failed to reply to review' });
     }
 });

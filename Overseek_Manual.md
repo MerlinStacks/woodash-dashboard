@@ -227,16 +227,23 @@ To ensure both **instant UI feedback** and **reliable background processing**, O
     *   **Collision Detection**: The `PresenceAvatars` component shows real-time "heads" of other staff members currently editing the same product to prevent overwrite conflicts.
     *   **Gold Price Panel**: A specialized widget for jewelry merchants that calculates live margin based on the configured weight and daily spot price.
 
-### 6.10 System Internals & Recovery
+### 6.8 Database Connection Management
+*   **PrismaClient Singleton**: All services and routes import a shared `PrismaClient` instance from `utils/prisma.ts` instead of instantiating their own. This prevents connection pool exhaustion and reduces memory overhead.
+    *   **Pattern**: `import { prisma } from '../utils/prisma';`
+    *   **Refactored Files**: 30+ services and routes now use the singleton.
+*   **Connection Pooling**: The singleton efficiently manages a connection pool, reusing connections across requests.
+*   **Scripts Exception**: CLI scripts (e.g., `create-admin.ts`, `reindex-orders.ts`) may instantiate their own `PrismaClient` since they run as standalone processes.
+
+### 6.9 System Internals & Recovery
 *   **Destructive Rebuild Protocol**: The `reindex-orders.ts` script allows for a "Scorched Earth" disaster recovery. It physically deletes the Elasticsearch index and rebuilds it from the raw JSON stored in PostgreSQL (`wooOrder.rawData`), ensuring true data symmetry even if the search index is corrupted.
 *   **Superuser Bootstrap**: The `create-admin.ts` script creates admin credentials securely. Uses `ADMIN_PASSWORD` environment variable or generates a cryptographically random 32-character password if not set. Supports `ADMIN_EMAIL` override.
 *   **Cryptographic Standard**: Data at rest (tokens, secrets) is encrypted using **AES-256-GCM**. The system uses a SHA-256 hash of the `ENCRYPTION_KEY` to derive a stable 32-byte key, and stores data in a `iv:authTag:encryptedData` format to prevent tampering.
 *   **Chaos Engineering**: The server includes `repro.ts` and `invoke_error.ts`, designed to simulate high-concurrency race conditions (e.g., token attacks, non-existent user creation) against the production database to verify transactional integrity.
 
-### 6.11 Warehouse Operations
+### 6.10 Warehouse Operations
 *   **Client-Side Picklist**: The `printPicklist.ts` utility generates a pure HTML/CSS print view for warehouse staff. It aggregates items by Bin Location and aggregates quantities across multiple orders, showing a "Total Qty" per bin to optimize walking paths.
 
-### 6.12 Sync Engine Mechanics
+### 6.11 Sync Engine Mechanics
 *   **Composite Key Integrity**: The `OrderSync` engine uses a composite key `{ accountId_wooId }` to prevent data collision between multiple stores.
 *   **Review Heuristics**: The `ReviewSync` engine implements a **Probabilistic Linker**. It scans the last 50 orders for a matching product + customer email to "guess" the originating order for a review, as WooCommerce does not provide this link natively.
 *   **Historical Muting**: The engine logic (`OrderSync.ts`) specifically checks if an order is older than 24 hours (`< 24 * 60 * 60 * 1000`) before emitting `ORDER.CREATED` events. This prevents "New Order" automation spam during historical data imports.
@@ -246,23 +253,24 @@ To ensure both **instant UI feedback** and **reliable background processing**, O
     *   `ORDER.SYNCED`: Generic event for every touch.
 *   **Validation Layer**: Middleware uses `zod` schemas for strict runtime payload validation (`validate.ts`), returning structured JSON error arrays that the frontend form libraries consume directly (mapped by field name).
 
-### 6.13 Automated Reporting Implementation
+### 6.12 Automated Reporting Implementation
 *   **Server-Side Resolution**: The `ReportWorker` resolves dynamic ranges (`today`, `7d`, `ytd`) at runtime.
 *   **SMTP Dependency**: Automated reports **require** a user-configured SMTP account marked as `isDefault`. The system expressly does *not* provide a fallback "System No-Reply" address, meaning reporting will fail silently (log warning only) if the user has not configured their own email gateway.
 
-### 6.14 Client API Layer
+### 6.13 Client API Layer
 *   **Multi-Tenant Header**: The client `api.ts` injects `X-Account-ID` headers on every request, enabling the backend to scope queries to the correct tenant without relying on session state.
 *   **Error Normalization**: The `ApiError` class wraps all non-2xx responses, allowing components to catch and display user-friendly messages.
 
-### 6.15 Logging & Observability
-*   **Structured Logging**: All core services use the `Logger` utility (Winston) instead of `console.log`, enabling:
+### 6.14 Logging & Observability
+*   **Structured Logging**: All core services and routes use the `Logger` utility (Winston) instead of `console.log`, enabling:
     *   JSON-formatted logs in production
     *   Colorized console output in development
     *   Automatic file rotation to `logs/error.log` and `logs/all.log`
+*   **Complete Coverage**: Logger is used across 60+ files including all routes, services, and background workers.
 *   **PII Guard**: The `requestLogger.ts` middleware explicitly comments out body logging (`// body: req.body`) to prevent accidental PII from being written to logs.
 *   **Context Enrichment**: Log entries include `accountId`, `jobId`, and other metadata for traceability.
 
-### 6.16 Scheduler Service (Cron Engine)
+### 6.15 Scheduler Service (Cron Engine)
 The `SchedulerService.ts` is the heartbeat of all background operations. It uses a combination of BullMQ repeatable jobs and Node.js `setInterval` tickers.
 
 *   **Global Sync Orchestrator**: A cron job (`*/15 * * * *`) that finds all accounts and dispatches incremental sync jobs with **Low Priority (1)**. If a manual sync (Priority 10) is already running for an account, this job is skipped, preventing conflicts.
@@ -277,18 +285,18 @@ The `SchedulerService.ts` is the heartbeat of all background operations. It uses
     *   `abandonedNotificationSentAt` is null.
     It then triggers the `ABANDONED_CART` automation for each matching session.
 
-### 6.17 Purchase Order Service (B2B Procurement)
+### 6.16 Purchase Order Service (B2B Procurement)
 *   **Inbound Inventory Calculation**: The `getInboundInventory()` method aggregates all `PurchaseOrderItem` quantities where the parent PO status is `ORDERED`. This is used to display **"Shadow Stock"** (stock on the way) in the Inventory UI.
 *   **Status Workflow**: `DRAFT` → `ORDERED` → `RECEIVED` → `CLOSED`.
 
-### 6.18 Segment Service (Customer Segmentation Engine)
+### 6.17 Segment Service (Customer Segmentation Engine)
 *   **Rule DSL**: Supports a JSON-based rule definition with `AND`/`OR` grouping.
 *   **Operators**: Numeric (`gt`, `lt`, `gte`, `lte`, `eq`) and String (`contains`, `equals`, `startsWith`).
 *   **Supported Fields**: `totalSpent`, `ordersCount`, `email`, `firstName`, `lastName`.
 *   **Preview Limit**: The `previewCustomers` method returns a maximum of 50 customers to prevent UI overload.
 *   **Dynamic Resolution**: `getCustomerIdsInSegment` resolves the full list at runtime when a campaign is dispatched, ensuring the segment is always up-to-date.
 
-### 6.19 Tracking Script Internals
+### 6.18 Tracking Script Internals
 The tracking script (`tracking.js`) is dynamically generated by the server and contains client-side analytics logic.
 
 *   **Visitor ID Cookie**: A UUID stored in `_os_vid` with a 365-day expiry.
@@ -298,7 +306,7 @@ The tracking script (`tracking.js`) is dynamically generated by the server and c
 *   **Email Capture (Abandoned Cart)**: Listens to **both** `blur` and `change` events on `input#billing_email` to capture autofilled values.
 *   **Cart Value Parsing**: Parses the WooCommerce mini-cart HTML fragment (`div.widget_shopping_cart_content`) to extract the cart total via regex (`text.replace(/[^0-9.]/g, '')`).
 
-### 6.20 Webhook Security (Inbound API)
+### 6.19 Webhook Security (Inbound API)
 The `webhook.ts` route handles incoming WooCommerce webhooks with strict security.
 
 *   **HMAC-SHA256 Verification**: Every incoming request is verified against a base64-encoded HMAC-SHA256 signature using the `webhookSecret` (or fallback `wooConsumerSecret`).
@@ -306,7 +314,7 @@ The `webhook.ts` route handles incoming WooCommerce webhooks with strict securit
 *   **Notification Generation**: On `order.created`, a `Notification` record is automatically created, powering the in-app notification bell.
 *   **Topics Handled**: `order.created`, `order.updated`, `product.created`, `product.updated`, `customer.created`, `customer.updated`.
 
-### 6.21 Event Bus (Internal Pub/Sub)
+### 6.20 Event Bus (Internal Pub/Sub)
 The `events.ts` module defines a lightweight, in-process event bus using Node.js `EventEmitter`.
 
 *   **Typed Events**: `EVENTS.ORDER.SYNCED`, `EVENTS.ORDER.CREATED`, `EVENTS.ORDER.COMPLETED`, `EVENTS.REVIEW.LEFT`, `EVENTS.EMAIL.RECEIVED`.

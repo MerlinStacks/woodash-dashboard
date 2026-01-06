@@ -140,7 +140,7 @@ export function HelpArticle() {
                     <SimpleMarkdown content={article.content} />
                 </div>
 
-                {/* Feedback Footer (Mock) */}
+                {/* Feedback Footer - TODO: Connect to feedback API */}
                 <div className="bg-gray-50 p-8 text-center border-t border-gray-100">
                     <p className="text-gray-900 font-medium mb-4">Was this article helpful?</p>
                     <div className="flex justify-center gap-4">

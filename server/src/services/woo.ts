@@ -1,6 +1,7 @@
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api";
 import https from 'https';
 import { prisma } from '../utils/prisma';
+import { Logger } from '../utils/logger';
 import { MOCK_PRODUCTS, MOCK_ORDERS, MOCK_CUSTOMERS, MOCK_REVIEWS } from './mockWooData';
 
 interface WooCredentials {
@@ -96,13 +97,13 @@ export class WooService {
                 if (error.response && error.response.status === 429) {
                     retries++;
                     const waitTime = Math.pow(2, retries) * 1000; // Exponential backoff: 2s, 4s, 8s
-                    console.warn(`[WooService] Rate limited on ${endpoint}. Retrying in ${waitTime}ms...`);
+                    Logger.warn(`Rate limited on ${endpoint}. Retrying in ${waitTime}ms`, { endpoint, waitTime });
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                     continue;
                 }
 
                 // Throw specific error for other cases
-                console.error(`[WooService] Error fetching ${endpoint}:`, error.message);
+                Logger.error(`Error fetching ${endpoint}`, { error: error.message });
                 throw error;
             }
         }

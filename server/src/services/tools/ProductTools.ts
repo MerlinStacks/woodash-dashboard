@@ -1,4 +1,5 @@
 import { prisma } from '../../utils/prisma';
+import { Logger } from '../../utils/logger';
 
 export class ProductTools {
     static async searchProducts(accountId: string, query: string) {
@@ -24,7 +25,7 @@ export class ProductTools {
             return products;
 
         } catch (error) {
-            console.error("Tool Error (searchProducts):", error);
+            Logger.error('Tool Error (searchProducts)', { error });
             return "Failed to search products.";
         }
     }

@@ -1,4 +1,5 @@
 import { prisma } from '../../utils/prisma';
+import { Logger } from '../../utils/logger';
 
 export class BehaviourAnalytics {
 
@@ -30,7 +31,7 @@ export class BehaviourAnalytics {
             }));
 
         } catch (error) {
-            console.error('Analytics Pages Error:', error);
+            Logger.error('Analytics Pages Error', { error });
             return [];
         }
     }
@@ -61,7 +62,7 @@ export class BehaviourAnalytics {
                 searches: Number(t.searches)
             }));
         } catch (error) {
-            console.error('Analytics Search Error:', error);
+            Logger.error('Analytics Search Error', { error });
             return [];
         }
     }
@@ -97,7 +98,7 @@ export class BehaviourAnalytics {
             }));
 
         } catch (error) {
-            console.error('Analytics Entry Pages Error:', error);
+            Logger.error('Analytics Entry Pages Error', { error });
             return [];
         }
     }
@@ -133,7 +134,7 @@ export class BehaviourAnalytics {
             }));
 
         } catch (error) {
-            console.error('Analytics Exit Pages Error:', error);
+            Logger.error('Analytics Exit Pages Error', { error });
             return [];
         }
     }

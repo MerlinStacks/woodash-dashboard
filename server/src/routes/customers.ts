@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
+import { AuthenticatedRequest } from '../types/express';
 import { CustomersService } from '../services/customers';
 import { requireAuth } from '../middleware/auth';
 import { Logger } from '../utils/logger';

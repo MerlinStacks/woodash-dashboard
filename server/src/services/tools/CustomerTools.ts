@@ -1,4 +1,5 @@
 import { prisma } from '../../utils/prisma';
+import { Logger } from '../../utils/logger';
 
 export class CustomerTools {
     static async findCustomer(accountId: string, query: string) {
@@ -26,7 +27,7 @@ export class CustomerTools {
             return customers;
 
         } catch (error) {
-            console.error("Tool Error (findCustomer):", error);
+            Logger.error('Tool Error (findCustomer)', { error });
             return "Failed to find customer.";
         }
     }

@@ -1,14 +1,16 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
+import { AuthenticatedRequest } from '../types/express';
 import { WooService } from '../services/woo';
 import { requireAuth } from '../middleware/auth';
+import { Logger } from '../utils/logger';
 
 const router = Router();
 
 router.use(requireAuth);
 
-router.get('/orders', async (req: Request, res: Response) => {
+router.get('/orders', async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const accountId = (req as any).accountId;
+        const accountId = req.accountId;
         if (!accountId) return res.status(400).json({ error: 'No account selected' });
 
         const woo = await WooService.forAccount(accountId);
@@ -16,14 +18,14 @@ router.get('/orders', async (req: Request, res: Response) => {
 
         res.json(orders);
     } catch (error: any) {
-        console.error('Woo API Error:', error.response?.data || error.message);
+        Logger.error('Woo API Error', { error: error.response?.data || error.message });
         res.status(500).json({ error: 'Failed to fetch orders' });
     }
 });
 
-router.get('/products', async (req: Request, res: Response) => {
+router.get('/products', async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const accountId = (req as any).accountId;
+        const accountId = req.accountId;
         if (!accountId) return res.status(400).json({ error: 'No account selected' });
 
         const woo = await WooService.forAccount(accountId);
@@ -35,14 +37,14 @@ router.get('/products', async (req: Request, res: Response) => {
 
         res.json(products);
     } catch (error: any) {
-        console.error('Woo API Error:', error.response?.data || error.message);
+        Logger.error('Woo API Error', { error: error.response?.data || error.message });
         res.status(500).json({ error: 'Failed to fetch products' });
     }
 });
 
-router.post('/configure', async (req: Request, res: Response) => {
+router.post('/configure', async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const accountId = (req as any).accountId;
+        const accountId = req.accountId;
         const { origin, wooUrl, wooConsumerKey, wooConsumerSecret } = req.body; // Client sends its current origin + credentials
 
         if (!accountId) return res.status(400).json({ error: 'No account selected' });
@@ -71,7 +73,7 @@ router.post('/configure', async (req: Request, res: Response) => {
             // If this fails, the credentials themselves are likely invalid or have very low permissions
             await woo.getSystemStatus();
         } catch (authError: any) {
-            console.error('Credential Verification Failed:', authError.message);
+            Logger.error('Credential Verification Failed', { error: authError.message });
             return res.status(401).json({
                 error: 'Invalid WooCommerce Credentials. Please check your Consumer Key and Secret.',
                 details: authError.message
@@ -86,17 +88,17 @@ router.post('/configure', async (req: Request, res: Response) => {
             });
             res.json({ success: true, plugin_response: result });
         } catch (pluginError: any) {
-             console.error('Plugin Settings Update Failed:', pluginError.message);
-             
-             // Check if it's a 401 Unauthorized during the write operation
-             if (pluginError.response && pluginError.response.status === 401) {
-                 return res.status(401).json({
-                     error: 'Configuration failed. Your API Key appears to be "Read Only". Please generate new WooCommerce keys with "Read/Write" permissions.',
-                     details: pluginError.response.data
-                 });
-             }
-             
-             throw pluginError; // Re-throw to be caught by the outer error handler for generic errors
+            Logger.error('Plugin Settings Update Failed', { error: pluginError.message });
+
+            // Check if it's a 401 Unauthorized during the write operation
+            if (pluginError.response && pluginError.response.status === 401) {
+                return res.status(401).json({
+                    error: 'Configuration failed. Your API Key appears to be "Read Only". Please generate new WooCommerce keys with "Read/Write" permissions.',
+                    details: pluginError.response.data
+                });
+            }
+
+            throw pluginError; // Re-throw to be caught by the outer error handler for generic errors
         }
     } catch (error: any) {
         const errorDetails = {
@@ -106,7 +108,7 @@ router.post('/configure', async (req: Request, res: Response) => {
             headers: error.response?.headers,
             url: error.config?.url
         };
-        console.error('Woo Configuration Error:', JSON.stringify(errorDetails, null, 2));
+        Logger.error('Woo Configuration Error', { errorDetails });
 
         // Write to a temporary debug file for deeper inspection if needed
         require('fs').writeFileSync('debug_woo_error.json', JSON.stringify(errorDetails, null, 2));

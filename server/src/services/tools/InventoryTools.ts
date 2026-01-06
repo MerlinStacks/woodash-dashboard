@@ -1,4 +1,5 @@
 import { prisma } from '../../utils/prisma';
+import { Logger } from '../../utils/logger';
 
 export class InventoryTools {
     static async getInventorySummary(accountId: string, limit: number = 5) {
@@ -25,7 +26,7 @@ export class InventoryTools {
             };
 
         } catch (error) {
-            console.error("Tool Error (getInventorySummary):", error);
+            Logger.error('Tool Error (getInventorySummary)', { error });
             return "Failed to check inventory.";
         }
     }

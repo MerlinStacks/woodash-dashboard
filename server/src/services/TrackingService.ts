@@ -1,7 +1,7 @@
 
 import { prisma } from '../utils/prisma';
 import geoip from 'geoip-lite';
-import UAParser from 'ua-parser-js';
+const UAParser = require('ua-parser-js');
 
 interface TrackingEventPayload {
     accountId: string;
@@ -23,6 +23,11 @@ interface TrackingEventPayload {
 export class TrackingService {
 
     static async processEvent(data: TrackingEventPayload) {
+        // Filter out bots/crawlers - they shouldn't be tracked
+        if (data.userAgent && TrackingService.isBot(data.userAgent)) {
+            return null; // Silently skip bot traffic
+        }
+
         // 1. Resolve GeoIP if IP is provided
         let country = null;
         let city = null;
@@ -53,15 +58,18 @@ export class TrackingService {
 
         // Attribution (only set if not exists, or maybe overwrite if it's a new campaign?)
         // For simplicity, we'll strip falsy values to avoid overwriting with null if the client didn't send them this time
-        if (data.referrer) sessionPayload.referrer = data.referrer;
+        if (data.referrer) {
+            sessionPayload.referrer = data.referrer;
+            sessionPayload.trafficSource = TrackingService.parseTrafficSource(data.referrer);
+        }
         if (data.utmSource) sessionPayload.utmSource = data.utmSource;
         if (data.utmMedium) sessionPayload.utmMedium = data.utmMedium;
         if (data.utmCampaign) sessionPayload.utmCampaign = data.utmCampaign;
 
         // Parse User Agent with ua-parser-js for accurate detection
         if (data.userAgent) {
-            const parser = new UAParser(data.userAgent);
-            const result = parser.getResult();
+            const parser = new UAParser();
+            const result = parser.setUA(data.userAgent).getResult();
 
             // Device type
             const deviceType = result.device.type;
@@ -147,6 +155,41 @@ export class TrackingService {
             // payload: { experimentId, variationId }
         }
 
+        // Check if returning visitor (exists in DB already)
+        const existingSession = await prisma.analyticsSession.findUnique({
+            where: {
+                accountId_visitorId: {
+                    accountId: data.accountId,
+                    visitorId: data.visitorId
+                }
+            },
+            select: {
+                id: true,
+                firstTouchSource: true,
+                firstTouchAt: true,
+                totalVisits: true
+            }
+        });
+
+        const isReturning = !!existingSession;
+        sessionPayload.isReturning = isReturning;
+
+        // Attribution tracking
+        const currentSource = sessionPayload.trafficSource || TrackingService.parseTrafficSource(data.referrer || '');
+
+        // First touch - only set once, never overwrite
+        if (!existingSession?.firstTouchSource) {
+            sessionPayload.firstTouchSource = currentSource;
+            sessionPayload.firstTouchAt = new Date();
+        }
+
+        // Last touch - always update
+        sessionPayload.lastTouchSource = currentSource;
+        sessionPayload.lastTouchAt = new Date();
+
+        // Increment visit count
+        sessionPayload.totalVisits = (existingSession?.totalVisits || 0) + (data.type === 'pageview' ? 1 : 0);
+
         // Upsert
         const session = await prisma.analyticsSession.upsert({
             where: {
@@ -158,6 +201,8 @@ export class TrackingService {
             create: {
                 accountId: data.accountId,
                 visitorId: data.visitorId,
+                firstTouchSource: currentSource,
+                firstTouchAt: new Date(),
                 ...sessionPayload
             },
             update: sessionPayload
@@ -255,4 +300,608 @@ export class TrackingService {
             data: { abandonedNotificationSentAt: new Date() }
         });
     }
+
+    /**
+     * Parse referrer URL to determine traffic source category
+     */
+    static parseTrafficSource(referrer: string): string {
+        if (!referrer) return 'direct';
+
+        try {
+            const url = new URL(referrer);
+            const domain = url.hostname.toLowerCase();
+
+            // Organic Search Engines
+            const searchEngines = [
+                'google.', 'bing.', 'yahoo.', 'duckduckgo.', 'baidu.', 'yandex.',
+                'ecosia.', 'ask.com', 'aol.', 'startpage.', 'qwant.', 'brave.',
+                'search.', 'naver.', 'daum.', 'sogou.'
+            ];
+            if (searchEngines.some(se => domain.includes(se))) {
+                return 'organic';
+            }
+
+            // AI Providers / AI-Assisted Search
+            const aiProviders = [
+                'chat.openai.', 'openai.', 'chatgpt.',
+                'claude.ai', 'anthropic.',
+                'bard.google.', 'gemini.google.',
+                'perplexity.ai', 'perplexity.',
+                'you.com', 'phind.com',
+                'copilot.microsoft.', 'bing.com/chat',
+                'poe.com', 'character.ai',
+                'huggingface.', 'replicate.',
+                'jasper.ai', 'writesonic.', 'copy.ai'
+            ];
+            if (aiProviders.some(ai => domain.includes(ai) || referrer.includes(ai))) {
+                return 'ai';
+            }
+
+            // Social Media
+            const socialPlatforms = [
+                'facebook.', 'fb.com', 'fb.me', 'instagram.',
+                'twitter.', 'x.com', 't.co',
+                'linkedin.', 'pinterest.', 'tiktok.', 'youtube.', 'youtu.be',
+                'reddit.', 'snapchat.', 'threads.', 'mastodon.',
+                'tumblr.', 'quora.', 'medium.', 'substack.',
+                'discord.', 'twitch.', 'vimeo.'
+            ];
+            if (socialPlatforms.some(sp => domain.includes(sp))) {
+                return 'social';
+            }
+
+            // Email Providers
+            const emailDomains = [
+                'mail.google.', 'outlook.', 'mail.yahoo.',
+                'mail.aol.', 'protonmail.', 'zoho.mail',
+                'mailchimp.', 'campaign-archive', 'list-manage.',
+                'sendgrid.', 'mailgun.', 'constantcontact.'
+            ];
+            if (emailDomains.some(ed => domain.includes(ed))) {
+                return 'email';
+            }
+
+            // Shopping / Marketplaces
+            const shopping = [
+                'amazon.', 'ebay.', 'etsy.', 'alibaba.', 'aliexpress.',
+                'shopify.', 'walmart.', 'target.', 'bestbuy.'
+            ];
+            if (shopping.some(s => domain.includes(s))) {
+                return 'marketplace';
+            }
+
+            // News / Content
+            const news = [
+                'news.google.', 'news.yahoo.', 'flipboard.',
+                'feedly.', 'pocket.', 'getpocket.',
+                'hackernews', 'ycombinator.'
+            ];
+            if (news.some(n => domain.includes(n))) {
+                return 'news';
+            }
+
+            // Messaging Apps
+            const messaging = [
+                'web.whatsapp.', 'telegram.', 'signal.',
+                'slack.', 'teams.microsoft.'
+            ];
+            if (messaging.some(m => domain.includes(m))) {
+                return 'messaging';
+            }
+
+            // Default to referral
+            return 'referral';
+        } catch {
+            return 'direct';
+        }
+    }
+
+    /**
+     * Check if user agent indicates a bot/crawler
+     */
+    static isBot(userAgent: string): boolean {
+        if (!userAgent) return false;
+
+        const ua = userAgent.toLowerCase();
+
+        const botPatterns = [
+            // Major search engine bots
+            'googlebot', 'bingbot', 'slurp', 'duckduckbot', 'baiduspider',
+            'yandexbot', 'sogou', 'exabot', 'facebot', 'facebookexternalhit',
+
+            // SEO/Monitoring tools
+            'semrush', 'ahrefs', 'moz.com', 'dotbot', 'rogerbot',
+            'screaming frog', 'sitebulb', 'deepcrawl',
+
+            // AI/LLM crawlers
+            'gptbot', 'chatgpt-user', 'claudebot', 'anthropic-ai',
+            'ccbot', 'cohere-ai', 'bytespider', 'petalbot',
+            'amazonbot', 'applebot',
+
+            // Generic bot indicators
+            'bot', 'spider', 'crawl', 'scrape', 'fetch',
+            'headless', 'phantom', 'selenium', 'puppeteer', 'playwright',
+            'wget', 'curl', 'python-requests', 'python-urllib',
+            'java/', 'libwww', 'apache-httpclient',
+            'go-http-client', 'ruby', 'perl',
+
+            // Uptime monitors
+            'pingdom', 'uptimerobot', 'statuscake', 'site24x7',
+            'monitis', 'alertra', 'gtmetrix', 'webpagetest',
+
+            // Preview/Link unfurlers
+            'twitterbot', 'linkedinbot', 'slackbot', 'telegrambot',
+            'discordbot', 'whatsapp', 'skypeuripreview',
+
+            // Security scanners
+            'nmap', 'nikto', 'sqlmap', 'masscan', 'zgrab'
+        ];
+
+        return botPatterns.some(pattern => ua.includes(pattern));
+    }
+
+
+    /**
+     * Get aggregated stats for dashboard
+     */
+    static async getStats(accountId: string, days: number = 30) {
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+        const sessions = await prisma.analyticsSession.findMany({
+            where: {
+                accountId,
+                createdAt: { gte: startDate }
+            },
+            select: {
+                country: true,
+                deviceType: true,
+                browser: true,
+                os: true,
+                createdAt: true,
+                lastActiveAt: true
+            }
+        });
+
+        // Aggregate by country
+        const countryMap = new Map<string, number>();
+        const deviceMap = new Map<string, number>();
+        const browserMap = new Map<string, number>();
+
+        let totalDuration = 0;
+        let sessionCount = 0;
+
+        for (const s of sessions) {
+            if (s.country) {
+                countryMap.set(s.country, (countryMap.get(s.country) || 0) + 1);
+            }
+            if (s.deviceType) {
+                deviceMap.set(s.deviceType, (deviceMap.get(s.deviceType) || 0) + 1);
+            }
+            if (s.browser) {
+                browserMap.set(s.browser, (browserMap.get(s.browser) || 0) + 1);
+            }
+
+            // Calculate session duration
+            if (s.createdAt && s.lastActiveAt) {
+                const duration = new Date(s.lastActiveAt).getTime() - new Date(s.createdAt).getTime();
+                if (duration > 0) {
+                    totalDuration += duration;
+                    sessionCount++;
+                }
+            }
+        }
+
+        return {
+            countries: Array.from(countryMap.entries())
+                .map(([country, sessions]) => ({ country, sessions }))
+                .sort((a, b) => b.sessions - a.sessions)
+                .slice(0, 10),
+            devices: Array.from(deviceMap.entries())
+                .map(([type, sessions]) => ({ type, sessions }))
+                .sort((a, b) => b.sessions - a.sessions),
+            browsers: Array.from(browserMap.entries())
+                .map(([name, sessions]) => ({ name, sessions }))
+                .sort((a, b) => b.sessions - a.sessions)
+                .slice(0, 10),
+            totalSessions: sessions.length,
+            avgSessionDuration: sessionCount > 0 ? Math.round(totalDuration / sessionCount / 1000) : 0 // seconds
+        };
+    }
+
+    /**
+     * Get funnel data for dashboard
+     */
+    static async getFunnel(accountId: string, days: number = 30) {
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+        const events = await prisma.analyticsEvent.findMany({
+            where: {
+                session: { accountId },
+                createdAt: { gte: startDate }
+            },
+            select: {
+                type: true,
+                sessionId: true
+            }
+        });
+
+        // Count unique sessions for each stage
+        const productViews = new Set<string>();
+        const addToCarts = new Set<string>();
+        const checkouts = new Set<string>();
+        const purchases = new Set<string>();
+
+        for (const event of events) {
+            if (event.type === 'product_view' || event.type === 'pageview') {
+                productViews.add(event.sessionId);
+            }
+            if (event.type === 'add_to_cart') {
+                addToCarts.add(event.sessionId);
+            }
+            if (event.type === 'checkout_start') {
+                checkouts.add(event.sessionId);
+            }
+            if (event.type === 'purchase') {
+                purchases.add(event.sessionId);
+            }
+        }
+
+        return {
+            stages: [
+                { name: 'Product Views', count: productViews.size },
+                { name: 'Add to Cart', count: addToCarts.size },
+                { name: 'Checkout', count: checkouts.size },
+                { name: 'Purchase', count: purchases.size }
+            ]
+        };
+    }
+
+    /**
+     * Get revenue analytics: AOV, total, by source
+     */
+    static async getRevenue(accountId: string, days: number = 30) {
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+        const purchaseEvents = await prisma.analyticsEvent.findMany({
+            where: {
+                session: { accountId },
+                type: 'purchase',
+                createdAt: { gte: startDate }
+            },
+            include: {
+                session: {
+                    select: {
+                        firstTouchSource: true,
+                        lastTouchSource: true,
+                        country: true,
+                        deviceType: true
+                    }
+                }
+            }
+        });
+
+        let totalRevenue = 0;
+        const revenueByFirstTouch = new Map<string, number>();
+        const revenueByLastTouch = new Map<string, number>();
+        const revenueByCountry = new Map<string, number>();
+        const revenueByDevice = new Map<string, number>();
+
+        for (const event of purchaseEvents) {
+            const total = (event.payload as any)?.total || 0;
+            totalRevenue += total;
+
+            const firstTouch = event.session.firstTouchSource || 'direct';
+            const lastTouch = event.session.lastTouchSource || 'direct';
+            const country = event.session.country || 'Unknown';
+            const device = event.session.deviceType || 'unknown';
+
+            revenueByFirstTouch.set(firstTouch, (revenueByFirstTouch.get(firstTouch) || 0) + total);
+            revenueByLastTouch.set(lastTouch, (revenueByLastTouch.get(lastTouch) || 0) + total);
+            revenueByCountry.set(country, (revenueByCountry.get(country) || 0) + total);
+            revenueByDevice.set(device, (revenueByDevice.get(device) || 0) + total);
+        }
+
+        const orderCount = purchaseEvents.length;
+        const aov = orderCount > 0 ? totalRevenue / orderCount : 0;
+
+        return {
+            totalRevenue: Math.round(totalRevenue * 100) / 100,
+            orderCount,
+            aov: Math.round(aov * 100) / 100,
+            byFirstTouch: Array.from(revenueByFirstTouch.entries())
+                .map(([source, revenue]) => ({ source, revenue: Math.round(revenue * 100) / 100 }))
+                .sort((a, b) => b.revenue - a.revenue),
+            byLastTouch: Array.from(revenueByLastTouch.entries())
+                .map(([source, revenue]) => ({ source, revenue: Math.round(revenue * 100) / 100 }))
+                .sort((a, b) => b.revenue - a.revenue),
+            byCountry: Array.from(revenueByCountry.entries())
+                .map(([country, revenue]) => ({ country, revenue: Math.round(revenue * 100) / 100 }))
+                .sort((a, b) => b.revenue - a.revenue)
+                .slice(0, 10),
+            byDevice: Array.from(revenueByDevice.entries())
+                .map(([device, revenue]) => ({ device, revenue: Math.round(revenue * 100) / 100 }))
+        };
+    }
+
+    /**
+     * Get attribution data: first-touch vs last-touch comparison
+     */
+    static async getAttribution(accountId: string, days: number = 30) {
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+        const sessions = await prisma.analyticsSession.findMany({
+            where: {
+                accountId,
+                createdAt: { gte: startDate }
+            },
+            select: {
+                firstTouchSource: true,
+                lastTouchSource: true,
+                cartValue: true
+            }
+        });
+
+        const firstTouchCounts = new Map<string, number>();
+        const lastTouchCounts = new Map<string, number>();
+
+        for (const s of sessions) {
+            const first = s.firstTouchSource || 'direct';
+            const last = s.lastTouchSource || 'direct';
+            firstTouchCounts.set(first, (firstTouchCounts.get(first) || 0) + 1);
+            lastTouchCounts.set(last, (lastTouchCounts.get(last) || 0) + 1);
+        }
+
+        return {
+            firstTouch: Array.from(firstTouchCounts.entries())
+                .map(([source, count]) => ({ source, count }))
+                .sort((a, b) => b.count - a.count),
+            lastTouch: Array.from(lastTouchCounts.entries())
+                .map(([source, count]) => ({ source, count }))
+                .sort((a, b) => b.count - a.count),
+            totalSessions: sessions.length
+        };
+    }
+
+    /**
+     * Get cart abandonment rate
+     */
+    static async getAbandonmentRate(accountId: string, days: number = 30) {
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+        const events = await prisma.analyticsEvent.findMany({
+            where: {
+                session: { accountId },
+                createdAt: { gte: startDate },
+                type: { in: ['add_to_cart', 'purchase'] }
+            },
+            select: {
+                type: true,
+                sessionId: true
+            }
+        });
+
+        const addedToCart = new Set<string>();
+        const purchased = new Set<string>();
+
+        for (const event of events) {
+            if (event.type === 'add_to_cart') addedToCart.add(event.sessionId);
+            if (event.type === 'purchase') purchased.add(event.sessionId);
+        }
+
+        const abandoned = [...addedToCart].filter(id => !purchased.has(id));
+        const abandonmentRate = addedToCart.size > 0
+            ? (abandoned.length / addedToCart.size) * 100
+            : 0;
+
+        return {
+            addedToCartCount: addedToCart.size,
+            purchasedCount: purchased.size,
+            abandonedCount: abandoned.length,
+            abandonmentRate: Math.round(abandonmentRate * 10) / 10
+        };
+    }
+
+    /**
+     * Get search analytics: top queries
+     */
+    static async getSearches(accountId: string, days: number = 30) {
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+        const searchEvents = await prisma.analyticsEvent.findMany({
+            where: {
+                session: { accountId },
+                type: 'search',
+                createdAt: { gte: startDate }
+            },
+            select: {
+                payload: true
+            }
+        });
+
+        const queryCounts = new Map<string, number>();
+        for (const event of searchEvents) {
+            const query = ((event.payload as any)?.searchQuery || (event.payload as any)?.term || '').toLowerCase().trim();
+            if (query) {
+                queryCounts.set(query, (queryCounts.get(query) || 0) + 1);
+            }
+        }
+
+        return {
+            topQueries: Array.from(queryCounts.entries())
+                .map(([query, count]) => ({ query, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 20),
+            totalSearches: searchEvents.length
+        };
+    }
+
+    /**
+     * Get exit pages: where users leave
+     */
+    static async getExitPages(accountId: string, days: number = 30) {
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+        const sessions = await prisma.analyticsSession.findMany({
+            where: {
+                accountId,
+                createdAt: { gte: startDate }
+            },
+            select: {
+                currentPath: true
+            }
+        });
+
+        const exitCounts = new Map<string, number>();
+        for (const s of sessions) {
+            if (s.currentPath) {
+                exitCounts.set(s.currentPath, (exitCounts.get(s.currentPath) || 0) + 1);
+            }
+        }
+
+        return {
+            topExitPages: Array.from(exitCounts.entries())
+                .map(([page, count]) => ({ page, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 20)
+        };
+    }
+
+    /**
+     * Get cohort analysis: retention by signup week
+     */
+    static async getCohorts(accountId: string) {
+        const eightWeeksAgo = new Date(Date.now() - 8 * 7 * 24 * 60 * 60 * 1000);
+
+        const sessions = await prisma.analyticsSession.findMany({
+            where: {
+                accountId,
+                createdAt: { gte: eightWeeksAgo }
+            },
+            select: {
+                visitorId: true,
+                createdAt: true,
+                lastActiveAt: true
+            }
+        });
+
+        // Group by cohort week
+        const cohorts = new Map<string, { visitors: Set<string>, retained: Map<number, Set<string>> }>();
+
+        for (const s of sessions) {
+            const cohortWeek = getWeekStart(s.createdAt);
+            const cohortKey = cohortWeek.toISOString().split('T')[0];
+
+            if (!cohorts.has(cohortKey)) {
+                cohorts.set(cohortKey, { visitors: new Set(), retained: new Map() });
+            }
+
+            cohorts.get(cohortKey)!.visitors.add(s.visitorId);
+
+            // Calculate which week they were last active
+            const weeksSinceStart = Math.floor((s.lastActiveAt.getTime() - cohortWeek.getTime()) / (7 * 24 * 60 * 60 * 1000));
+            for (let w = 0; w <= weeksSinceStart && w <= 7; w++) {
+                if (!cohorts.get(cohortKey)!.retained.has(w)) {
+                    cohorts.get(cohortKey)!.retained.set(w, new Set());
+                }
+                cohorts.get(cohortKey)!.retained.get(w)!.add(s.visitorId);
+            }
+        }
+
+        return {
+            cohorts: Array.from(cohorts.entries()).map(([week, data]) => ({
+                week,
+                totalVisitors: data.visitors.size,
+                retention: Array.from(data.retained.entries())
+                    .sort((a, b) => a[0] - b[0])
+                    .map(([weekNum, visitors]) => ({
+                        week: weekNum,
+                        count: visitors.size,
+                        rate: Math.round((visitors.size / data.visitors.size) * 100)
+                    }))
+            })).sort((a, b) => a.week.localeCompare(b.week))
+        };
+    }
+
+    /**
+     * Calculate LTV for customers
+     */
+    static async getLTV(accountId: string) {
+        const purchaseEvents = await prisma.analyticsEvent.findMany({
+            where: {
+                session: { accountId },
+                type: 'purchase'
+            },
+            include: {
+                session: {
+                    select: { customerId: true, email: true }
+                }
+            }
+        });
+
+        const customerRevenue = new Map<string, number>();
+        const customerOrders = new Map<string, number>();
+
+        for (const event of purchaseEvents) {
+            const customerId = event.session.customerId || event.session.email || 'anonymous';
+            const total = (event.payload as any)?.total || 0;
+
+            customerRevenue.set(customerId, (customerRevenue.get(customerId) || 0) + total);
+            customerOrders.set(customerId, (customerOrders.get(customerId) || 0) + 1);
+        }
+
+        const ltvValues = Array.from(customerRevenue.values());
+        const avgLTV = ltvValues.length > 0
+            ? ltvValues.reduce((a, b) => a + b, 0) / ltvValues.length
+            : 0;
+
+        const repeatCustomers = [...customerOrders.values()].filter(c => c > 1).length;
+        const repeatRate = customerOrders.size > 0
+            ? (repeatCustomers / customerOrders.size) * 100
+            : 0;
+
+        return {
+            avgLTV: Math.round(avgLTV * 100) / 100,
+            totalCustomers: customerOrders.size,
+            repeatCustomers,
+            repeatRate: Math.round(repeatRate * 10) / 10,
+            topCustomers: Array.from(customerRevenue.entries())
+                .map(([id, ltv]) => ({ customerId: id, ltv: Math.round(ltv * 100) / 100, orders: customerOrders.get(id) || 0 }))
+                .sort((a, b) => b.ltv - a.ltv)
+                .slice(0, 10)
+        };
+    }
+
+    /**
+     * Calculate purchase intent score for a session
+     */
+    static calculatePurchaseIntent(session: any): number {
+        let score = 0;
+
+        // Pageviews (max 20 points)
+        score += Math.min((session.totalVisits || 0) * 2, 20);
+
+        // Has items in cart (30 points)
+        if (session.cartValue && session.cartValue > 0) score += 30;
+
+        // Cart value (max 20 points)
+        score += Math.min((session.cartValue || 0) / 10, 20);
+
+        // Is returning visitor (15 points)
+        if (session.isReturning) score += 15;
+
+        // Viewed checkout (15 points)
+        if (session.currentPath?.includes('checkout')) score += 15;
+
+        return Math.min(Math.round(score), 100);
+    }
+}
+
+// Helper function for cohort analysis
+function getWeekStart(date: Date): Date {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
 }

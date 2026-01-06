@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import VisitorLogWidget from '../components/widgets/VisitorLogWidget';
 import EcommerceLogWidget from '../components/widgets/EcommerceLogWidget';
-import { BarChart3, Users, Globe, Search } from 'lucide-react';
+import AnalyticsStatsWidget from '../components/widgets/AnalyticsStatsWidget';
+import FunnelWidget from '../components/widgets/FunnelWidget';
+import { BarChart3, Users, Globe, TrendingUp, PieChart } from 'lucide-react';
 
 const AnalyticsDashboard: React.FC = () => {
 
@@ -47,30 +49,30 @@ const AnalyticsDashboard: React.FC = () => {
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Placeholder for Search Insights */}
-                <Card className="col-span-1 border-0 shadow-sm ring-1 ring-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Conversion Funnel */}
+                <Card className="border-0 shadow-sm ring-1 ring-gray-200">
                     <CardHeader className="bg-white border-b border-gray-100 py-4">
                         <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                            <Search className="w-4 h-4 text-purple-500" />
-                            Top Search Terms
+                            <TrendingUp className="w-4 h-4 text-green-500" />
+                            Conversion Funnel
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 bg-white">
-                        <div className="text-sm text-gray-500 italic">Coming soon...</div>
-                        {/* We can wire up search-terms endpoint here later */}
+                    <CardContent className="p-0 bg-white">
+                        <FunnelWidget />
                     </CardContent>
                 </Card>
 
-                <Card className="col-span-1 border-0 shadow-sm ring-1 ring-gray-200">
+                {/* Session Stats */}
+                <Card className="border-0 shadow-sm ring-1 ring-gray-200">
                     <CardHeader className="bg-white border-b border-gray-100 py-4">
                         <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                            <BarChart3 className="w-4 h-4 text-orange-500" />
-                            Channel Breakdown
+                            <PieChart className="w-4 h-4 text-purple-500" />
+                            Audience Insights
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 bg-white">
-                        <div className="text-sm text-gray-500 italic">Coming soon...</div>
+                    <CardContent className="p-0 bg-white">
+                        <AnalyticsStatsWidget />
                     </CardContent>
                 </Card>
             </div>

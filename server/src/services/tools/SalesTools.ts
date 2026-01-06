@@ -1,4 +1,5 @@
 import { prisma } from '../../utils/prisma';
+import { Logger } from '../../utils/logger';
 
 export class SalesTools {
     static async getSalesAnalytics(accountId: string, period: string) {
@@ -54,7 +55,7 @@ export class SalesTools {
             };
 
         } catch (error) {
-            console.error("Tool Error (getSalesAnalytics):", error);
+            Logger.error('Tool Error (getSalesAnalytics)', { error });
             return "Failed to calculate analytics.";
         }
     }

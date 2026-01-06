@@ -1,4 +1,5 @@
 import { esClient } from '../../utils/elastic';
+import { Logger } from '../../utils/logger';
 
 export class SalesAnalytics {
 
@@ -39,7 +40,7 @@ export class SalesAnalytics {
             });
             return (response.aggregations as any)?.total_sales?.value || 0;
         } catch (error) {
-            console.error('Analytics Total Sales Error:', error);
+            Logger.error('Analytics Total Sales Error', { error });
             return 0;
         }
     }
@@ -59,7 +60,7 @@ export class SalesAnalytics {
             });
             return response.hits.hits.map(hit => hit._source);
         } catch (error) {
-            console.error('Analytics Recent Orders Error:', error);
+            Logger.error('Analytics Recent Orders Error', { error });
             return [];
         }
     }
@@ -119,7 +120,7 @@ export class SalesAnalytics {
             }));
 
         } catch (error) {
-            console.error('Analytics Sales Error:', error);
+            Logger.error('Analytics Sales Error', { error });
             return [];
         }
     }
@@ -182,7 +183,7 @@ export class SalesAnalytics {
             }));
 
         } catch (error) {
-            console.error('Analytics Top Products Error:', error);
+            Logger.error('Analytics Top Products Error', { error });
             return [];
         }
     }
@@ -261,7 +262,7 @@ export class SalesAnalytics {
             return forecast;
 
         } catch (error) {
-            console.error('Analytics Forecast Error:', error);
+            Logger.error('Analytics Forecast Error', { error });
             // Fallback
             return this.getLinearForecast(accountId, daysToForecast);
         }
@@ -354,7 +355,7 @@ export class SalesAnalytics {
         endDate: string
     }) {
         try {
-            console.log('Analytics: Generating Custom Report with Config:', JSON.stringify(config));
+            Logger.debug('Custom Report config', { config });
             // Base Query
             const must: any[] = [{ term: { accountId } }];
 
@@ -518,7 +519,7 @@ export class SalesAnalytics {
                 return processBuckets(buckets);
             } else {
                 const buckets = (response.aggregations as any)?.group_by_dimension?.buckets || [];
-                console.log('Analytics: Default Buckets found:', buckets.length, 'Sample:', buckets[0]);
+                Logger.debug('Analytics default buckets', { count: buckets.length });
                 return buckets.map((b: any) => ({
                     dimension: b.key_as_string || b.key, // key_as_string for dates
                     sales: b.sales?.value || 0,
@@ -529,7 +530,7 @@ export class SalesAnalytics {
             }
 
         } catch (error) {
-            console.error('Analytics Custom Report Error:', error);
+            Logger.error('Analytics Custom Report Error', { error });
             return [];
         }
     }

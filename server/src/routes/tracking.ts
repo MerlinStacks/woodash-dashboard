@@ -482,4 +482,250 @@ router.get('/status', requireAuth, async (req: any, res) => {
     }
 });
 
+// --------------------------------------------------------
+// Analytics Stats & Funnel Endpoints
+// --------------------------------------------------------
+
+/**
+ * GET /api/tracking/stats
+ * Returns aggregated stats: countries, devices, browsers, avg session duration
+ */
+router.get('/stats', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const days = parseInt(req.query.days as string) || 30;
+        const stats = await TrackingService.getStats(accountId, days);
+
+        res.json(stats);
+    } catch (error) {
+        Logger.error('Stats Error', { error });
+        res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+});
+
+/**
+ * GET /api/tracking/funnel
+ * Returns funnel data: Product Views → Add to Cart → Checkout → Purchase
+ */
+router.get('/funnel', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const days = parseInt(req.query.days as string) || 30;
+        const funnel = await TrackingService.getFunnel(accountId, days);
+
+        res.json(funnel);
+    } catch (error) {
+        Logger.error('Funnel Error', { error });
+        res.status(500).json({ error: 'Failed to fetch funnel' });
+    }
+});
+
+// --------------------------------------------------------
+// Advanced Analytics Endpoints
+// --------------------------------------------------------
+
+/**
+ * GET /api/tracking/revenue
+ * Revenue analytics: AOV, by source, country, device
+ */
+router.get('/revenue', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const days = parseInt(req.query.days as string) || 30;
+        const revenue = await TrackingService.getRevenue(accountId, days);
+
+        res.json(revenue);
+    } catch (error) {
+        Logger.error('Revenue Error', { error });
+        res.status(500).json({ error: 'Failed to fetch revenue' });
+    }
+});
+
+/**
+ * GET /api/tracking/attribution
+ * First-touch vs last-touch attribution
+ */
+router.get('/attribution', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const days = parseInt(req.query.days as string) || 30;
+        const attribution = await TrackingService.getAttribution(accountId, days);
+
+        res.json(attribution);
+    } catch (error) {
+        Logger.error('Attribution Error', { error });
+        res.status(500).json({ error: 'Failed to fetch attribution' });
+    }
+});
+
+/**
+ * GET /api/tracking/abandonment
+ * Cart abandonment rate
+ */
+router.get('/abandonment', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const days = parseInt(req.query.days as string) || 30;
+        const abandonment = await TrackingService.getAbandonmentRate(accountId, days);
+
+        res.json(abandonment);
+    } catch (error) {
+        Logger.error('Abandonment Error', { error });
+        res.status(500).json({ error: 'Failed to fetch abandonment' });
+    }
+});
+
+/**
+ * GET /api/tracking/searches
+ * Search analytics: top queries
+ */
+router.get('/searches', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const days = parseInt(req.query.days as string) || 30;
+        const searches = await TrackingService.getSearches(accountId, days);
+
+        res.json(searches);
+    } catch (error) {
+        Logger.error('Searches Error', { error });
+        res.status(500).json({ error: 'Failed to fetch searches' });
+    }
+});
+
+/**
+ * GET /api/tracking/exits
+ * Exit pages: where users leave
+ */
+router.get('/exits', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const days = parseInt(req.query.days as string) || 30;
+        const exits = await TrackingService.getExitPages(accountId, days);
+
+        res.json(exits);
+    } catch (error) {
+        Logger.error('Exits Error', { error });
+        res.status(500).json({ error: 'Failed to fetch exits' });
+    }
+});
+
+/**
+ * GET /api/tracking/cohorts
+ * Cohort analysis: retention by signup week
+ */
+router.get('/cohorts', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const cohorts = await TrackingService.getCohorts(accountId);
+
+        res.json(cohorts);
+    } catch (error) {
+        Logger.error('Cohorts Error', { error });
+        res.status(500).json({ error: 'Failed to fetch cohorts' });
+    }
+});
+
+/**
+ * GET /api/tracking/ltv
+ * Customer Lifetime Value analytics
+ */
+router.get('/ltv', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const ltv = await TrackingService.getLTV(accountId);
+
+        res.json(ltv);
+    } catch (error) {
+        Logger.error('LTV Error', { error });
+        res.status(500).json({ error: 'Failed to fetch LTV' });
+    }
+});
+
+/**
+ * GET /api/tracking/export
+ * Export analytics data as JSON
+ */
+router.get('/export', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const days = parseInt(req.query.days as string) || 30;
+
+        // Gather all analytics data
+        const [stats, funnel, revenue, attribution, abandonment, cohorts, ltv] = await Promise.all([
+            TrackingService.getStats(accountId, days),
+            TrackingService.getFunnel(accountId, days),
+            TrackingService.getRevenue(accountId, days),
+            TrackingService.getAttribution(accountId, days),
+            TrackingService.getAbandonmentRate(accountId, days),
+            TrackingService.getCohorts(accountId),
+            TrackingService.getLTV(accountId)
+        ]);
+
+        const exportData = {
+            exportedAt: new Date().toISOString(),
+            dateRange: `Last ${days} days`,
+            stats,
+            funnel,
+            revenue,
+            attribution,
+            abandonment,
+            cohorts,
+            ltv
+        };
+
+        res.setHeader('Content-Disposition', `attachment; filename="analytics-export-${new Date().toISOString().split('T')[0]}.json"`);
+        res.json(exportData);
+    } catch (error) {
+        Logger.error('Export Error', { error });
+        res.status(500).json({ error: 'Failed to export data' });
+    }
+});
+
+/**
+ * POST /api/tracking/custom
+ * Custom events endpoint for merchants
+ */
+router.post('/custom', async (req, res) => {
+    try {
+        const { accountId, visitorId, eventName, properties } = req.body;
+
+        if (!accountId || !visitorId || !eventName) {
+            return res.status(400).json({ error: 'Missing required fields: accountId, visitorId, eventName' });
+        }
+
+        await TrackingService.processEvent({
+            accountId,
+            visitorId,
+            type: `custom:${eventName}`,
+            url: req.body.url || '',
+            payload: properties || {}
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        Logger.error('Custom Event Error', { error });
+        res.status(500).json({ error: 'Failed to track custom event' });
+    }
+});
+
 export default router;

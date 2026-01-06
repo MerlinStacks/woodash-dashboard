@@ -1,4 +1,5 @@
 import { esClient } from '../../utils/elastic';
+import { Logger } from '../../utils/logger';
 
 export class CustomerAnalytics {
 
@@ -39,7 +40,7 @@ export class CustomerAnalytics {
             }));
 
         } catch (error) {
-            console.error('Analytics Customer Growth Error:', error);
+            Logger.error('Analytics Customer Growth Error', { error });
             return [];
         }
     }

@@ -1,14 +1,16 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
+import { AuthenticatedRequest } from '../types/express';
 import { AuditService } from '../services/AuditService';
 import { requireAuth } from '../middleware/auth';
+import { Logger } from '../utils/logger';
 
 const router = Router();
 
 // Get logs for a specific resource
-router.get('/:resource/:resourceId', requireAuth, async (req, res) => {
+router.get('/:resource/:resourceId', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const { resource, resourceId } = req.params;
-        const accountId = (req as any).accountId || (req as any).user?.accountId || req.headers['x-account-id'] as string;
+        const accountId = req.accountId || req.user?.accountId || req.headers['x-account-id'] as string;
 
         if (!accountId) {
             return res.status(400).json({ error: 'No account context provided' });
@@ -17,13 +19,13 @@ router.get('/:resource/:resourceId', requireAuth, async (req, res) => {
         const logs = await AuditService.getLogsForResource(accountId, resource.toUpperCase(), resourceId);
         res.json(logs);
     } catch (error) {
-        console.error('[Audits] Failed to fetch audit logs:', error);
+        Logger.error('Failed to fetch audit logs', { error });
         res.status(500).json({ error: 'Failed to fetch audit logs' });
     }
 });
 
 // Get recent logs for the account
-router.get('/recent', requireAuth, async (req, res) => {
+router.get('/recent', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
         const accountId = req.headers['x-account-id'] as string;
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;

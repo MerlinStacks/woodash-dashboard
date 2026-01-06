@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
+import { AuthenticatedRequest } from '../types/express';
 import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
 import { requireAuth, requireSuperAdmin } from '../middleware/auth';

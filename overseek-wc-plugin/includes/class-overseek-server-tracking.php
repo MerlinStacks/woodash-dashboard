@@ -50,6 +50,9 @@ class OverSeek_Server_Tracking
 
         // Product View - detailed product tracking
         add_action('woocommerce_after_single_product', array($this, 'track_product_view'));
+
+        // Review Tracking - when customers leave product reviews
+        add_action('comment_post', array($this, 'track_review'), 10, 3);
     }
 
     /**
@@ -408,6 +411,43 @@ class OverSeek_Server_Tracking
         );
 
         $instance->send_event('experiment', $payload);
+    }
+
+    /**
+     * Track product review submission.
+     */
+    public function track_review($comment_id, $comment_approved, $commentdata)
+    {
+        // Only track approved product reviews
+        if ($comment_approved !== 1 && $comment_approved !== '1') {
+            return;
+        }
+
+        $comment = get_comment($comment_id);
+        if (!$comment) {
+            return;
+        }
+
+        // Check if this is a product review (comment type = 'review' or on a product post)
+        $post = get_post($comment->comment_post_ID);
+        if (!$post || $post->post_type !== 'product') {
+            return;
+        }
+
+        $product = wc_get_product($comment->comment_post_ID);
+        $rating = get_comment_meta($comment_id, 'rating', true);
+
+        $payload = array(
+            'reviewId' => $comment_id,
+            'productId' => $comment->comment_post_ID,
+            'productName' => $product ? $product->get_name() : $post->post_title,
+            'rating' => $rating ? intval($rating) : null,
+            'reviewContent' => wp_trim_words($comment->comment_content, 50),
+            'reviewerEmail' => $comment->comment_author_email,
+            'reviewerName' => $comment->comment_author,
+        );
+
+        $this->send_event('review', $payload);
     }
 }
 

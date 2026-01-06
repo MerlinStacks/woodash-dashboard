@@ -186,14 +186,15 @@ export function ProductEditPage() {
     const fetchVariants = async (variantIds: number[]) => {
         setIsLoadingVariants(true);
         try {
-            // Placeholder logic - kept as is for now as it doesn't do a real fetch
-            const mockVariants = variantIds.map(id => ({
+            // Variation details require a WooCommerce API call 
+            // For now, we only have the IDs - full sync happens in WooCommerce
+            const variants = variantIds.map(id => ({
                 id,
-                sku: `VAR-${id}`, // Placeholder
-                price: '...',
+                sku: '', // Not available without WooCommerce API call
+                price: '', // Not available without WooCommerce API call
                 attributes: []
             }));
-            setVariants(mockVariants);
+            setVariants(variants);
         } finally {
             setIsLoadingVariants(false);
         }

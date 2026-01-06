@@ -275,7 +275,7 @@ export class AutomationEngine {
                     }
 
                 } catch (err) {
-                    console.error(`[AutomationEngine] Failed to generate invoice`, err);
+                    Logger.error('Failed to generate invoice', { error: err });
                 }
             }
 

@@ -24,13 +24,13 @@ export class AIService {
         try {
             const res = await fetch('https://openrouter.ai/api/v1/models', { headers });
             if (!res.ok) {
-                console.warn(`Failed to fetch models: ${res.statusText}, returning defaults.`);
+                Logger.warn(`Failed to fetch models: ${res.statusText}, returning defaults.`);
                 return defaultModels;
             }
             const data = await res.json();
             return data.data;
         } catch (e) {
-            console.error("Model fetch error", e);
+            Logger.error('Model fetch error', { error: e });
             return defaultModels;
         }
     }
@@ -135,7 +135,7 @@ export class AIService {
                 }
 
             } catch (error) {
-                console.error("AI Loop Error:", error);
+                Logger.error('AI Loop Error', { error });
                 return { reply: "I'm sorry, I encountered an internal error processing your request." };
             }
         }

@@ -1,7 +1,9 @@
 
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
+import { AuthenticatedRequest } from '../types/express';
 import { InvoiceService } from '../services/InvoiceService';
-import { requireAuth, AuthRequest } from '../middleware/auth';
+import { requireAuth } from '../middleware/auth';
+import { Logger } from '../utils/logger';
 
 const router = Router();
 const invoiceService = new InvoiceService();
@@ -9,24 +11,22 @@ const invoiceService = new InvoiceService();
 router.use(requireAuth);
 
 // Get all templates for account
-router.get('/templates', async (req: Request, res: Response) => {
-    const authReq = req as AuthRequest;
-    const accountId = authReq.user?.accountId;
+router.get('/templates', async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.user?.accountId;
     if (!accountId) return res.status(400).json({ error: 'Account ID required' });
 
     try {
         const templates = await invoiceService.getTemplates(accountId);
         res.json(templates);
     } catch (error) {
-        console.error('Failed to fetch templates:', error);
+        Logger.error('Failed to fetch templates', { error });
         res.status(500).json({ error: 'Failed to fetch templates' });
     }
 });
 
 // Get specific template
-router.get('/templates/:id', async (req: Request, res: Response) => {
-    const authReq = req as AuthRequest;
-    const accountId = authReq.user?.accountId;
+router.get('/templates/:id', async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.user?.accountId;
     if (!accountId) return res.status(400).json({ error: 'Account ID required' });
 
     try {
@@ -39,9 +39,8 @@ router.get('/templates/:id', async (req: Request, res: Response) => {
 });
 
 // Create template
-router.post('/templates', async (req: Request, res: Response) => {
-    const authReq = req as AuthRequest;
-    const accountId = authReq.user?.accountId;
+router.post('/templates', async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.user?.accountId;
     if (!accountId) return res.status(400).json({ error: 'Account ID required' });
 
     try {
@@ -53,9 +52,9 @@ router.post('/templates', async (req: Request, res: Response) => {
 });
 
 // Update template
-router.put('/templates/:id', async (req: Request, res: Response) => {
-    const authReq = req as AuthRequest;
-    const accountId = authReq.user?.accountId;
+router.put('/templates/:id', async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = req.user?.accountId;
+    if (!accountId) return res.status(400).json({ error: 'Account ID required' });
     if (!accountId) return res.status(400).json({ error: 'Account ID required' });
 
     try {

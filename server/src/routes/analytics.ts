@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
+import { AuthenticatedRequest } from '../types/express';
 import { SalesAnalytics } from '../services/analytics/sales';
 import { AcquisitionAnalytics } from '../services/analytics/acquisition';
 import { BehaviourAnalytics } from '../services/analytics/behaviour';
@@ -7,10 +8,10 @@ import { AdsService } from '../services/ads';
 import { requireAuth } from '../middleware/auth';
 import { esClient } from '../utils/elastic';
 import { prisma } from '../utils/prisma';
+import { Logger } from '../utils/logger';
 import { AnalyticsService } from '../services/AnalyticsService';
 
 const router = Router();
-// const prisma = new PrismaClient(); // Removed local instantiation
 
 router.use(requireAuth);
 
@@ -73,7 +74,7 @@ router.get('/sales', async (req: Request, res: Response) => {
 
         res.json({ total, currency });
     } catch (err: any) {
-        console.error(err);
+        Logger.error('Error', { error: err });
         res.status(500).json({ error: err.message });
     }
 });
@@ -86,7 +87,7 @@ router.get('/recent-orders', async (req: Request, res: Response) => {
         const orders = await SalesAnalytics.getRecentOrders(accountId);
         res.json(orders);
     } catch (err: any) {
-        console.error(err);
+        Logger.error('Error', { error: err });
         res.status(500).json({ error: err.message });
     }
 });
@@ -129,7 +130,7 @@ router.get('/ads-summary', async (req: Request, res: Response) => {
             breakdown: adSpendBuckets // Optional: send daily breakdown if needed
         });
     } catch (error) {
-        console.error(error);
+        Logger.error('Error', { error });
         res.status(500).json({ error: 'Failed to fetch ad spend' });
     }
 });
@@ -484,7 +485,7 @@ router.get('/stock-velocity', async (req: Request, res: Response) => {
         res.json(report);
 
     } catch (e: any) {
-        console.error('Stock Velocity Error:', e);
+        Logger.error('Stock Velocity Error', { error: e });
         res.status(500).json({ error: e.message });
     }
 });
