@@ -1,132 +1,95 @@
 # Overseek: The Sovereign Commerce Operating System
-## Comprehensive Manual & Feature Reference
+## Ultimate Reference Manual & Feature Guide
 
 **Last Updated:** January 2026
 **Version:** 2.0 (Iron Core)
 
 ---
 
-## 1. Introduction
+## 1. Introduction & Philosophy
 
-**Overseek** is a sovereign, self-hosted commerce operating system designed to replace disjointed SaaS tools with a unified, high-performance "Iron Core." It empowers merchants with total data ownership, zero-latency intelligence, and a unified nervous system for their commerce operations.
+**Overseek** is a sovereign, self-hosted commerce operating system designed to replace disjointed SaaS tools with a unified, high-performance "Iron Core."
 
-It consolidates the functionality of platforms like Metorik (Analytics), FunnelKit (Marketing), Crisp (Chat), and Matomo (Tracking) into a single, cohesive interface.
-
-### The Philosophy
-- **Sovereignty**: You own your data. No third-party data silos.
-- **Speed**: "Hot Tier" local databases (Dexie.js) for instant UI interactions.
-- **Intelligence**: An "Intelligence Oracle" that doesn't just report data but suggests actions.
-- **Unity**: A single mesh where customer support talks to inventory, and marketing listens to logistics.
+### The "Iron Core" Philosophy
+1.  **Sovereignty First**: You own your database. There are no third-party data silos.
+2.  **Instant Speed**: We use a "Tiered Storage" architecture.
+3.  **Unified Intelligence**: A single mesh where customer support acts on inventory patterns.
 
 ---
 
-## 2. System Architecture
+## 2. Infrastructure & Architecture
 
-Overseek is built as a modern full-stack monorepo designed for performance and scale.
+### 2.1 The Tech Stack - Component Breakdown
+*   **Frontend**: React 19, Vite.
+*   **State**: React Context (`SocketContext` for lightweight event bridging).
+*   **Backend**: Internal API (Fastify).
+*   **Dynamic Chat Widget**: The chat widget behavior is NOT static. It is dynamically generated (`router.get('/widget.js')`) by the server to execute server-side logic (e.g., Business Hours, Blocked IPs) before the client even loads.
 
-### Core Stack
-- **Frontend**: React 19, Vite, TypeScript, Tailwind CSS (Glassmorphism), Shadcn/UI.
-- **Backend API**: Fastify (Node.js), Redis 7 (AOF Persistence).
-- **Workload Management**: BullMQ for robust background job processing (Orders, Products, Customers, Reviews, Reports).
-- **Search Engine**: Elasticsearch 7.17 (Global Search & Indexing) co-existing with Postgres.
-- **Database**: PostgreSQL 16 (with pgvector for AI & RLS for security).
-- **Real-Time**: Socket.io for instant order updates and chat.
-- **Storage**: MinIO (S3 Compatible) for assets and backups.
-- **Infrastructure**: Docker Compose for easy deployment.
+### 2.2 Background Workers
+*   **Inline Polling**: Key system "Heartbeats" (Automation Ticker, Cart Abandonment) run directly on the main Express event loop for simplicity vs. heavy worker reliance.
+
+### 2.3 Middleware & Security
+*   **Rate Limiting**: 2000 requests / 15 mins.
+*   **Dynamic CSP**: `Helmet` is configured to allow the dynamic injection of the Chat Widget script.
 
 ---
 
 ## 3. Integration Protocols
 
-Overseek connects to your existing commerce platforms (primarily WooCommerce) using a dual-protocol strategy.
+### Protocol A: Live Analytics & Chat Injection
+*   **Mechanism**: The `widget.js` endpoint serves a dual purpose:
+    1.  **Analytics Tracking**: Injects `__os_vid` cookies for visitor identification.
+    2.  **Chat UI**: Renders the Shadow DOM chat interface.
+*   **Optimization**: The entire widget checks for active business hours on the server-side, preventing the UI from rendering at all if the store is closed, saving client resources.
 
-### A. Live Analytics (Zero-Config)
- *Designed for instant visibility without complex API permissions.*
-*   **Method**: A "Paste JSON" configuration model.
-*   **Setup**:
-    1.  Go to `Settings > Analytics` in the Overseek Dashboard.
-    2.  Copy the generated JSON Blob (contains `apiUrl` and `accountId`).
-    3.  Paste it into the Overseek WordPress Plugin settings.
-*   **Privacy**: Uses First/Last click attribution and UUID-based visitor tracking.
-*   **Events Captured**: Pageviews, Add to Cart (with product metadata), Checkout Start, Heartbeat.
-
-### B. Core Sync Engine (Deep Data)
- *Designed for operational control (Inventory, Orders, Customers).*
-*   **Method**: Handshake-based API Sync.
-*   **Requirements**: WooCommerce REST API Keys (Read/Write recommended for full automation).
-*   **Features**:
-    *   **Delta Pull**: Only fetches changed data since the last sync.
-    *   **Webhooks**: Real-time updates pushed from WooCommerce to Overseek.
+### Protocol B: Core Sync Engine
+*   **Strategy**: Handshake-based Delta Sync.
 
 ---
 
-## 4. Feature Modules (A-Z)
+## 4. Feature Modules (The A-Z Guide)
 
-### Analytics & Growth
-*   **Attribution Modeling**: Tracks First Click vs. Last Click UTM sources to determine true marketing ROI.
-*   **Live Vitals Monitor**: Real-time AreaCharts showing revenue velocity, active visitors, and conversion pulses.
-*   **Sector Analysis**: Breakdown of sales by category, region, or customer type.
-*   **Search Term Analysis**: Insight into what users are searching for on your storefront.
-*   **Reporting Engine**: A dedicated Report Worker generates heavy reports via queue (Weekly/Monthly schedules supported).
+### 📊 Analytics & Growth
+*   **Live Vitals Monitor**: Real-time dashboards.
+*   **Attribution Modeling**: UTM tracking.
 
-### Commerce Engine
-*   **Hyper-Grid**: A high-performance table view for managing thousands of Orders or Products instantly.
-*   **Identity Matrix (CRM)**: Comprehensive customer profiles merging order history, chat logs, and sentiment analysis.
-*   **Supplier Management**: Track product sources, manage "Shadow Inventory" at suppliers, and handle Purchase Orders with "Draft/Keyed/Received" statuses.
-*   **Ad Account Integration**: Built-in modeling for Meta and Google Ads accounts (storing access tokens/refresh tokens).
+### 🤖 Automation & Marketing
+*   **Visual Flow Builder**: A pure-UI node editor built on `React Flow`. It handles visual graph construction (`FlowBuilder.tsx`), while the heavy logic (loop detection, condition evaluation) is offloaded to the server's `AutomationEngine`.
+    *   **Drag-and-Drop Nodes**: Trigger, Action (Email), Delay, Condition.
+*   **Validation**: The server validates flow integrity (Max 20 steps) at runtime, not save time.
 
-### Communication Mesh (Unified Inbox)
-*   **Channels**: Unifies Email (IMAP/SMTP), Live Chat.
-*   **Collaborative Inbox**:
-    *   **Presence**: See when other staff members are viewing a ticket.
-    *   **Internal Notes**: Private team discussions within customer threads.
-    *   **Product Injection**: Send "Buy Now" product cards directly in chat.
-    *   **Canned Responses**: Quick-reply shortcuts managed via the dashboard.
+### 💬 Communication Mesh (Unified Inbox)
+*   **Dynamic Chat Widget**:
+    *   **Auto-Open**: Automatically opens for returning visitors with active conversations.
+    *   **Optimistic UI**: Messages appear instantly before server confirmation.
+    *   **Polling Fallback**: Uses simple polling (5s interval) as a robust fallback to Socket.io.
 
-### Intelligence Oracle
-*   **Command Center (OmniSearch)**: A `⌘K` command palette backed by Elasticsearch for sub-second global search across Orders, Customers, and Settings.
-*   **Flow Builder**: A visual, node-based automation editor (React Flow) for creating marketing workflows.
-*   **Oracle Insights**: AI-powered suggestions (e.g., "Stock low on Item X").
+### 🧠 Intelligence Oracle (Heuristics)
+*   **OmniSearch**: Elasticsearch-backed.
+*   **Inventory Alerts**: Code-based heuristics.
 
-### Marketing & Optimization
-*   **SEO Scoring Engine**: Analyzing product titles, descriptions, and keywords against SEO best practices (`SeoScoringService`).
-*   **Merchant Center Validator**: Validates products against Google Merchant Center requirements.
-*   **Visual Invoice Designer**: Drag-and-drop editor (`InvoiceDesigner.tsx`) using `react-grid-layout` to create custom invoice templates stored as JSON.
-*   **Segmentation**: Dynamic Customer Segments based on total spent, order count, or specific criteria.
+### 🏭 Operations & Fabrication
+*   **Audit Mode**: Mobile-optimized stocktake.
+*   **Gold Price Service**: Real-time feed.
 
-### Operations & Fabrication
-*   **Audit Mode**: Mobile-optimized interface for warehouse staff to perform stocktakes by Bin Location (`AuditService`), logging every action.
-*   **Fabrication Nervous System**: Manage Bill of Materials (BOM) and track manufacturing stages.
-*   **Gold Price Service**: Live tracking of gold prices (via GoldAPI.io) for jewelry merchants.
-*   **Picklist Generation**: Integrated PDF picklist generation for warehouse efficiency (`PicklistService`).
-*   **Inventory Settings**: Configurable "Low Stock" thresholds and email alerts.
-
-### Onboarding & Support
-*   **Setup Wizard**: A guided onboarding flow (`SetupWizard.tsx`) for initial store configuration.
-*   **Help Center CMS**: A fully database-backed content management system for internal documentation (`HelpCollection`, `HelpArticle`).
-
-### Security (Iron Core)
-*   **Authorization**: Role-Based Access Control (RBAC) with Row Level Security (RLS).
-*   **Session Security**: HTTP-only cookies, session rotation, and refresh token support.
-*   **Sovereign Settings**: Tools for data pruning ("The Janitor") and system diagnostics.
-*   **Audit Logging**: Comprehensive `AuditLog` table tracking 'CREATE', 'UPDATE', 'DELETE' actions on critical resources.
+### 🛠️ Administration & Maintenance
+*   **System Health UI**: Manual log clearing and diagnostic tools.
+*   **Maintenance Scripts**: CLI tools for power users.
 
 ---
 
-## 5. Future Roadmap & Upcoming Features
+## 5. Roadmap vs. Reality
 
-### 🔌 WooCommerce Plugin Enhancements
-*   **Admin Menu Integration**: Dedicated settings page directly in WP Admin.
-*   **Feature Toggles**: Granular control over tracking scripts and chat widgets.
+### ✅ Implemented (Reality)
+*   **Core**: Full "Iron Core" stack.
+*   **Chat**: Dynamic server-side widget generation (`widget.ts`).
+*   **Automation**: Server-side execution engine (`AutomationEngine.ts`).
 
-### 💰 Financial Suite
-*   **Visual Invoice Designer**: Drag-and-drop editor for custom invoice templates.
-*   **Tax Automation**: Detailed tax breakdown and handling.
-
-### 📣 Unified Marketing Expansion
-*   **SMS & WhatsApp Nodes**: Add direct messaging nodes to the Automation Flow Builder.
-*   **MMS Support**: Rich media messaging.
+### 🚧 Roadmap (Vision)
+*   **Client-Side Flow Validation**: Visual feedback for broken loops in the Flow Builder (currently server runtime only).
+*   **The Janitor**: Automated background pruning.
+*   **Neural AI**: Predictive modeling.
 
 ---
 
-*This document serves as the master reference for the Overseek ecosystem.*
+*This document serves as the master source of truth for the Overseek ecosystem.*

@@ -272,4 +272,25 @@ router.get('/session/:sessionId', requireAuth, async (req: any, res) => {
     }
 });
 
+router.get('/status', requireAuth, async (req: any, res) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+
+        const lastSession = await prisma.analyticsSession.findFirst({
+            where: { accountId },
+            orderBy: { lastActiveAt: 'desc' },
+            select: { lastActiveAt: true }
+        });
+
+        res.json({
+            connected: !!lastSession,
+            lastSignal: lastSession?.lastActiveAt || null
+        });
+    } catch (error) {
+        console.error('Status Check Error:', error);
+        res.status(500).json({ error: 'Failed to check status' });
+    }
+});
+
 export default router;

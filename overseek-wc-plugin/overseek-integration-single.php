@@ -98,8 +98,7 @@ class OverSeek_Admin
 			'sanitize_callback' => array($this, 'sanitize_connection_config'),
 		));
 
-		register_setting('overseek_options_group', 'overseek_api_url');
-		register_setting('overseek_options_group', 'overseek_account_id');
+
 		register_setting('overseek_options_group', 'overseek_enable_tracking');
 		register_setting('overseek_options_group', 'overseek_enable_chat');
 	}
