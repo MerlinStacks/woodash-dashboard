@@ -29,6 +29,7 @@ import markersRoutes from './routes/marketing'; // corrected below
 import marketingRoutes from './routes/marketing';
 import emailRoutes from './routes/email';
 import ordersRoutes from './routes/orders'; // Mount Orders API
+import invoicesRoutes from './routes/invoices';
 
 import segmentsRoutes from './routes/segments';
 import { auditsRouter } from './routes/audits';
@@ -146,6 +147,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/help', helpRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/marketing', marketingRoutes); // Mount Marketing API
+app.use('/api/invoices', invoicesRoutes); // Mount Invoices API
 app.use('/api/email', emailRoutes);
 app.use('/api/segments', segmentsRoutes);
 app.use('/api/orders', ordersRoutes); // Mount Orders API

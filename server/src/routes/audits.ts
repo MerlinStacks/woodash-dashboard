@@ -8,7 +8,11 @@ const router = Router();
 router.get('/:resource/:resourceId', requireAuth, async (req, res) => {
     try {
         const { resource, resourceId } = req.params;
-        const accountId = req.headers['x-account-id'] as string;
+        const accountId = (req as any).accountId || (req as any).user?.accountId || req.headers['x-account-id'] as string;
+
+        if (!accountId) {
+            return res.status(400).json({ error: 'No account context provided' });
+        }
 
         const logs = await AuditService.getLogsForResource(accountId, resource.toUpperCase(), resourceId);
         res.json(logs);

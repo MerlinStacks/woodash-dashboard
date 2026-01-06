@@ -28,7 +28,7 @@ export function HistoryTimeline({ resource, resourceId }: HistoryTimelineProps) 
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!currentAccount) return;
+        if (!currentAccount || !token) return;
 
         const fetchLogs = async () => {
             try {

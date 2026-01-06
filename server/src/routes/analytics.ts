@@ -272,12 +272,6 @@ router.get('/templates', async (req: Request, res: Response) => {
                 config: { dimension: 'product', metrics: ['sales'], dateRange: '90d' }
             },
             {
-                id: 'sys_stock_velocity',
-                name: 'Stock Velocity',
-                type: 'SYSTEM',
-                config: { dimension: 'product', metrics: ['quantity'], dateRange: '30d' }
-            },
-            {
                 id: 'sys_bought_together',
                 name: 'Frequent Orders (Proxy)',
                 type: 'SYSTEM',
@@ -341,7 +335,7 @@ router.post('/schedules', async (req: Request, res: Response) => {
                 'sys_overview': { dimension: 'day', metrics: ['sales', 'orders', 'aov'], dateRange: '30d' },
                 'sys_products': { dimension: 'product', metrics: ['quantity', 'sales'], dateRange: '30d' },
                 'sys_top_sellers': { dimension: 'product', metrics: ['sales'], dateRange: '90d' },
-                'sys_stock_velocity': { dimension: 'product', metrics: ['quantity'], dateRange: '30d' },
+                // sys_stock_velocity removed
                 'sys_bought_together': { dimension: 'product', metrics: ['orders'], dateRange: '90d' },
             };
 
@@ -375,6 +369,124 @@ router.post('/schedules', async (req: Request, res: Response) => {
         res.json(schedule);
 
     } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Dedicated Reports ---
+
+router.get('/stock-velocity', async (req: Request, res: Response) => {
+    try {
+        const accountId = (req as any).accountId;
+
+        // 1. Fetch Products with stock data from Postgres
+        // We use queryRaw to extract JSON fields efficiently
+        const products: any[] = await prisma.$queryRaw`
+            SELECT 
+                id, 
+                name, 
+                sku, 
+                "mainImage", 
+                "price", 
+                CAST("rawData"->>'stock_quantity' AS INTEGER) as stock_quantity
+            FROM "WooProduct"
+            WHERE "accountId" = ${accountId}
+            AND "rawData"->>'manage_stock' = 'true'
+            AND "rawData"->>'stock_quantity' IS NOT NULL
+        `;
+
+        if (!products.length) {
+            return res.json([]);
+        }
+
+        // 2. Fetch Sales History (Last 30 Days) from Elasticsearch
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+
+        const response = await esClient.search({
+            index: 'orders',
+            size: 0,
+            body: {
+                query: {
+                    bool: {
+                        must: [
+                            { term: { accountId } },
+                            { range: { date_created: { gte: startDate.toISOString(), lte: endDate.toISOString() } } },
+                            { terms: { status: ['completed', 'processing', 'on-hold'] } }
+                        ]
+                    }
+                },
+                aggs: {
+                    products: {
+                        nested: { path: 'line_items' },
+                        aggs: {
+                            by_sku: {
+                                terms: { field: 'line_items.sku.keyword', size: 1000 }, // Assuming mapped as keyword
+                                aggs: {
+                                    total_qty: { sum: { field: 'line_items.quantity' } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. Map Sales to Map<SKU, QtySold>
+        const salesMap = new Map<string, number>();
+        const buckets = (response.aggregations as any)?.products?.by_sku?.buckets || [];
+
+        buckets.forEach((b: any) => {
+            if (b.key) {
+                salesMap.set(b.key, b.total_qty.value);
+            }
+        });
+
+        // 4. Calculate Velocity & Days Remaining
+        const report = products.map(p => {
+            const stock = p.stock_quantity || 0;
+            const sold30d = salesMap.get(p.sku) || 0; // Match by SKU
+
+            // Daily Rate
+            const dailyRate = sold30d / 30;
+
+            // Days Remaining
+            let daysRemaining = 999; // Default to 'plenty'
+            if (dailyRate > 0) {
+                daysRemaining = Math.max(0, Math.round(stock / dailyRate));
+            } else if (stock === 0) {
+                daysRemaining = 0;
+            }
+
+            return {
+                id: p.id,
+                name: p.name,
+                sku: p.sku,
+                image: p.mainImage,
+                stock,
+                soldLast30d: sold30d,
+                dailyVelocity: parseFloat(dailyRate.toFixed(2)),
+                daysRemaining
+            };
+        });
+
+        // Sort by Days Remaining (Ascending - urgent first)
+        // But put 0 stock/0 sales at the bottom if they are just dead stock? 
+        // User wants to know "Days of stock left". 
+        // Urgent: Low days remaining but High velocity.
+        // Let's sort simply by daysRemaining asc.
+        report.sort((a, b) => {
+            // If days remaining is 999 (infinity), move to bottom
+            if (a.daysRemaining === 999 && b.daysRemaining !== 999) return 1;
+            if (a.daysRemaining !== 999 && b.daysRemaining === 999) return -1;
+            return a.daysRemaining - b.daysRemaining;
+        });
+
+        res.json(report);
+
+    } catch (e: any) {
+        console.error('Stock Velocity Error:', e);
+        res.status(500).json({ error: e.message });
+    }
 });
 
 export default router;

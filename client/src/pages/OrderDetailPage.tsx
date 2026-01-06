@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { formatDate } from '../utils/format';
-import { ArrowLeft, User, MapPin, Mail, Phone, Package, CreditCard, RefreshCw } from 'lucide-react';
+import { ArrowLeft, User, MapPin, Mail, Phone, Package, CreditCard, RefreshCw, Printer } from 'lucide-react';
+import { generateInvoicePDF } from '../utils/InvoiceGenerator';
 import { Modal } from '../components/ui/Modal';
 import { HistoryTimeline } from '../components/shared/HistoryTimeline';
 import { Clock } from 'lucide-react';
@@ -45,6 +46,41 @@ export function OrderDetailPage() {
         }
     }
 
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateInvoice = async () => {
+        setIsGenerating(true);
+        try {
+            // 1. Fetch Templates
+            const res = await fetch(`/api/invoices/templates`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount?.id || ''
+                }
+            });
+            if (!res.ok) throw new Error("Failed to fetch templates");
+
+            const templates = await res.json();
+
+            // Use the most recent template or default
+            const template = templates.length > 0 ? templates[0] : null;
+
+            if (!template) {
+                alert("No invoice template found. Please design one first.");
+                return;
+            }
+
+            // 2. Generate PDF
+            generateInvoicePDF(order, template.layout?.grid || [], template.layout?.items || [], template.name);
+
+        } catch (e) {
+            console.error(e);
+            alert("Failed to generate invoice");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     // ... existing useEffect ...
@@ -62,7 +98,7 @@ export function OrderDetailPage() {
                 <button onClick={() => navigate('/orders')} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
                     <ArrowLeft size={20} />
                 </button>
-                <div>
+                <div className="flex-1">
                     <div className="flex items-center gap-3">
                         <h1 className="text-2xl font-bold text-gray-900">Order #{order.id}</h1>
                         <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
@@ -73,6 +109,16 @@ export function OrderDetailPage() {
                         </span>
                     </div>
                     <div className="text-sm text-gray-500 mt-1">Placed on {formatDate(order.date_created)} via {order.payment_method_title}</div>
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleGenerateInvoice}
+                        disabled={isGenerating}
+                        className="btn-white flex items-center gap-2"
+                    >
+                        {isGenerating ? <div className="animate-spin text-gray-500"><RefreshCw size={16} /></div> : <Printer size={16} />}
+                        Generate Invoice
+                    </button>
                 </div>
             </div>
 

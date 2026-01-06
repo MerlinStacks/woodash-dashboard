@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
     ShoppingCart,
@@ -10,13 +10,17 @@ import {
     ChevronLeft,
     ChevronRight,
     Megaphone,
-    Briefcase,
     Shield,
     MessageSquare,
-
+    Store,
+    PieChart,
+    TrendingUp,
+    PenTool,
+    ChevronDown,
     Star,
     ShieldAlert,
-    LineChart
+    LineChart,
+    FileText
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { AccountSwitcher } from './AccountSwitcher';
@@ -26,22 +30,78 @@ import { SyncProgressOverlay } from './SyncProgressOverlay';
 import { SidebarSyncStatus } from './SidebarSyncStatus';
 
 const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: LineChart, label: 'Analytics', path: '/analytics' },
-    { icon: BarChart3, label: 'Reports', path: '/reports' },
-    { icon: ShoppingCart, label: 'Orders', path: '/orders' },
-    { icon: Package, label: 'Inventory', path: '/inventory' },
-    { icon: Users, label: 'Customers', path: '/customers' },
-    { icon: MessageSquare, label: 'Inbox', path: '/inbox' },
-    { icon: Star, label: 'Reviews', path: '/reviews' },
-    { icon: Megaphone, label: 'Marketing', path: '/marketing' },
-    { icon: Shield, label: 'Team', path: '/team' },
+    { type: 'link', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    {
+        type: 'group',
+        label: 'Commerce',
+        icon: Store,
+        children: [
+            { icon: ShoppingCart, label: 'Orders', path: '/orders' },
+            { icon: Package, label: 'Inventory', path: '/inventory' },
+            { icon: Users, label: 'Customers', path: '/customers' },
+        ]
+    },
+    {
+        type: 'group',
+        label: 'Analytics',
+        icon: PieChart,
+        children: [
+            { icon: LineChart, label: 'Analytics', path: '/analytics' },
+            { icon: BarChart3, label: 'Reports', path: '/reports' },
+        ]
+    },
+    {
+        type: 'group',
+        label: 'Growth',
+        icon: TrendingUp,
+        children: [
+            { icon: MessageSquare, label: 'Inbox', path: '/inbox' },
+            { icon: Star, label: 'Reviews', path: '/reviews' },
+            { icon: Megaphone, label: 'Marketing', path: '/marketing' },
+        ]
+    },
+    {
+        type: 'group',
+        label: 'Tools',
+        icon: PenTool,
+        children: [
+            { icon: FileText, label: 'Invoice Designer', path: '/invoices/design' },
+        ]
+    },
+    { type: 'link', icon: Shield, label: 'Team', path: '/team' },
 ];
 
 export function Sidebar() {
     const [collapsed, setCollapsed] = useState(false);
     const { currentAccount } = useAccount();
     const { user } = useAuth();
+    const location = useLocation();
+
+    // State for expanded groups
+    const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+
+    // Auto-expand groups based on active route
+    useEffect(() => {
+        const activeGroup = navItems.find(item =>
+            item.type === 'group' && item.children?.some(child => location.pathname.startsWith(child.path))
+        );
+        if (activeGroup && !expandedGroups.includes(activeGroup.label) && !collapsed) {
+            setExpandedGroups(prev => [...prev, activeGroup.label]);
+        }
+    }, [location.pathname, collapsed]);
+
+    const toggleGroup = (label: string) => {
+        if (collapsed) {
+            setCollapsed(false);
+            setExpandedGroups([label]);
+        } else {
+            setExpandedGroups(prev =>
+                prev.includes(label)
+                    ? prev.filter(l => l !== label)
+                    : [...prev, label]
+            );
+        }
+    };
 
     const logoUrl = currentAccount?.appearance?.logoUrl;
     const appName = currentAccount?.appearance?.appName || 'OverSeek';
@@ -79,28 +139,93 @@ export function Sidebar() {
             </div>
 
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 no-scrollbar">
-                {navItems.map((item) => (
-                    <NavLink
-                        key={item.path}
-                        to={item.path}
-                        className={({ isActive }) => cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group relative",
-                            isActive
-                                ? "bg-blue-50 text-blue-600 font-medium"
-                                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-                        )}
-                    >
-                        <item.icon size={22} strokeWidth={1.5} />
-                        {!collapsed && <span>{item.label}</span>}
+                {navItems.map((item, index) => {
+                    if (item.type === 'link') {
+                        return (
+                            <NavLink
+                                key={item.path}
+                                to={item.path!}
+                                className={({ isActive }) => cn(
+                                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group relative",
+                                    isActive
+                                        ? "bg-blue-50 text-blue-600 font-medium"
+                                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                                )}
+                            >
+                                <item.icon size={22} strokeWidth={1.5} />
+                                {!collapsed && <span>{item.label}</span>}
+                                {collapsed && (
+                                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 pointer-events-none">
+                                        {item.label}
+                                    </div>
+                                )}
+                            </NavLink>
+                        );
+                    }
 
-                        {/* Tooltip for collapsed state */}
-                        {collapsed && (
-                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 pointer-events-none">
-                                {item.label}
-                            </div>
-                        )}
-                    </NavLink>
-                ))}
+                    // Group Item
+                    const isExpanded = expandedGroups.includes(item.label);
+                    const isActiveGroup = item.children?.some(child => location.pathname.startsWith(child.path));
+
+                    return (
+                        <div key={item.label} className="mb-1">
+                            <button
+                                onClick={() => toggleGroup(item.label)}
+                                className={cn(
+                                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group relative",
+                                    isActiveGroup && !isExpanded
+                                        ? "bg-blue-50/50 text-blue-600"
+                                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                                )}
+                            >
+                                <item.icon size={22} strokeWidth={1.5} className={cn(isActiveGroup ? "text-blue-600" : "")} />
+                                {!collapsed && (
+                                    <>
+                                        <span className="flex-1 text-left font-medium text-sm">{item.label}</span>
+                                        <ChevronDown
+                                            size={16}
+                                            className={cn("transition-transform duration-200", isExpanded ? "transform rotate-180" : "")}
+                                        />
+                                    </>
+                                )}
+
+                                {/* Collapsed Tooltip/Popover preview */}
+                                {collapsed && (
+                                    <div className="absolute left-full ml-2 top-0 bg-white border border-gray-200 shadow-lg rounded-lg p-2 min-w-[160px] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none group-hover:pointer-events-auto">
+                                        <div className="font-semibold text-xs text-gray-400 mb-2 px-2 uppercase">{item.label}</div>
+                                        {item.children?.map(child => (
+                                            <div key={child.path} className="flex items-center gap-2 px-2 py-1.5 text-sm text-gray-600">
+                                                <child.icon size={16} />
+                                                <span>{child.label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </button>
+
+                            {/* Expanded Children (Only when not collapsed) */}
+                            {!collapsed && isExpanded && (
+                                <div className="mt-1 ml-4 border-l-2 border-gray-100 pl-2 space-y-1">
+                                    {item.children?.map(child => (
+                                        <NavLink
+                                            key={child.path}
+                                            to={child.path}
+                                            className={({ isActive }) => cn(
+                                                "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm",
+                                                isActive
+                                                    ? "bg-blue-50 text-blue-600 font-medium"
+                                                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                                            )}
+                                        >
+                                            <child.icon size={18} strokeWidth={1.5} />
+                                            <span>{child.label}</span>
+                                        </NavLink>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
 
                 {user?.isSuperAdmin && (
                     <div className="mt-4 pt-4 border-t border-gray-100">

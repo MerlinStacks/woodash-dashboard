@@ -7,6 +7,7 @@ import { ForecastChart } from '../components/ForecastChart';
 import { ReportBuilder } from '../components/ReportBuilder';
 
 import { ReportsSidebar } from '../components/analytics/ReportsSidebar';
+import { StockVelocityReport } from '../components/analytics/StockVelocityReport';
 import { getDateRange, getComparisonRange, DateRangeOption, ComparisonOption } from '../utils/dateUtils';
 import { ReportTemplate } from '../types/analytics';
 
@@ -40,7 +41,7 @@ export function ReportsPage() {
     const [customerGrowth, setCustomerGrowth] = useState<CustomerGrowth[]>([]);
 
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'forecast' | 'premade' | 'custom'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'forecast' | 'stock_velocity' | 'premade' | 'custom'>('overview');
 
     // Template State
     const [templates, setTemplates] = useState<ReportTemplate[]>([]);
@@ -139,6 +140,12 @@ export function ReportsPage() {
                         className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'forecast' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
                     >
                         Forecasting
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('stock_velocity')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'stock_velocity' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        Stock Velocity
                     </button>
                     <button
                         onClick={() => setActiveTab('premade')}
@@ -276,6 +283,12 @@ export function ReportsPage() {
             {
                 activeTab === 'forecast' && (
                     <ForecastChart dateRange={getDateRange(dateOption)} />
+                )
+            }
+
+            {
+                activeTab === 'stock_velocity' && (
+                    <StockVelocityReport />
                 )
             }
 

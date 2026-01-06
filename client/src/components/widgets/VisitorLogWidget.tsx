@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { Users, Clock, MapPin, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '../../context/AuthContext';
+import { useAccount } from '../../context/AccountContext';
 
 interface VisitorSession {
     id: string;
@@ -23,12 +25,17 @@ const VisitorLogWidget: React.FC = () => {
     const [visitors, setVisitors] = useState<VisitorSession[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const { token } = useAuth();
+    const { currentAccount } = useAccount();
+
     const fetchLog = async () => {
+        if (!token || !currentAccount) return;
+
         try {
             const res = await fetch('/api/analytics/visitors/log?limit=20', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'x-account-id': localStorage.getItem('accountId') || ''
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
                 }
             });
             if (res.ok) {

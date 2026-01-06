@@ -34,9 +34,13 @@ export function EmailSettings() {
     }, [currentAccount, token]);
 
     const fetchAccounts = async () => {
+        if (!currentAccount) return;
         try {
             const res = await fetch('/api/email/accounts', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
+                }
             });
             if (res.ok) {
                 const data = await res.json();
@@ -64,7 +68,8 @@ export function EmailSettings() {
                 method,
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
                 },
                 body: JSON.stringify(editingAccount)
             });
@@ -83,10 +88,15 @@ export function EmailSettings() {
 
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this account?')) return;
+        if (!currentAccount) return;
+
         try {
             await fetch(`/api/email/accounts/${id}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
+                }
             });
             setAccounts(accounts.filter(a => a.id !== id));
         } catch (error) {
@@ -105,7 +115,8 @@ export function EmailSettings() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
                 },
                 body: JSON.stringify(editingAccount)
             });
