@@ -46,7 +46,12 @@ router.post('/templates', async (req: AuthenticatedRequest, res: Response) => {
     try {
         const template = await invoiceService.createTemplate(accountId, req.body);
         res.json(template);
-    } catch (error) {
+    } catch (error: any) {
+        Logger.error('Failed to create invoice template', { error, accountId, body: req.body });
+        // Handle unique constraint violation (Prisma P2002)
+        if (error?.code === 'P2002') {
+            return res.status(409).json({ error: 'A template with this name already exists' });
+        }
         res.status(500).json({ error: 'Failed to create template' });
     }
 });

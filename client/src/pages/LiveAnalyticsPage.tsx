@@ -100,6 +100,12 @@ export function LiveAnalyticsPage() {
             if (dateRange === '7d') start.setDate(start.getDate() - 7);
             if (dateRange === '30d') start.setDate(start.getDate() - 30);
             if (dateRange === 'today') start.setHours(0, 0, 0, 0);
+            if (dateRange === 'yesterday') {
+                start.setDate(start.getDate() - 1);
+                start.setHours(0, 0, 0, 0);
+                end.setDate(end.getDate() - 1);
+                end.setHours(23, 59, 59, 999);
+            }
 
             const res = await fetch(`${endpoint}?startDate=${start.toISOString()}&endDate=${end.toISOString()}`, {
                 headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount!.id }
@@ -158,6 +164,7 @@ export function LiveAnalyticsPage() {
                             className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
                         >
                             <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
                             <option value="7d">Last 7 Days</option>
                             <option value="30d">Last 30 Days</option>
                         </select>

@@ -1,44 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
+
+/**
+ * Get the current mobile state from window.
+ * Safe for SSR - returns false on server.
+ */
+function getIsMobile(): boolean {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 1024;
+}
+
+/**
+ * Subscribe to window resize events.
+ */
+function subscribe(callback: () => void): () => void {
+    window.addEventListener('resize', callback);
+    return () => window.removeEventListener('resize', callback);
+}
 
 /**
  * Custom hook to detect mobile/tablet viewport.
  * Returns true for viewports < 1024px (lg breakpoint in Tailwind).
- * SSR-safe with proper hydration handling.
+ * Uses useSyncExternalStore for proper SSR/hydration handling.
  */
 export function useMobile(): boolean {
-    const [isMobile, setIsMobile] = useState(false);
+    // Use useSyncExternalStore for proper hydration
+    return useSyncExternalStore(
+        subscribe,
+        getIsMobile, // Client snapshot
+        () => false  // Server snapshot (SSR fallback)
+    );
+}
 
-    useEffect(() => {
-        const mediaQuery = window.matchMedia('(max-width: 1023px)');
-
-        // Set initial value
-        setIsMobile(mediaQuery.matches);
-
-        // Listen for changes
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mediaQuery.addEventListener('change', handler);
-
-        return () => mediaQuery.removeEventListener('change', handler);
-    }, []);
-
-    return isMobile;
+/**
+ * Get the current small mobile state from window.
+ */
+function getIsSmallMobile(): boolean {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 768;
 }
 
 /**
  * Hook for smaller mobile devices (< 768px / md breakpoint).
  */
 export function useSmallMobile(): boolean {
-    const [isSmallMobile, setIsSmallMobile] = useState(false);
-
-    useEffect(() => {
-        const mediaQuery = window.matchMedia('(max-width: 767px)');
-        setIsSmallMobile(mediaQuery.matches);
-
-        const handler = (e: MediaQueryListEvent) => setIsSmallMobile(e.matches);
-        mediaQuery.addEventListener('change', handler);
-
-        return () => mediaQuery.removeEventListener('change', handler);
-    }, []);
-
-    return isSmallMobile;
+    return useSyncExternalStore(
+        subscribe,
+        getIsSmallMobile,
+        () => false
+    );
 }

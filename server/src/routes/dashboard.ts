@@ -15,7 +15,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     // For now, simple logic: Get the First dashboard for this account/user combo, or create default.
     let layout = await prisma.dashboardLayout.findFirst({
         where: { accountId, userId: (req as any).user.id },
-        include: { widgets: true }
+        include: { widgets: { orderBy: { sortOrder: 'asc' } } }
     });
 
     if (!layout) {
@@ -28,16 +28,16 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
                 isDefault: true,
                 widgets: {
                     create: [
-                        { widgetKey: 'total-sales', position: { x: 0, y: 0, w: 4, h: 4 } },
-                        { widgetKey: 'recent-orders', position: { x: 4, y: 0, w: 4, h: 4 } },
-                        { widgetKey: 'marketing-roas', position: { x: 8, y: 0, w: 4, h: 4 } },
-                        { widgetKey: 'sales-chart', position: { x: 0, y: 4, w: 8, h: 6 } },
-                        { widgetKey: 'top-products', position: { x: 8, y: 4, w: 4, h: 6 } },
-                        { widgetKey: 'customer-growth', position: { x: 0, y: 10, w: 6, h: 6 } }
+                        { widgetKey: 'total-sales', position: { x: 0, y: 0, w: 4, h: 4 }, sortOrder: 0 },
+                        { widgetKey: 'recent-orders', position: { x: 4, y: 0, w: 4, h: 4 }, sortOrder: 1 },
+                        { widgetKey: 'marketing-roas', position: { x: 8, y: 0, w: 4, h: 4 }, sortOrder: 2 },
+                        { widgetKey: 'sales-chart', position: { x: 0, y: 4, w: 8, h: 6 }, sortOrder: 3 },
+                        { widgetKey: 'top-products', position: { x: 8, y: 4, w: 4, h: 6 }, sortOrder: 4 },
+                        { widgetKey: 'customer-growth', position: { x: 0, y: 10, w: 6, h: 6 }, sortOrder: 5 }
                     ]
                 }
             },
-            include: { widgets: true }
+            include: { widgets: { orderBy: { sortOrder: 'asc' } } }
         });
     }
 
@@ -68,18 +68,19 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     await prisma.$transaction([
         prisma.dashboardWidget.deleteMany({ where: { dashboardId: layout.id } }),
         prisma.dashboardWidget.createMany({
-            data: widgets.map((w: any) => ({
+            data: widgets.map((w: any, index: number) => ({
                 dashboardId: layout.id,
                 widgetKey: w.widgetKey,
                 position: w.position,
-                settings: w.settings || {}
+                settings: w.settings || {},
+                sortOrder: index
             }))
         })
     ]);
 
     const updated = await prisma.dashboardLayout.findUnique({
         where: { id: layout.id },
-        include: { widgets: true }
+        include: { widgets: { orderBy: { sortOrder: 'asc' } } }
     });
 
     res.json(updated);

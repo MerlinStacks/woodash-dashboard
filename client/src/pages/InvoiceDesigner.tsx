@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAccount } from '../context/AccountContext';
 import { useAuth } from '../context/AuthContext';
-import { Save, ArrowLeft, Loader2 } from 'lucide-react';
+import { Save, ArrowLeft, Loader2, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { api } from '../services/api';
 import { generateId } from './invoiceUtils';
 import { DesignerSidebar } from './DesignerSidebar';
@@ -20,6 +20,7 @@ export function InvoiceDesigner() {
     const [items, setItems] = useState<any[]>([]); // Store component config (e.g. text content)
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     // Initial Load
     useEffect(() => {
@@ -84,6 +85,7 @@ export function InvoiceDesigner() {
     const saveTemplate = async () => {
         if (!currentAccount || !token) return;
         setIsLoading(true);
+        setSaveMessage(null);
         try {
             const payload = {
                 name,
@@ -95,14 +97,25 @@ export function InvoiceDesigner() {
 
             if (id) {
                 await api.put(`/api/invoices/templates/${id}`, payload, token, currentAccount.id);
+                setSaveMessage({ type: 'success', text: 'Template saved!' });
             } else {
                 const newTemplate: any = await api.post(`/api/invoices/templates`, payload, token, currentAccount.id);
                 if (newTemplate && newTemplate.id) {
+                    setSaveMessage({ type: 'success', text: 'Template created!' });
                     navigate(`/invoices/templates/${newTemplate.id}`, { replace: true });
                 }
             }
-        } catch (err) {
+            // Auto-dismiss success message after 3s
+            setTimeout(() => setSaveMessage(null), 3000);
+        } catch (err: any) {
             console.error('Failed to save template', err);
+            // Parse error message from API response
+            const errorMessage = err?.message || 'Failed to save template';
+            if (errorMessage.includes('already exists')) {
+                setSaveMessage({ type: 'error', text: 'A template with this name already exists. Please choose a different name.' });
+            } else {
+                setSaveMessage({ type: 'error', text: errorMessage });
+            }
         } finally {
             setIsLoading(false);
         }
@@ -130,6 +143,28 @@ export function InvoiceDesigner() {
                     {isLoading ? 'Saving...' : 'Save Template'}
                 </button>
             </div>
+
+            {/* Toast Notification */}
+            {saveMessage && (
+                <div className={`fixed top-20 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${saveMessage.type === 'success'
+                        ? 'bg-green-50 border border-green-200 text-green-800'
+                        : 'bg-red-50 border border-red-200 text-red-800'
+                    }`}>
+                    {saveMessage.type === 'success' ? (
+                        <CheckCircle size={18} className="text-green-600 flex-shrink-0" />
+                    ) : (
+                        <AlertCircle size={18} className="text-red-600 flex-shrink-0" />
+                    )}
+                    <span className="text-sm font-medium">{saveMessage.text}</span>
+                    <button
+                        type="button"
+                        onClick={() => setSaveMessage(null)}
+                        className="ml-2 text-gray-400 hover:text-gray-600"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
 
             <div className="flex flex-1 overflow-hidden">
                 <DesignerSidebar onAddItem={addItem} />

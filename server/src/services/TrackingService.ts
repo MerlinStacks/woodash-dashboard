@@ -248,16 +248,17 @@ export class TrackingService {
     }
 
     /**
-     * Get Live Visitors (Active in last 30 mins)
+     * Get Live Visitors (Active in last 3 mins)
+     * Note: Bots are already filtered at ingestion time via isBot() check in processEvent
      */
     static async getLiveVisitors(accountId: string) {
-        const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+        const threeMinsAgo = new Date(Date.now() - 3 * 60 * 1000);
 
         return prisma.analyticsSession.findMany({
             where: {
                 accountId,
                 lastActiveAt: {
-                    gte: thirtyMinsAgo
+                    gte: threeMinsAgo
                 }
             },
             orderBy: {

@@ -7,13 +7,6 @@ Develop a dedicated WordPress/WooCommerce plugin to manage OverSeek frontend int
   - [ ] Toggle Live Chat widget visibility on the storefront
   - [ ] Toggle all tracking scripts/features
 
-## 💰 Invoicing & Financials
-- [ ] **Visual Invoice Generator**
-  - [ ] Drag-and-drop template designer
-  - [ ] Grid system for layout alignment
-  - [ ] Support for detailed tax breakdowns
-  - [ ] **Automation**: Attach generated invoices to email automation flows
-
 ## 📣 Unified Marketing
 - [ ] **SMS & WhatsApp Channels**
   - [ ] Extend `MarketingAutomation` to support SMS/WhatsApp nodes
@@ -34,7 +27,3 @@ Develop a dedicated WordPress/WooCommerce plugin to manage OverSeek frontend int
 - [ ] **Recent Orders Widget**: Fix order number display (remove circle, show above name)
 - [ ] **Ecommerce Stream Widget**: Show product details for cart additions
 - [ ] **Visitor Log Widget**: Redesign to match reference example
-
-## 📈 Analytics & Tracking & Reporting
-- [ ] **Time Periods**: Add "Yesterday" option globally
-- [ ] **Purchase Tracking**: Fix incorrect purchase attribution

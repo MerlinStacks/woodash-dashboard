@@ -183,6 +183,7 @@ export function DashboardPage() {
                             className="bg-transparent border-r border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:bg-gray-50"
                         >
                             <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
                             <option value="7d">Last 7 Days</option>
                             <option value="30d">Last 30 Days</option>
                             <option value="90d">Last 90 Days</option>

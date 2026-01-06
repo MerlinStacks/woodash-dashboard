@@ -21,10 +21,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <CommandPalette />
             <ChatNotifications />
 
-            {/* Desktop Sidebar */}
-            {!isMobile && <Sidebar />}
+            {/* Desktop Sidebar - CSS hides on mobile via hidden lg:flex */}
+            <Sidebar />
 
-            {/* Mobile Sidebar Drawer */}
+            {/* Mobile Sidebar Drawer - only renders on mobile */}
             {isMobile && (
                 <Sidebar
                     isMobile

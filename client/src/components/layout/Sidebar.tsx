@@ -341,11 +341,12 @@ export function Sidebar({ isOpen = true, onClose, isMobile = false }: SidebarPro
         );
     }
 
-    // Desktop: render as sticky sidebar
+    // Desktop: render as sticky sidebar (CSS hides on mobile via hidden lg:flex)
     return (
         <aside
             className={cn(
-                "bg-white border-r border-gray-200 h-screen sticky top-0 transition-all duration-300 flex flex-col z-50 hidden lg:flex",
+                "bg-white border-r border-gray-200 h-screen sticky top-0 transition-all duration-300 flex-col z-50",
+                "hidden lg:flex", // Critical: CSS-hide on mobile
                 collapsed ? "w-20" : "w-64"
             )}
         >

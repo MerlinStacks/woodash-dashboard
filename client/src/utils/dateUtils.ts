@@ -1,4 +1,4 @@
-export type DateRangeOption = 'today' | '7d' | '30d' | '90d' | 'ytd' | 'all';
+export type DateRangeOption = 'today' | 'yesterday' | '7d' | '30d' | '90d' | 'ytd' | 'all';
 export type ComparisonOption = 'none' | 'previous_period' | 'previous_year';
 
 export interface DateRange {
@@ -13,6 +13,10 @@ export const getDateRange = (option: DateRangeOption | string): DateRange => {
     switch (option) {
         case 'today':
             // Start is today
+            break;
+        case 'yesterday':
+            start.setDate(end.getDate() - 1);
+            end.setDate(end.getDate() - 1);
             break;
         case '7d':
             start.setDate(end.getDate() - 7);
@@ -112,6 +116,7 @@ export const getComparisonRange = (current: DateRange, type: ComparisonOption): 
 export const formatDateOption = (option: string): string => {
     switch (option) {
         case 'today': return 'Today';
+        case 'yesterday': return 'Yesterday';
         case '7d': return 'Last 7 Days';
         case '30d': return 'Last 30 Days';
         case '90d': return 'Last 90 Days';

@@ -232,6 +232,9 @@ model DashboardWidget {
   // Instance specific settings (e.g. "Show last 7 days")
   settings Json? @default("{}")
 
+  // Ordering for stable layout persistence
+  sortOrder Int @default(0)
+
   dashboard DashboardLayout @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())

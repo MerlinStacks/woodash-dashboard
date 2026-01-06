@@ -8,6 +8,7 @@ interface DateRangeFilterProps {
 
 const ranges = [
     { label: 'Today', value: 1 },
+    { label: 'Yesterday', value: -1 },
     { label: '7 Days', value: 7 },
     { label: '30 Days', value: 30 },
     { label: '90 Days', value: 90 },
@@ -23,8 +24,8 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ value, onChang
                     key={range.value}
                     onClick={() => onChange(range.value)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${value === range.value
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
                         }`}
                 >
                     {range.label}
