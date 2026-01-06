@@ -7,6 +7,7 @@ import { AdsService } from '../services/ads';
 import { requireAuth } from '../middleware/auth';
 import { esClient } from '../utils/elastic';
 import { prisma } from '../utils/prisma';
+import { AnalyticsService } from '../services/AnalyticsService';
 
 const router = Router();
 // const prisma = new PrismaClient(); // Removed local instantiation
