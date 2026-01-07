@@ -193,6 +193,17 @@ export function AdsView() {
                                         Google Ads requires OAuth authentication. Click the button below to connect your account securely.
                                     </p>
                                 </div>
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                    <p className="text-sm text-amber-800 font-medium mb-2">
+                                        ⚠️ Google Cloud Console Setup Required
+                                    </p>
+                                    <p className="text-xs text-amber-700 mb-2">
+                                        Add this redirect URI to your Google Cloud OAuth credentials:
+                                    </p>
+                                    <code className="block bg-white border border-amber-300 rounded px-3 py-2 text-xs font-mono text-gray-800 break-all select-all">
+                                        {window.location.origin}/api/oauth/google/callback
+                                    </code>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={handleGoogleOAuth}

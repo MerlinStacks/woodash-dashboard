@@ -32,10 +32,17 @@ router.get('/google/authorize', requireAuth, async (req: AuthenticatedRequest, r
             frontendRedirect
         })).toString('base64');
 
-        // Get the callback URL (this server's callback endpoint)
-        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-        const host = req.headers['x-forwarded-host'] || req.get('host');
-        const callbackUrl = `${protocol}://${host}/api/oauth/google/callback`;
+        // Get the callback URL using API_URL env var (required for Docker environments)
+        // Falls back to request headers for local development
+        const apiUrl = process.env.API_URL;
+        let callbackUrl: string;
+        if (apiUrl) {
+            callbackUrl = `${apiUrl}/api/oauth/google/callback`;
+        } else {
+            const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+            const host = req.headers['x-forwarded-host'] || req.get('host');
+            callbackUrl = `${protocol}://${host}/api/oauth/google/callback`;
+        }
 
         const authUrl = await AdsService.getGoogleAuthUrl(callbackUrl, state);
 
@@ -73,9 +80,16 @@ router.get('/google/callback', async (req: Request, res: Response) => {
         }
 
         // Build redirect URI (must match exactly what was used in authorize)
-        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-        const host = req.headers['x-forwarded-host'] || req.get('host');
-        const redirectUri = `${protocol}://${host}/api/oauth/google/callback`;
+        // Use API_URL env var for Docker environments, fallback to request headers
+        const apiUrl = process.env.API_URL;
+        let redirectUri: string;
+        if (apiUrl) {
+            redirectUri = `${apiUrl}/api/oauth/google/callback`;
+        } else {
+            const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+            const host = req.headers['x-forwarded-host'] || req.get('host');
+            redirectUri = `${protocol}://${host}/api/oauth/google/callback`;
+        }
 
         // Exchange code for tokens
         const tokens = await AdsService.exchangeGoogleCode(code as string, redirectUri);

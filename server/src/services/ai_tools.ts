@@ -3,6 +3,9 @@ import { InventoryTools } from './tools/InventoryTools';
 import { SalesTools } from './tools/SalesTools';
 import { ProductTools } from './tools/ProductTools';
 import { CustomerTools } from './tools/CustomerTools';
+import { AdsTools } from './tools/AdsTools';
+import { WooCommerceTools } from './tools/WooCommerceTools';
+import { Logger } from '../utils/logger';
 
 export interface ToolDefinition {
     name: string;
@@ -18,6 +21,9 @@ export class AIToolsService {
 
     static getDefinitions(): ToolDefinition[] {
         return [
+            // ─────────────────────────────────────────────────────────
+            // Orders & Sales
+            // ─────────────────────────────────────────────────────────
             {
                 name: "get_recent_orders",
                 description: "Get recent orders for the store. Useful for answering questions about latest sales, order volume, or specific recent transactions.",
@@ -26,17 +32,6 @@ export class AIToolsService {
                     properties: {
                         limit: { type: "integer", description: "Number of orders to retrieve (default 5, max 20)" },
                         status: { type: "string", description: "Filter by status (e.g., 'completed', 'processing', 'pending')" }
-                    },
-                    required: []
-                }
-            },
-            {
-                name: "get_inventory_summary",
-                description: "Get a summary of inventory, including low stock items.",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        limit: { type: "integer", description: "Number of low stock items to list (default 5)" }
                     },
                     required: []
                 }
@@ -53,6 +48,32 @@ export class AIToolsService {
                 }
             },
             {
+                name: "get_revenue_breakdown",
+                description: "Get revenue breakdown for a period with comparison to the previous period. Shows current vs previous revenue, order counts, and trend.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        period: { type: "string", description: "Time period: 'today', 'yesterday', 'last_7_days', 'last_30_days', 'this_month'", enum: ["today", "yesterday", "last_7_days", "last_30_days", "this_month"] }
+                    },
+                    required: []
+                }
+            },
+
+            // ─────────────────────────────────────────────────────────
+            // Products & Inventory
+            // ─────────────────────────────────────────────────────────
+            {
+                name: "get_inventory_summary",
+                description: "Get a summary of inventory, including low stock items.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        limit: { type: "integer", description: "Number of low stock items to list (default 5)" }
+                    },
+                    required: []
+                }
+            },
+            {
                 name: "search_products",
                 description: "Search for specific products by name or keyword.",
                 parameters: {
@@ -64,6 +85,21 @@ export class AIToolsService {
                 }
             },
             {
+                name: "get_top_products",
+                description: "Get the best selling products ranked by units sold.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        limit: { type: "integer", description: "Number of products to return (default 5)" }
+                    },
+                    required: []
+                }
+            },
+
+            // ─────────────────────────────────────────────────────────
+            // Customers & Reviews
+            // ─────────────────────────────────────────────────────────
+            {
                 name: "find_customer",
                 description: "Find a customer by name or email.",
                 parameters: {
@@ -73,24 +109,107 @@ export class AIToolsService {
                     },
                     required: ["query"]
                 }
+            },
+            {
+                name: "get_top_customers",
+                description: "Get the top customers ranked by total spending.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        limit: { type: "integer", description: "Number of customers to return (default 5)" }
+                    },
+                    required: []
+                }
+            },
+            {
+                name: "get_review_summary",
+                description: "Get a summary of product reviews including average rating, distribution, and recent reviews.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        limit: { type: "integer", description: "Number of recent reviews to include (default 5)" }
+                    },
+                    required: []
+                }
+            },
+
+            // ─────────────────────────────────────────────────────────
+            // Store Overview
+            // ─────────────────────────────────────────────────────────
+            {
+                name: "get_store_overview",
+                description: "Get a general overview of the store including total products, customers, orders, reviews, lifetime revenue, and recent activity.",
+                parameters: {
+                    type: "object",
+                    properties: {},
+                    required: []
+                }
+            },
+
+            // ─────────────────────────────────────────────────────────
+            // Advertising (Meta & Google Ads)
+            // ─────────────────────────────────────────────────────────
+            {
+                name: "get_ad_performance",
+                description: "Get advertising performance metrics (spend, impressions, clicks, CTR, ROAS) from connected ad accounts. Can filter by platform.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        platform: { type: "string", description: "Optional filter: 'meta' or 'google'. Leave empty for all platforms.", enum: ["meta", "google"] }
+                    },
+                    required: []
+                }
+            },
+            {
+                name: "compare_ad_platforms",
+                description: "Compare performance between Meta Ads (Facebook/Instagram) and Google Ads. Shows aggregated metrics per platform and a recommendation based on ROAS.",
+                parameters: {
+                    type: "object",
+                    properties: {},
+                    required: []
+                }
             }
         ];
     }
 
     static async executeTool(name: string, args: any, accountId: string): Promise<any> {
-        console.log(`[AITools] Executing ${name} for account ${accountId}`, args);
+        Logger.debug(`[AITools] Executing ${name} for account ${accountId}`, { args });
 
         switch (name) {
+            // Orders & Sales
             case 'get_recent_orders':
                 return OrderTools.getRecentOrders(accountId, args.limit, args.status);
-            case 'get_inventory_summary':
-                return InventoryTools.getInventorySummary(accountId, args.limit);
             case 'get_sales_analytics':
                 return SalesTools.getSalesAnalytics(accountId, args.period);
+            case 'get_revenue_breakdown':
+                return WooCommerceTools.getRevenueBreakdown(accountId, args.period);
+
+            // Products & Inventory
+            case 'get_inventory_summary':
+                return InventoryTools.getInventorySummary(accountId, args.limit);
             case 'search_products':
                 return ProductTools.searchProducts(accountId, args.query);
+            case 'get_top_products':
+                return WooCommerceTools.getTopProducts(accountId, args.limit);
+
+            // Customers & Reviews
             case 'find_customer':
                 return CustomerTools.findCustomer(accountId, args.query);
+            case 'get_top_customers':
+                return WooCommerceTools.getTopCustomers(accountId, args.limit);
+            case 'get_review_summary':
+                return WooCommerceTools.getReviewSummary(accountId, args.limit);
+
+            // Store Overview
+            case 'get_store_overview':
+                return WooCommerceTools.getStoreOverview(accountId);
+
+            // Advertising
+            case 'get_ad_performance':
+                return AdsTools.getAdPerformance(accountId, args.platform);
+            case 'compare_ad_platforms':
+                return AdsTools.compareAdPlatforms(accountId);
+
             default:
                 throw new Error(`Unknown tool: ${name}`);
         }

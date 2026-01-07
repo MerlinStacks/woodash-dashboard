@@ -52,6 +52,7 @@ services:
       JWT_SECRET: supersecretkey
       PORT: 3000
       REDIS_HOST: redis
+      API_URL: ${API_URL}
     depends_on:
       - postgres
       - elasticsearch

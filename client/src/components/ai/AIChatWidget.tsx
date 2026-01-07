@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Loader2, Sparkles, ChevronDown, BarChart2, Package, Users, ShoppingCart } from 'lucide-react';
+import { Bot, Send, Loader2, Sparkles, ChevronDown, BarChart2, Package, TrendingUp, ShoppingCart, Target } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import ReactMarkdown from 'react-markdown';
@@ -17,7 +17,7 @@ export function AIChatWidget() {
     const { currentAccount } = useAccount();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { id: 'welcome', role: 'assistant', content: 'Hi! I can help you analyze your store data. Ask me about your **Order Volume**, **Top Customers**, or **Inventory Status**.' }
+        { id: 'welcome', role: 'assistant', content: 'Hi! I can help you analyze your store data. Ask me about **Sales**, **Products**, **Customers**, **Reviews**, or your **Ad Performance**.' }
     ]);
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
@@ -74,9 +74,10 @@ export function AIChatWidget() {
     };
 
     const suggestedActions = [
-        { label: "Today's Sales", icon: <BarChart2 size={14} />, query: "How much did we sell today?" },
+        { label: "Store Overview", icon: <BarChart2 size={14} />, query: "Give me a store overview" },
+        { label: "Top Products", icon: <TrendingUp size={14} />, query: "What are my best selling products?" },
+        { label: "Ad Performance", icon: <Target size={14} />, query: "How are my ads performing?" },
         { label: "Recent Orders", icon: <ShoppingCart size={14} />, query: "Show me the last 5 orders" },
-        { label: "Low Stock", icon: <Package size={14} />, query: "Which products are low on stock?" },
     ];
 
     if (!currentAccount) return null;
