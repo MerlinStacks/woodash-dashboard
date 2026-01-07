@@ -36,8 +36,8 @@ const PROMPT_CONFIGS: PromptConfig[] = [
         id: 'product_description',
         name: 'Product Description Generator',
         description: 'Generate compelling product descriptions for WooCommerce products',
-        placeholder: 'You are a skilled copywriter. Generate a compelling product description for the following product:\n\nProduct Name: {{product_name}}\nCategory: {{category}}\nKey Features: {{features}}\n\nWrite a description that is:\n- Engaging and persuasive\n- SEO-friendly\n- 150-200 words',
-        helpText: 'Available variables: {{product_name}}, {{category}}, {{features}}, {{price}}'
+        placeholder: 'You are a skilled copywriter. Rewrite and improve the following product description:\n\nProduct Name: {{product_name}}\nCategory: {{category}}\nCurrent Description: {{current_description}}\nShort Description: {{short_description}}\n\nWrite an improved description that is:\n- Engaging and persuasive\n- SEO-friendly\n- 150-200 words\n- Maintains the key product information',
+        helpText: 'Available variables: {{product_name}}, {{category}}, {{current_description}}, {{short_description}}'
     },
     {
         id: 'customer_email',
