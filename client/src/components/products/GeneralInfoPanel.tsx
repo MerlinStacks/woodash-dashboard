@@ -52,6 +52,15 @@ export function GeneralInfoPanel({ formData, product, suppliers = [], onChange }
                 })
             });
 
+            // Check content-type before attempting JSON parse
+            const contentType = res.headers.get('content-type') || '';
+
+            if (!contentType.includes('application/json')) {
+                // Server returned HTML or other non-JSON (likely error page)
+                setRewriteError('Server error. Please try again later.');
+                return;
+            }
+
             const data = await res.json();
 
             if (!res.ok) {

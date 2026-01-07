@@ -326,9 +326,20 @@ router.post('/:id/rewrite-description', requireAuth, async (req: AuthenticatedRe
         if (!response.ok) {
             const errorText = await response.text();
             Logger.error('OpenRouter API error during rewrite', { error: errorText, status: response.status });
-            return res.status(502).json({
-                error: 'Failed to generate description. Check your API key and try again.'
-            });
+
+            // Provide more specific error messages
+            let errorMessage = 'Failed to generate description.';
+            if (response.status === 401) {
+                errorMessage = 'Invalid OpenRouter API key. Please check your credentials in Settings > Intelligence.';
+            } else if (response.status === 429) {
+                errorMessage = 'Rate limit exceeded. Please try again in a moment.';
+            } else if (response.status === 402) {
+                errorMessage = 'Insufficient credits on OpenRouter. Please top up your account.';
+            } else {
+                errorMessage = `OpenRouter API error (${response.status}). Please try again.`;
+            }
+
+            return res.status(502).json({ error: errorMessage });
         }
 
         const data = await response.json();
