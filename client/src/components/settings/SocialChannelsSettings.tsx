@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import { Facebook, Instagram, Music2, Link2, Unlink, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
-import { api } from '../../utils/api';
+import { api } from '../../services/api';
 
 interface SocialAccount {
     id: string;
