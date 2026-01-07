@@ -168,6 +168,26 @@ export class AIToolsService {
                     properties: {},
                     required: []
                 }
+            },
+            {
+                name: "analyze_google_ads_campaigns",
+                description: "Analyze Google Ads campaigns with detailed performance breakdown. Shows top spenders, highest ROAS campaigns, underperformers, and high performers. Use this to understand campaign-level performance.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        days: { type: "integer", description: "Number of days to analyze (default 30)" }
+                    },
+                    required: []
+                }
+            },
+            {
+                name: "get_ad_optimization_suggestions",
+                description: "Get AI-powered optimization suggestions for Google Ads campaigns. Analyzes performance data and provides actionable recommendations for budget allocation, underperforming campaigns, and scaling opportunities.",
+                parameters: {
+                    type: "object",
+                    properties: {},
+                    required: []
+                }
             }
         ];
     }
@@ -209,6 +229,10 @@ export class AIToolsService {
                 return AdsTools.getAdPerformance(accountId, args.platform);
             case 'compare_ad_platforms':
                 return AdsTools.compareAdPlatforms(accountId);
+            case 'analyze_google_ads_campaigns':
+                return AdsTools.analyzeGoogleAdsCampaigns(accountId, args.days || 30);
+            case 'get_ad_optimization_suggestions':
+                return AdsTools.getAdOptimizationSuggestions(accountId);
 
             default:
                 throw new Error(`Unknown tool: ${name}`);

@@ -14,14 +14,24 @@ export class EmailService {
     // -------------------
 
     async createTransporter(account: EmailAccount) {
+        // Port 465 uses implicit TLS, port 587 uses STARTTLS
+        const useImplicitTLS = account.port === 465;
+
         return nodemailer.createTransport({
             host: account.host,
             port: account.port,
-            secure: account.isSecure, // true for 465, false for other ports
+            secure: useImplicitTLS, // true for 465 only
+            requireTLS: !useImplicitTLS && account.isSecure, // Force STARTTLS for 587 when secure is wanted
             auth: {
                 user: account.username,
                 pass: account.password,
             },
+            tls: {
+                // Allow connections to servers with mismatched certificates
+                // (common with shared hosting like cPanel)
+                rejectUnauthorized: false,
+                servername: account.host
+            }
         });
     }
 
@@ -58,14 +68,23 @@ export class EmailService {
             }
         } else if (account.type === 'IMAP') {
             try {
+                // Port 993 uses implicit TLS (connection is encrypted from start)
+                // Port 143 uses STARTTLS (connection starts plain, then upgrades)
+                const useImplicitTLS = account.port === 993;
+
                 const config = {
                     imap: {
                         user: account.username,
                         password: account.password,
                         host: account.host,
                         port: account.port,
-                        tls: account.isSecure,
-                        authTimeout: 3000
+                        tls: useImplicitTLS, // Only true for port 993
+                        autotls: useImplicitTLS ? 'never' : 'required', // STARTTLS for other ports
+                        authTimeout: 10000,
+                        tlsOptions: {
+                            rejectUnauthorized: false, // Allow self-signed certs
+                            servername: account.host // Required for SNI
+                        }
                     }
                 };
                 const connection = await imaps.connect(config);
@@ -88,14 +107,22 @@ export class EmailService {
         const account = await prisma.emailAccount.findUnique({ where: { id: emailAccountId } });
         if (!account || account.type !== 'IMAP') return;
 
+        // Port 993 uses implicit TLS, port 143 uses STARTTLS
+        const useImplicitTLS = account.port === 993;
+
         const config = {
             imap: {
                 user: account.username,
                 password: account.password,
                 host: account.host,
                 port: account.port,
-                tls: account.isSecure,
-                authTimeout: 3000
+                tls: useImplicitTLS,
+                autotls: useImplicitTLS ? 'never' : 'required',
+                authTimeout: 10000,
+                tlsOptions: {
+                    rejectUnauthorized: false,
+                    servername: account.host
+                }
             }
         };
 

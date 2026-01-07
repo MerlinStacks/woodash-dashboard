@@ -119,6 +119,86 @@ router.get('/:adAccountId/insights', async (req: AuthenticatedRequest, res: Resp
 });
 
 /**
+ * GET /api/ads/:adAccountId/campaigns
+ * Fetch campaign-level breakdown for a Google Ads account.
+ * Query params: days (default: 30)
+ */
+router.get('/:adAccountId/campaigns', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { adAccountId } = req.params;
+        const days = parseInt(req.query.days as string) || 30;
+
+        // Get account to verify platform
+        const accounts = await AdsService.getAdAccounts((req as any).accountId);
+        const adAccount = accounts.find(a => a.id === adAccountId);
+
+        if (!adAccount) {
+            return res.status(404).json({ error: 'Ad account not found' });
+        }
+
+        if (adAccount.platform !== 'GOOGLE') {
+            return res.status(400).json({ error: 'Campaign breakdown only available for Google Ads' });
+        }
+
+        const campaigns = await AdsService.getGoogleCampaignInsights(adAccountId, days);
+        res.json(campaigns);
+    } catch (error: any) {
+        Logger.error('Failed to fetch campaign insights', { error });
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/ads/:adAccountId/trends
+ * Fetch daily performance trends for a Google Ads account.
+ * Query params: days (default: 30)
+ */
+router.get('/:adAccountId/trends', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { adAccountId } = req.params;
+        const days = parseInt(req.query.days as string) || 30;
+
+        // Get account to verify platform
+        const accounts = await AdsService.getAdAccounts((req as any).accountId);
+        const adAccount = accounts.find(a => a.id === adAccountId);
+
+        if (!adAccount) {
+            return res.status(404).json({ error: 'Ad account not found' });
+        }
+
+        if (adAccount.platform !== 'GOOGLE') {
+            return res.status(400).json({ error: 'Trend data only available for Google Ads' });
+        }
+
+        const trends = await AdsService.getGoogleDailyTrends(adAccountId, days);
+        res.json(trends);
+    } catch (error: any) {
+        Logger.error('Failed to fetch daily trends', { error });
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/ads/:adAccountId/analysis
+ * Get AI-powered analysis and optimization suggestions for a Google Ads account.
+ */
+router.get('/:adAccountId/analysis', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const accountId = (req as any).accountId;
+        if (!accountId) return res.status(400).json({ error: 'No account selected' });
+
+        // Import AdsTools for analysis
+        const { AdsTools } = await import('../services/tools/AdsTools');
+        const suggestions = await AdsTools.getAdOptimizationSuggestions(accountId);
+
+        res.json(suggestions);
+    } catch (error: any) {
+        Logger.error('Failed to fetch ad analysis', { error });
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * PATCH /api/ads/:adAccountId/complete-setup
  * Complete setup for a pending Google Ads account by providing the Customer ID.
  * Body: { customerId: string, name?: string }

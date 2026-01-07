@@ -18,6 +18,43 @@ export interface AdMetric {
 }
 
 /**
+ * Campaign-level insight metrics.
+ */
+export interface CampaignInsight {
+    campaignId: string;
+    campaignName: string;
+    status: string;
+    spend: number;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    conversionsValue: number;
+    roas: number;
+    ctr: number;      // Click-through rate (%)
+    cpc: number;      // Cost per click
+    cpa: number;      // Cost per acquisition
+    currency: string;
+    dateStart: string;
+    dateStop: string;
+    // Optional: UTM-correlated data from WooCommerce
+    trackedOrders?: number;
+    trackedRevenue?: number;
+    trueROAS?: number;
+}
+
+/**
+ * Daily trend data point.
+ */
+export interface DailyTrend {
+    date: string;
+    spend: number;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    conversionsValue: number;
+}
+
+/**
  * Cached credentials to avoid repeated DB lookups.
  * In production, consider using Redis for distributed caching.
  */
@@ -293,6 +330,185 @@ export class AdsService {
             });
 
             throw new Error(userFriendlyMessage);
+        }
+    }
+
+    /**
+     * Fetch Google Ads campaign-level insights for the last 30 days.
+     * Returns detailed metrics for each campaign including spend, ROAS, CTR, CPC, CPA.
+     */
+    static async getGoogleCampaignInsights(adAccountId: string, days: number = 30): Promise<CampaignInsight[]> {
+        const adAccount = await prisma.adAccount.findUnique({
+            where: { id: adAccountId }
+        });
+
+        if (!adAccount || adAccount.platform !== 'GOOGLE' || !adAccount.refreshToken || !adAccount.externalId) {
+            throw new Error('Invalid Google Ad Account');
+        }
+
+        const creds = await getCredentials('GOOGLE_ADS');
+        if (!creds?.clientId || !creds?.clientSecret || !creds?.developerToken) {
+            Logger.warn('Google Ads credentials not configured.');
+            return [];
+        }
+
+        const { clientId, clientSecret, developerToken } = creds;
+
+        try {
+            const client = new GoogleAdsApi({
+                client_id: clientId,
+                client_secret: clientSecret,
+                developer_token: developerToken
+            });
+
+            const loginCustomerId = creds.loginCustomerId;
+            const customerConfig: any = {
+                customer_id: adAccount.externalId.replace(/-/g, ''),
+                refresh_token: adAccount.refreshToken
+            };
+            if (loginCustomerId) {
+                customerConfig.login_customer_id = loginCustomerId.replace(/-/g, '');
+            }
+
+            const customer = client.Customer(customerConfig);
+
+            // Calculate date range
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - days);
+
+            const formatDate = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
+
+            // GAQL query for campaign-level metrics
+            const query = `
+                SELECT
+                    campaign.id,
+                    campaign.name,
+                    campaign.status,
+                    metrics.cost_micros,
+                    metrics.impressions,
+                    metrics.clicks,
+                    metrics.conversions,
+                    metrics.conversions_value
+                FROM campaign
+                WHERE segments.date BETWEEN '${formatDate(startDate)}' AND '${formatDate(endDate)}'
+                ORDER BY metrics.cost_micros DESC
+            `;
+
+            const results = await customer.query(query);
+
+            const campaigns: CampaignInsight[] = results.map((row: any) => {
+                const spend = (row.metrics?.cost_micros || 0) / 1_000_000;
+                const impressions = row.metrics?.impressions || 0;
+                const clicks = row.metrics?.clicks || 0;
+                const conversions = row.metrics?.conversions || 0;
+                const conversionsValue = row.metrics?.conversions_value || 0;
+
+                return {
+                    campaignId: row.campaign?.id?.toString() || '',
+                    campaignName: row.campaign?.name || 'Unknown',
+                    status: row.campaign?.status || 'UNKNOWN',
+                    spend,
+                    impressions,
+                    clicks,
+                    conversions,
+                    conversionsValue,
+                    roas: spend > 0 ? conversionsValue / spend : 0,
+                    ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+                    cpc: clicks > 0 ? spend / clicks : 0,
+                    cpa: conversions > 0 ? spend / conversions : 0,
+                    currency: adAccount.currency || 'USD',
+                    dateStart: startDate.toISOString().split('T')[0],
+                    dateStop: endDate.toISOString().split('T')[0]
+                };
+            });
+
+            return campaigns;
+
+        } catch (error: any) {
+            Logger.error('Failed to fetch Google Ads Campaign Insights', {
+                error: error.message,
+                adAccountId
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * Fetch daily performance trends for a Google Ads account.
+     * Returns spend, impressions, clicks, conversions per day.
+     */
+    static async getGoogleDailyTrends(adAccountId: string, days: number = 30): Promise<DailyTrend[]> {
+        const adAccount = await prisma.adAccount.findUnique({
+            where: { id: adAccountId }
+        });
+
+        if (!adAccount || adAccount.platform !== 'GOOGLE' || !adAccount.refreshToken || !adAccount.externalId) {
+            throw new Error('Invalid Google Ad Account');
+        }
+
+        const creds = await getCredentials('GOOGLE_ADS');
+        if (!creds?.clientId || !creds?.clientSecret || !creds?.developerToken) {
+            return [];
+        }
+
+        const { clientId, clientSecret, developerToken } = creds;
+
+        try {
+            const client = new GoogleAdsApi({
+                client_id: clientId,
+                client_secret: clientSecret,
+                developer_token: developerToken
+            });
+
+            const loginCustomerId = creds.loginCustomerId;
+            const customerConfig: any = {
+                customer_id: adAccount.externalId.replace(/-/g, ''),
+                refresh_token: adAccount.refreshToken
+            };
+            if (loginCustomerId) {
+                customerConfig.login_customer_id = loginCustomerId.replace(/-/g, '');
+            }
+
+            const customer = client.Customer(customerConfig);
+
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - days);
+
+            const formatDate = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
+
+            // GAQL query for daily metrics
+            const query = `
+                SELECT
+                    segments.date,
+                    metrics.cost_micros,
+                    metrics.impressions,
+                    metrics.clicks,
+                    metrics.conversions,
+                    metrics.conversions_value
+                FROM customer
+                WHERE segments.date BETWEEN '${formatDate(startDate)}' AND '${formatDate(endDate)}'
+                ORDER BY segments.date ASC
+            `;
+
+            const results = await customer.query(query);
+
+            return results.map((row: any) => ({
+                date: row.segments?.date || '',
+                spend: (row.metrics?.cost_micros || 0) / 1_000_000,
+                impressions: row.metrics?.impressions || 0,
+                clicks: row.metrics?.clicks || 0,
+                conversions: row.metrics?.conversions || 0,
+                conversionsValue: row.metrics?.conversions_value || 0
+            }));
+
+        } catch (error: any) {
+            Logger.error('Failed to fetch Google Ads Daily Trends', {
+                error: error.message,
+                adAccountId
+            });
+            throw error;
         }
     }
 

@@ -140,18 +140,11 @@ export function MarketingPage() {
 
     if (editorMode === 'email') {
         return (
-            <div className="h-[calc(100vh-64px)] -m-6 bg-white z-50 absolute inset-0 top-16">
-                {/* Full screen overlay or replace layout content */}
-                <div className="h-full flex flex-col">
-                    <EmailDesignEditor
-                        // Initial design loading logic would need fetching the design first. 
-                        // For prototype, we skip pre-loading or do it inside Editor with a fetch.
-                        // Ideally Editor fetches by ID or we pass it.
-                        onSave={handleSaveEmail}
-                        onCancel={handleCloseEditor}
-                    />
-                </div>
-            </div>
+            <EmailDesignEditor
+                initialDesign={undefined} // Could fetch and pass existing design
+                onSave={handleSaveEmail}
+                onCancel={handleCloseEditor}
+            />
         );
     }
 
