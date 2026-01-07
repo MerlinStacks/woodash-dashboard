@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { Plus, Facebook, TrendingUp, Loader2, Trash2, ExternalLink, AlertCircle } from 'lucide-react';
+import { Plus, Facebook, TrendingUp, Loader2, Trash2, ExternalLink, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface AdAccount {
     id: string;
@@ -28,6 +28,7 @@ export function AdsView() {
     const { currentAccount } = useAccount();
     const [accounts, setAccounts] = useState<AdAccount[]>([]);
     const [insights, setInsights] = useState<Record<string, AdInsights>>({});
+    const [loadingInsights, setLoadingInsights] = useState<Record<string, boolean>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [showConnect, setShowConnect] = useState(false);
 
@@ -68,6 +69,7 @@ export function AdsView() {
     }
 
     async function fetchInsights(adAccountId: string) {
+        setLoadingInsights(prev => ({ ...prev, [adAccountId]: true }));
         try {
             const res = await fetch(`/api/ads/${adAccountId}/insights`, {
                 headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount?.id || '' }
@@ -75,9 +77,13 @@ export function AdsView() {
             const data = await res.json();
             if (!data.error) {
                 setInsights(prev => ({ ...prev, [adAccountId]: data }));
+            } else {
+                console.error(`Insights fetch error for ${adAccountId}:`, data.error);
             }
         } catch (err) {
             console.error(`Failed to fetch insights/`, err);
+        } finally {
+            setLoadingInsights(prev => ({ ...prev, [adAccountId]: false }));
         }
     }
 
@@ -428,7 +434,17 @@ export function AdsView() {
                                                 </button>
                                             </>
                                         ) : (
-                                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Active</span>
+                                            <>
+                                                <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Active</span>
+                                                <button
+                                                    onClick={() => fetchInsights(acc.id)}
+                                                    disabled={loadingInsights[acc.id]}
+                                                    className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50"
+                                                    title="Refresh data"
+                                                >
+                                                    <RefreshCw size={16} className={loadingInsights[acc.id] ? 'animate-spin' : ''} />
+                                                </button>
+                                            </>
                                         )}
                                         <button
                                             onClick={() => handleDisconnect(acc.id)}
