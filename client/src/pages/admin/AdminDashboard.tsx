@@ -18,13 +18,18 @@ export function AdminDashboard() {
         fetch('/api/admin/stats', {
             headers: { Authorization: `Bearer ${token}` }
         })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch stats: ${res.status}`);
+                }
+                return res.json();
+            })
             .then(data => {
                 setStats(data);
                 setLoading(false);
             })
             .catch(err => {
-                console.error(err);
+                console.error('AdminDashboard stats fetch error:', err);
                 setLoading(false);
             });
     }, [token]);

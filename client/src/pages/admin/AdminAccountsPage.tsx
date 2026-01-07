@@ -38,13 +38,18 @@ export function AdminAccountsPage() {
         fetch('/api/admin/accounts', {
             headers: { Authorization: `Bearer ${token}` }
         })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch accounts: ${res.status}`);
+                }
+                return res.json();
+            })
             .then(data => {
                 setAccounts(data);
                 setLoading(false);
             })
             .catch(err => {
-                console.error(err);
+                console.error('AdminAccountsPage fetch error:', err);
                 setLoading(false);
             });
     };
@@ -61,6 +66,12 @@ export function AdminAccountsPage() {
             const usersRes = await fetch(`/api/accounts/${accountId}/users`, { // This endpoint allows finding users
                 headers: { Authorization: `Bearer ${token}` }
             });
+
+            if (!usersRes.ok) {
+                alert(`Failed to fetch users: ${usersRes.status}`);
+                return;
+            }
+
             const users = await usersRes.json();
 
             // Just pick the first element (likely owner or first staff) for demo
@@ -82,6 +93,12 @@ export function AdminAccountsPage() {
                 },
                 body: JSON.stringify({ targetUserId: targetUser.id })
             });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+                alert('Impersonation failed: ' + (errorData.error || res.status));
+                return;
+            }
 
             const data = await res.json();
             if (data.token) {

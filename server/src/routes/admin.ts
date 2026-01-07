@@ -41,6 +41,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
             failedSyncs24h
         });
     } catch (e) {
+        console.error('Admin stats error:', e);
         res.status(500).json({ error: 'Failed to fetch stats' });
     }
 });
@@ -57,6 +58,7 @@ router.get('/accounts', async (req: AuthenticatedRequest, res: Response) => {
         });
         res.json(accounts);
     } catch (e) {
+        console.error('Admin list accounts error:', e);
         res.status(500).json({ error: 'Failed to fetch accounts' });
     }
 });

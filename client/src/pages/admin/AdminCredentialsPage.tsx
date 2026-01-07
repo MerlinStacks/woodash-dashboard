@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Key, Save, Trash2, Loader2, Check, AlertCircle, Zap } from 'lucide-react';
+import { Key, Save, Trash2, Loader2, Check, AlertCircle, Zap, Mail, Globe, Facebook } from 'lucide-react';
 
 interface PlatformCredential {
     id: string;
@@ -10,11 +10,21 @@ interface PlatformCredential {
     updatedAt: string;
 }
 
-const PLATFORMS = [
+interface PlatformConfig {
+    id: string;
+    name: string;
+    description: string;
+    icon: React.ElementType;
+    fields: { key: string; label: string; placeholder: string }[];
+    testable?: boolean;
+}
+
+const PLATFORMS: PlatformConfig[] = [
     {
         id: 'PLATFORM_SMTP',
         name: 'Platform SMTP',
         description: 'SMTP settings for system emails (password resets, MFA codes, notifications)',
+        icon: Mail,
         fields: [
             { key: 'host', label: 'SMTP Host', placeholder: 'smtp.example.com' },
             { key: 'port', label: 'Port', placeholder: '587' },
@@ -29,6 +39,8 @@ const PLATFORMS = [
     {
         id: 'GOOGLE_ADS',
         name: 'Google Ads',
+        description: 'API credentials for Google Ads integration and reporting',
+        icon: Globe,
         fields: [
             { key: 'clientId', label: 'Client ID', placeholder: 'xxx.apps.googleusercontent.com' },
             { key: 'clientSecret', label: 'Client Secret', placeholder: 'GOCSPX-xxx' },
@@ -38,12 +50,16 @@ const PLATFORMS = [
     {
         id: 'META_ADS',
         name: 'Meta Ads',
+        description: 'API credentials for Facebook/Instagram Ads integration',
+        icon: Facebook,
         fields: [
             { key: 'appId', label: 'App ID', placeholder: '123456789' },
             { key: 'appSecret', label: 'App Secret', placeholder: 'abc123...' }
         ]
     }
 ];
+
+type PlatformId = 'PLATFORM_SMTP' | 'GOOGLE_ADS' | 'META_ADS';
 
 /**
  * Super Admin page for managing platform API credentials.
@@ -58,6 +74,7 @@ export function AdminCredentialsPage() {
     const [formData, setFormData] = useState<Record<string, Record<string, string>>>({});
     const [notes, setNotes] = useState<Record<string, string>>({});
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [activeTab, setActiveTab] = useState<PlatformId>('PLATFORM_SMTP');
 
     useEffect(() => {
         fetchCredentials();
@@ -83,13 +100,8 @@ export function AdminCredentialsPage() {
                 initialNotes[platform.id] = '';
             });
 
-            // Populate with existing values (masked)
+            // Populate with existing notes
             data.forEach((cred: PlatformCredential) => {
-                if (initialForm[cred.platform]) {
-                    Object.keys(cred.credentials).forEach(key => {
-                        // Don't overwrite with masked values - leave empty unless user types
-                    });
-                }
                 if (cred.notes) {
                     initialNotes[cred.platform] = cred.notes;
                 }
@@ -218,21 +230,30 @@ export function AdminCredentialsPage() {
     const isConfigured = (platformId: string) =>
         credentials.some(c => c.platform === platformId);
 
+    const getLastUpdated = (platformId: string) => {
+        const cred = credentials.find(c => c.platform === platformId);
+        return cred?.updatedAt ? new Date(cred.updatedAt).toLocaleDateString() : null;
+    };
+
     if (loading) {
         return <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-gray-400" /></div>;
     }
 
+    const currentPlatform = PLATFORMS.find(p => p.id === activeTab)!;
+
     return (
         <div className="max-w-4xl">
+            {/* Header */}
             <div className="flex items-center gap-3 mb-6">
                 <Key className="text-slate-600" size={28} />
                 <h1 className="text-2xl font-bold text-slate-800">Platform Credentials</h1>
             </div>
 
-            <p className="text-slate-600 mb-8">
+            <p className="text-slate-600 mb-6">
                 Configure API credentials for ad platform integrations. These credentials are stored securely and used for OAuth flows and API access.
             </p>
 
+            {/* Global Message */}
             {message && (
                 <div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
                     }`}>
@@ -241,83 +262,119 @@ export function AdminCredentialsPage() {
                 </div>
             )}
 
-            <div className="space-y-8">
-                {PLATFORMS.map(platform => (
-                    <div key={platform.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                            <div>
-                                <h2 className="text-lg font-semibold text-slate-900">{platform.name}</h2>
-                                <p className="text-sm text-slate-500">{platform.id}</p>
-                            </div>
-                            {isConfigured(platform.id) && (
+            {/* Tabs Navigation */}
+            <div className="flex overflow-x-auto border-b border-gray-200 no-scrollbar mb-6">
+                {PLATFORMS.map((platform) => {
+                    const Icon = platform.icon;
+                    const isActive = activeTab === platform.id;
+                    const configured = isConfigured(platform.id);
+
+                    return (
+                        <button
+                            key={platform.id}
+                            onClick={() => setActiveTab(platform.id as PlatformId)}
+                            className={`
+                                flex items-center gap-2 px-6 py-3 border-b-2 font-medium text-sm whitespace-nowrap transition-colors relative
+                                ${isActive
+                                    ? 'border-blue-600 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                }
+                            `}
+                        >
+                            <Icon size={18} />
+                            {platform.name}
+                            {configured && (
+                                <span className="w-2 h-2 bg-green-500 rounded-full" title="Configured" />
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Active Tab Content */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                {/* Tab Header */}
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <currentPlatform.icon className="text-slate-600" size={24} />
+                            <h2 className="text-lg font-semibold text-slate-900">{currentPlatform.name}</h2>
+                            {isConfigured(currentPlatform.id) && (
                                 <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Configured</span>
                             )}
                         </div>
-
-                        <div className="p-6 space-y-4">
-                            {platform.fields.map(field => (
-                                <div key={field.key}>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        {field.label}
-                                    </label>
-                                    <input
-                                        type="password"
-                                        className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder={isConfigured(platform.id) ? '••••••••' : field.placeholder}
-                                        value={formData[platform.id]?.[field.key] || ''}
-                                        onChange={e => setFormData(prev => ({
-                                            ...prev,
-                                            [platform.id]: {
-                                                ...prev[platform.id],
-                                                [field.key]: e.target.value
-                                            }
-                                        }))}
-                                    />
-                                </div>
-                            ))}
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>
-                                <input
-                                    type="text"
-                                    className="w-full p-2 border border-slate-300 rounded-lg"
-                                    placeholder="e.g., Production credentials from Google Cloud Console"
-                                    value={notes[platform.id] || ''}
-                                    onChange={e => setNotes(prev => ({ ...prev, [platform.id]: e.target.value }))}
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-2 pt-4">
-                                {isConfigured(platform.id) && (
-                                    <button
-                                        onClick={() => handleDelete(platform.id)}
-                                        className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2"
-                                    >
-                                        <Trash2 size={16} /> Delete
-                                    </button>
-                                )}
-                                {'testable' in platform && platform.testable && (
-                                    <button
-                                        onClick={() => handleTestSmtp()}
-                                        disabled={testing === platform.id}
-                                        className="px-4 py-2 text-amber-600 border border-amber-300 hover:bg-amber-50 rounded-lg flex items-center gap-2"
-                                    >
-                                        {testing === platform.id ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
-                                        Test Connection
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => handleSave(platform.id)}
-                                    disabled={saving === platform.id}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {saving === platform.id ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                                    Save
-                                </button>
-                            </div>
-                        </div>
+                        <p className="text-sm text-slate-500 mt-1">{currentPlatform.description}</p>
+                        {getLastUpdated(currentPlatform.id) && (
+                            <p className="text-xs text-slate-400 mt-1">Last updated: {getLastUpdated(currentPlatform.id)}</p>
+                        )}
                     </div>
-                ))}
+                </div>
+
+                {/* Credential Fields */}
+                <div className="p-6 space-y-4">
+                    {currentPlatform.fields.map(field => (
+                        <div key={field.key}>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                {field.label}
+                            </label>
+                            <input
+                                type="password"
+                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                                placeholder={isConfigured(currentPlatform.id) ? '••••••••' : field.placeholder}
+                                value={formData[currentPlatform.id]?.[field.key] || ''}
+                                onChange={e => setFormData(prev => ({
+                                    ...prev,
+                                    [currentPlatform.id]: {
+                                        ...prev[currentPlatform.id],
+                                        [field.key]: e.target.value
+                                    }
+                                }))}
+                            />
+                        </div>
+                    ))}
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>
+                        <input
+                            type="text"
+                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                            placeholder="e.g., Production credentials from Google Cloud Console"
+                            value={notes[currentPlatform.id] || ''}
+                            onChange={e => setNotes(prev => ({ ...prev, [currentPlatform.id]: e.target.value }))}
+                        />
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                    {isConfigured(currentPlatform.id) && (
+                        <button
+                            onClick={() => handleDelete(currentPlatform.id)}
+                            className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 transition-colors"
+                        >
+                            <Trash2 size={16} />
+                            Delete
+                        </button>
+                    )}
+                    {currentPlatform.testable && (
+                        <button
+                            onClick={() => handleTestSmtp()}
+                            disabled={testing === currentPlatform.id}
+                            className="px-4 py-2 text-amber-600 border border-amber-300 hover:bg-amber-50 rounded-lg flex items-center gap-2 transition-colors"
+                        >
+                            {testing === currentPlatform.id ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
+                            Test Connection
+                        </button>
+                    )}
+                    <button
+                        onClick={() => handleSave(currentPlatform.id)}
+                        disabled={saving === currentPlatform.id}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 transition-colors"
+                    >
+                        {saving === currentPlatform.id ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                        Save Credentials
+                    </button>
+                </div>
             </div>
         </div>
     );

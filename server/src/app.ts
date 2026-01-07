@@ -98,7 +98,13 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Helmet CSP & Security Headers
+// Permissive CSP for Bull Board (requires inline scripts/styles)
+app.use('/admin/queues', helmet({
+    contentSecurityPolicy: false, // Disable CSP for Bull Board UI
+    crossOriginEmbedderPolicy: false,
+}));
+
+// Helmet CSP & Security Headers (strict for all other routes)
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
