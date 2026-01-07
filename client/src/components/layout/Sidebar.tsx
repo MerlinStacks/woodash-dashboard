@@ -31,6 +31,7 @@ import { cn } from '../../utils/cn';
 import { AccountSwitcher } from './AccountSwitcher';
 import { useAccount } from '../../context/AccountContext';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { SyncProgressOverlay } from './SyncProgressOverlay';
 import { SidebarSyncStatus } from './SidebarSyncStatus';
 
@@ -101,11 +102,66 @@ const navItems = [
 export function Sidebar({ isOpen = true, onClose, isMobile = false }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
     const { currentAccount } = useAccount();
-    const { user } = useAuth();
+    const { user, token } = useAuth();
+    const { socket } = useSocket();
     const location = useLocation();
 
     // State for expanded groups
     const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+
+    // State for unread inbox count
+    const [hasUnread, setHasUnread] = useState(false);
+
+    // Fetch unread conversations count and listen for new messages
+    useEffect(() => {
+        if (!currentAccount || !token) return;
+
+        // Check for open conversations (unread indicator)
+        const checkUnread = async () => {
+            try {
+                const res = await fetch('/api/chat/conversations', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'x-account-id': currentAccount.id
+                    }
+                });
+                if (res.ok) {
+                    const conversations = await res.json();
+                    // Has unread if there are any OPEN conversations
+                    setHasUnread(conversations.length > 0);
+                }
+            } catch {
+                // Silently fail
+            }
+        };
+
+        checkUnread();
+
+        // Listen for new messages via socket
+        if (socket) {
+            const handleNewMessage = () => {
+                // Only set unread if not on inbox page
+                if (!location.pathname.startsWith('/inbox')) {
+                    setHasUnread(true);
+                }
+            };
+
+            socket.on('conversation:updated', handleNewMessage);
+            socket.on('message:new', handleNewMessage);
+
+            return () => {
+                socket.off('conversation:updated', handleNewMessage);
+                socket.off('message:new', handleNewMessage);
+            };
+        }
+    }, [currentAccount, token, socket, location.pathname]);
+
+    // Clear unread when on inbox page
+    useEffect(() => {
+        if (location.pathname.startsWith('/inbox')) {
+            setHasUnread(false);
+        }
+    }, [location.pathname]);
 
     // Auto-expand groups based on active route
     useEffect(() => {
@@ -123,6 +179,7 @@ export function Sidebar({ isOpen = true, onClose, isMobile = false }: SidebarPro
             onClose();
         }
     }, [location.pathname]);
+
 
     const toggleGroup = (label: string) => {
         if (collapsed && !isMobile) {
@@ -171,6 +228,7 @@ export function Sidebar({ isOpen = true, onClose, isMobile = false }: SidebarPro
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 no-scrollbar">
                 {navItems.map((item, index) => {
                     if (item.type === 'link') {
+                        const isInbox = item.label === 'Inbox';
                         return (
                             <NavLink
                                 key={item.path}
@@ -182,16 +240,24 @@ export function Sidebar({ isOpen = true, onClose, isMobile = false }: SidebarPro
                                         : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                                 )}
                             >
-                                <item.icon size={22} strokeWidth={1.5} />
+                                <div className="relative">
+                                    <item.icon size={22} strokeWidth={1.5} />
+                                    {/* Notification dot for Inbox */}
+                                    {isInbox && hasUnread && (
+                                        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full ring-2 ring-white" />
+                                    )}
+                                </div>
                                 {(!collapsed || isMobile) && <span>{item.label}</span>}
                                 {collapsed && !isMobile && (
                                     <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 pointer-events-none">
                                         {item.label}
+                                        {isInbox && hasUnread && <span className="ml-1 text-red-400">•</span>}
                                     </div>
                                 )}
                             </NavLink>
                         );
                     }
+
 
                     // Group Item
                     const isExpanded = expandedGroups.includes(item.label);
