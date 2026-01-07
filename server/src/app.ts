@@ -188,9 +188,9 @@ app.use('/api/chat/public', createPublicChatRouter(chatService)); // Public API
 app.use('/api/chat', widgetRouter); // Serves /api/chat/widget.js
 
 // Mount Bull Board (Protected - Super Admin Only)
-console.log('[BullBoard] Initializing Bull Board...');
+Logger.info('[BullBoard] Initializing Bull Board...');
 const serverAdapter = QueueFactory.createBoard();
-console.log('[BullBoard] Mounting at /admin/queues (Protected)');
+Logger.info('[BullBoard] Mounting at /admin/queues (Protected)');
 import { requireAuth, requireSuperAdmin } from './middleware/auth';
 app.use('/admin/queues', requireAuth, requireSuperAdmin, serverAdapter.getRouter());
 

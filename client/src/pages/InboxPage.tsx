@@ -44,16 +44,16 @@ export function InboxPage() {
 
     // Socket Listeners
     useEffect(() => {
-        if (!socket) return;
+        if (!socket || !currentAccount || !token) return;
 
         // Listen for list updates
-        socket.on('conversation:updated', (data: any) => {
+        socket.on('conversation:updated', async (data: any) => {
             setConversations(prev => {
                 const idx = prev.findIndex(c => c.id === data.id);
                 if (idx === -1) {
-                    // New conversation? For simplicity, we might reload or fetch it.
-                    // For now, let's just ignore if not in list or handle robustly.
-                    // Ideally we fetch the single conv and prepend.
+                    // New conversation - fetch it and prepend
+                    // We'll do this asynchronously and update state when done
+                    fetchNewConversation(data.id);
                     return prev;
                 }
                 const updated = [...prev];
@@ -82,11 +82,31 @@ export function InboxPage() {
             }
         });
 
+        // Helper to fetch a new conversation by ID and add it to the list
+        const fetchNewConversation = async (id: string) => {
+            try {
+                const res = await fetch(`/api/chat/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const newConv = await res.json();
+                    setConversations(prev => {
+                        // Check if it was added while we were fetching
+                        if (prev.find(c => c.id === id)) return prev;
+                        return [newConv, ...prev];
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to fetch new conversation', error);
+            }
+        };
+
         return () => {
             socket.off('conversation:updated');
             socket.off('message:new');
         };
-    }, [socket, selectedId]);
+    }, [socket, selectedId, currentAccount, token]);
+
 
     // Fetch Messages when selected
     useEffect(() => {

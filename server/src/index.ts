@@ -1,52 +1,47 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Force Restart Trigger
-console.log('[Dev] Touching file to trigger restart');
 import { server } from './app';
 import { SchedulerService } from './services/SchedulerService';
 import { startWorkers } from './workers';
 import { QueueFactory } from './services/queue/QueueFactory';
 import { IndexingService } from './services/search/IndexingService';
+import { Logger } from './utils/logger';
 
 const port = process.env.PORT || 3000;
 
 if (!process.env.JWT_SECRET) {
-  console.warn('[SECURITY] WARNING: JWT_SECRET is not defined in environment variables. Using unsafe default.');
-} else if (process.env.JWT_SECRET === 'super-secret-dev-key') {
-  console.warn('[SECURITY] WARNING: JWT_SECRET is set to the default insecure key. Please change this in production.');
+  Logger.error('[SECURITY] JWT_SECRET is not defined. Server will crash on auth module load.');
 }
 
 // Global Error Handlers to prevent silent crashes
 process.on('uncaughtException', (error) => {
-  console.error('[CRITICAL] Uncaught Exception:', error);
-  // Optional: process.exit(1); // Keep alive for dev debugging, or exit cleanly
+  Logger.error('[CRITICAL] Uncaught Exception', { error });
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+  Logger.error('[CRITICAL] Unhandled Rejection', { reason, promise: String(promise) });
 });
 
 // Start Internal Workers (if running in same process)
 startWorkers().then(() => {
-  console.log('[Startup] Workers initialized (Force Update)');
+  Logger.info('[Startup] Workers initialized');
 }).catch((error) => {
-  console.error('[Startup] Failed to start workers:', error);
+  Logger.error('[Startup] Failed to start workers', { error });
 });
 
 // QueueFactory already inited in app.ts, but safe to access queues here if needed.
 
 // Start Scheduler (async - must handle errors)
 SchedulerService.start().catch((error: any) => {
-  console.error('[Startup] Failed to start scheduler:', error);
-  // Continue - scheduler is not critical for initial startup
+  Logger.error('[Startup] Failed to start scheduler', { error });
 });
 
 // Initialize Elastic Indices
 IndexingService.initializeIndices().catch((error) => {
-  console.error('[Startup] Failed to initialize Elasticsearch indices:', error);
+  Logger.error('[Startup] Failed to initialize Elasticsearch indices', { error });
 });
 
 server.listen(port, () => {
-  console.log(`[server]: Server is running at http://0.0.0.0:${port}`);
+  Logger.info(`[Server] Listening on http://0.0.0.0:${port}`);
 });

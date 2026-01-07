@@ -39,10 +39,7 @@ This document tracks planned enhancements, known bugs, and future feature ideas 
 - [ ] **Credential Encryption**: Encryption-at-rest for email credentials
 - [ ] **AutomationEngine Filters**: Detailed filter implementation
 - [ ] **CI/CD Optimization**: Optimized Docker layers
-
-We need to make the picklist only show products that have track inventory enabled.
-
----
+--
 
 ## ✅ Completed
 
