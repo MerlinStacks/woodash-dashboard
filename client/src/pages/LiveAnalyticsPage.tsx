@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { Globe, LayoutDashboard, Link, FileText, MousePointer, LogOut, LogIn, History, Search, X, Menu, AlertTriangle } from 'lucide-react';
+import { Globe, LayoutDashboard, Link, FileText, MousePointer, LogOut, LogIn, History, Search, AlertTriangle } from 'lucide-react';
 import { LiveSession } from '../types/analytics';
 import { VisitorsTable } from '../components/analytics/VisitorsTable';
 import { ReportsTable } from '../components/analytics/ReportsTable';
@@ -40,7 +40,6 @@ export function LiveAnalyticsPage() {
     const { currentAccount } = useAccount();
 
     const [activeView, setActiveView] = useState('overview');
-    const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // Live Data (Shared)
     const [visitors, setVisitors] = useState<LiveSession[]>([]);
@@ -122,42 +121,11 @@ export function LiveAnalyticsPage() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-4rem)] -m-8 overflow-hidden">
-            {/* Sidebar */}
-            <div className={`w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col transition-all duration-300 ${sidebarOpen ? '' : '-ml-64'}`}>
-                <div className="p-4 border-b border-slate-800 font-bold text-white flex justify-between items-center">
-                    <span>Analytics</span>
-                    <button onClick={() => setSidebarOpen(false)} className="lg:hidden"><X size={20} /></button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-8">
-                    {MENUS.map((menu, i) => (
-                        <div key={i}>
-                            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">{menu.title}</h4>
-                            <div className="space-y-1">
-                                {menu.items.map(item => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => setActiveView(item.id)}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${activeView === item.id ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
-                                    >
-                                        <item.icon size={18} />
-                                        {item.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col min-w-0 bg-gray-50">
-                {/* Header */}
-                <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                        {!sidebarOpen && <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-gray-100 rounded-lg"><Menu size={20} className="text-gray-600" /></button>}
-                        <h1 className="text-xl font-bold text-gray-900 capitalize">{activeView.replace('-', ' ')}</h1>
-                    </div>
+        <div className="flex flex-col h-[calc(100vh-4rem)] -m-8 overflow-hidden bg-gray-50">
+            {/* Horizontal Tabs Header */}
+            <div className="bg-white border-b border-gray-200 px-6 py-4">
+                <div className="flex items-center justify-between mb-4">
+                    <h1 className="text-xl font-bold text-gray-900 capitalize">{activeView.replace('-', ' ')}</h1>
 
                     {/* Date Range Picker (Only for reports) */}
                     {activeView !== 'overview' && activeView !== 'realtime' && activeView !== 'url-builder' && (
@@ -172,34 +140,59 @@ export function LiveAnalyticsPage() {
                             <option value="30d">Last 30 Days</option>
                         </select>
                     )}
-                </header>
+                </div>
 
-                <main className="flex-1 overflow-auto p-8">
-                    {activeView === 'overview' && (
-                        <AnalyticsOverview
-                            visitors={visitors}
-                            carts={carts}
-                            setActiveView={setActiveView}
-                        />
-                    )}
-                    {activeView === 'realtime' && (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <VisitorsTable data={visitors} />
+                {/* Tabs */}
+                <div className="flex flex-wrap gap-6">
+                    {MENUS.map((menu, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mr-2">{menu.title}</span>
+                            <div className="flex items-center gap-1">
+                                {menu.items.map(item => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setActiveView(item.id)}
+                                        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeView === item.id
+                                            ? 'bg-blue-50 text-blue-600'
+                                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                            }`}
+                                    >
+                                        <item.icon size={16} />
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    )}
-                    {activeView === 'url-builder' && <UrlBuilder />}
-                    {activeView === 'roadblocks' && <RoadblocksView dateRange={dateRange} />}
-
-                    {/* Render Generic Report Table for others */}
-                    {activeView !== 'overview' && activeView !== 'realtime' && activeView !== 'url-builder' && activeView !== 'roadblocks' && (
-                        <ReportsTable
-                            data={reportData}
-                            loading={loadingReport}
-                            activeView={activeView}
-                        />
-                    )}
-                </main>
+                    ))}
+                </div>
             </div>
+
+            {/* Main Content */}
+            <main className="flex-1 overflow-auto p-8">
+                {activeView === 'overview' && (
+                    <AnalyticsOverview
+                        visitors={visitors}
+                        carts={carts}
+                        setActiveView={setActiveView}
+                    />
+                )}
+                {activeView === 'realtime' && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <VisitorsTable data={visitors} />
+                    </div>
+                )}
+                {activeView === 'url-builder' && <UrlBuilder />}
+                {activeView === 'roadblocks' && <RoadblocksView dateRange={dateRange} />}
+
+                {/* Render Generic Report Table for others */}
+                {activeView !== 'overview' && activeView !== 'realtime' && activeView !== 'url-builder' && activeView !== 'roadblocks' && (
+                    <ReportsTable
+                        data={reportData}
+                        loading={loadingReport}
+                        activeView={activeView}
+                    />
+                )}
+            </main>
         </div>
     );
 }

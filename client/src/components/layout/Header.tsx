@@ -97,12 +97,6 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
                         <Menu size={24} />
                     </button>
                 )}
-
-                {/* Secondary Navigation (optional based on image) */}
-                <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-gray-500">
-                    <a href="/reports" className="hover:text-gray-900 transition-colors">Reports</a>
-                    <a href="/marketing" className="hover:text-gray-900 transition-colors">Marketing</a>
-                </nav>
             </div>
 
             <div className="flex items-center gap-3 md:gap-6">
