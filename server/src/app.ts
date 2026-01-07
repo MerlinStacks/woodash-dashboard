@@ -206,6 +206,14 @@ EventBus.on(EVENTS.REVIEW.LEFT, async (data) => {
 
 EventBus.on(EVENTS.EMAIL.RECEIVED, async (data) => {
     await chatService.handleIncomingEmail(data);
+
+    // Send push notification for new message
+    const { PushNotificationService } = require('./services/PushNotificationService');
+    await PushNotificationService.sendToAccount(data.accountId, {
+        title: '📨 New Message',
+        body: `From: ${data.fromName || data.fromEmail}`,
+        data: { url: '/inbox' }
+    }, 'message');
 });
 
 // Health Check

@@ -2,10 +2,58 @@ import { Router, Request, Response } from 'express';
 import { AuthenticatedRequest } from '../types/express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
+import { Logger } from '../utils/logger';
+import { AdsTools } from '../services/tools/AdsTools';
 
 const router = Router();
 
 router.use(requireAuth);
+
+/**
+ * GET /api/dashboard/inbox-count
+ * Returns the count of open inbox conversations for the account.
+ */
+router.get('/inbox-count', async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = (req as any).accountId;
+    if (!accountId) return res.status(400).json({ error: 'No account' });
+
+    try {
+        const openCount = await prisma.conversation.count({
+            where: { accountId, status: 'OPEN' }
+        });
+        res.json({ open: openCount });
+    } catch (error) {
+        Logger.error('Failed to fetch inbox count', { error, accountId });
+        res.status(500).json({ error: 'Failed to fetch inbox count' });
+    }
+});
+
+/**
+ * GET /api/dashboard/ad-suggestions
+ * Returns AI-powered optimization suggestions for ad campaigns.
+ */
+router.get('/ad-suggestions', async (req: AuthenticatedRequest, res: Response) => {
+    const accountId = (req as any).accountId;
+    if (!accountId) return res.status(400).json({ error: 'No account' });
+
+    try {
+        const result = await AdsTools.getAdOptimizationSuggestions(accountId);
+
+        // Handle string response (error message or no accounts)
+        if (typeof result === 'string') {
+            return res.json({
+                suggestions: [],
+                action_items: [],
+                message: result
+            });
+        }
+
+        res.json(result);
+    } catch (error) {
+        Logger.error('Failed to fetch ad suggestions', { error, accountId });
+        res.status(500).json({ error: 'Failed to fetch ad suggestions' });
+    }
+});
 
 // GET Layout
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {

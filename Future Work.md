@@ -13,12 +13,6 @@ This document tracks planned enhancements, known bugs, and future feature ideas 
 
 ---
 
-## 🏷️ Orders & Tags
-
-- [ ] **Order Filtering**: Robust filtering by product and order tags
-
----
-
 ## �️ Mobile & UI
 
 - [ ] **Full-Screen Modals**: Optimize `OrderPreviewModal` and `CustomerDetails` for small screens
@@ -31,7 +25,11 @@ This document tracks planned enhancements, known bugs, and future feature ideas 
 - [ ] **Scheduled Reports**: Automated email delivery of custom report segments
 - [ ] **Janitor Jobs**: Cron jobs for data retention and pruning
 
----
+
+Inbox details
+- setup facebook, ig and tiktok messages.
+
+
 
 ## 🔒 Security & Technical Debt
 

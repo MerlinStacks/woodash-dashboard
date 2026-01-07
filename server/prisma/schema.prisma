@@ -22,6 +22,7 @@ model User {
   avatarUrl    String?
   shiftStart   String? // e.g. "09:00"
   shiftEnd     String? // e.g. "17:00"
+  emailSignature String? @db.Text // Rich HTML email signature for inbox replies
   isSuperAdmin Boolean  @default(false)
   
   // Password Reset
@@ -41,6 +42,7 @@ model User {
   assignedConversations Conversation[]
   auditLogs             AuditLog[]
   refreshTokens         RefreshToken[]
+  pushSubscriptions     PushSubscription[]
 }
 
 model RefreshToken {
@@ -128,6 +130,9 @@ model Account {
   
   // Policies & SOP
   policies          Policy[]
+  
+  // Push Notifications
+  pushSubscriptions PushSubscription[]
 }
 
 model Notification {
@@ -1083,4 +1088,35 @@ model Policy {
   updatedAt DateTime @updatedAt
 
   @@index([accountId, type])
+}
+
+// --------------------------------------
+// Push Notifications
+// --------------------------------------
+
+/// Stores Web Push subscription data per user/device for sending notifications.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  accountId String
+  
+  /// Web Push subscription endpoint URL
+  endpoint    String   @db.Text
+  /// P-256 public key for payload encryption
+  p256dh      String
+  /// Authentication secret
+  auth        String
+  
+  /// User preferences for notification types
+  notifyNewMessages Boolean @default(true)
+  notifyNewOrders   Boolean @default(true)
+  
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, endpoint])
+  @@index([accountId])
 }

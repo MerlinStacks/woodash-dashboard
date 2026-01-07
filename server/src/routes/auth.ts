@@ -176,14 +176,15 @@ router.put('/me', requireAuth, async (req: AuthenticatedRequest, res: Response) 
     try {
         const authReq = req as AuthRequest;
         const userId = authReq.user!.id;
-        const { fullName, shiftStart, shiftEnd } = req.body;
+        const { fullName, shiftStart, shiftEnd, emailSignature } = req.body;
 
         const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: {
                 fullName,
                 shiftStart,
-                shiftEnd
+                shiftEnd,
+                emailSignature
             }
         });
 

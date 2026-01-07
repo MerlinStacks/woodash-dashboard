@@ -84,6 +84,14 @@ router.post('/:accountId', async (req: AuthenticatedRequest, res: Response) => {
                         ? `${req.body.billing.first_name} ${req.body.billing.last_name || ''}`.trim()
                         : 'Guest'
                 });
+
+                // Send push notification to subscribed devices
+                const { PushNotificationService } = require('../services/PushNotificationService');
+                await PushNotificationService.sendToAccount(accountId, {
+                    title: '🛒 New Order!',
+                    body: `Order #${req.body.number || req.body.id} - $${req.body.total}`,
+                    data: { url: '/orders' }
+                }, 'order');
             }
             Logger.info(`Indexed Order`, { orderId: req.body.id, accountId });
         }

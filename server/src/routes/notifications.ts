@@ -69,4 +69,119 @@ router.post('/:id/read', async (req: AuthenticatedRequest, res: Response) => {
     }
 });
 
+// --------------------------------------
+// Web Push Notifications
+// --------------------------------------
+
+import { PushNotificationService } from '../services/PushNotificationService';
+
+/**
+ * GET /vapid-public-key - Returns the public VAPID key for client subscription.
+ */
+router.get('/vapid-public-key', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const publicKey = await PushNotificationService.getVapidPublicKey();
+        if (!publicKey) {
+            return res.status(503).json({ error: 'Push notifications not configured' });
+        }
+        res.json({ publicKey });
+    } catch (error) {
+        Logger.error('[notifications] Failed to get VAPID key', { error });
+        res.status(500).json({ error: 'Failed to get VAPID key' });
+    }
+});
+
+/**
+ * GET /push/subscription - Get current subscription status for user.
+ */
+router.get('/push/subscription', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        const userId = req.user?.id;
+        if (!accountId || !userId) {
+            return res.status(400).json({ error: 'Account ID and user required' });
+        }
+
+        const status = await PushNotificationService.getSubscription(userId, accountId);
+        res.json(status);
+    } catch (error) {
+        Logger.error('[notifications] Failed to get subscription', { error });
+        res.status(500).json({ error: 'Failed to get subscription status' });
+    }
+});
+
+/**
+ * POST /push/subscribe - Register a push subscription for the current user/device.
+ */
+router.post('/push/subscribe', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const accountId = req.headers['x-account-id'] as string;
+        const userId = req.user?.id;
+        if (!accountId || !userId) {
+            return res.status(400).json({ error: 'Account ID and user required' });
+        }
+
+        const { subscription, preferences } = req.body;
+        if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+            return res.status(400).json({ error: 'Invalid subscription format' });
+        }
+
+        const result = await PushNotificationService.subscribe(userId, accountId, subscription, preferences);
+        if (!result.success) {
+            return res.status(500).json({ error: result.error });
+        }
+
+        res.json({ success: true, id: result.id });
+    } catch (error) {
+        Logger.error('[notifications] Subscribe failed', { error });
+        res.status(500).json({ error: 'Failed to subscribe' });
+    }
+});
+
+/**
+ * DELETE /push/subscribe - Unsubscribe from push notifications.
+ */
+router.delete('/push/subscribe', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(400).json({ error: 'User required' });
+        }
+
+        const { endpoint } = req.body;
+        if (!endpoint) {
+            return res.status(400).json({ error: 'Endpoint required' });
+        }
+
+        const success = await PushNotificationService.unsubscribe(userId, endpoint);
+        res.json({ success });
+    } catch (error) {
+        Logger.error('[notifications] Unsubscribe failed', { error });
+        res.status(500).json({ error: 'Failed to unsubscribe' });
+    }
+});
+
+/**
+ * PATCH /push/preferences - Update notification preferences for a subscription.
+ */
+router.patch('/push/preferences', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(400).json({ error: 'User required' });
+        }
+
+        const { endpoint, preferences } = req.body;
+        if (!endpoint) {
+            return res.status(400).json({ error: 'Endpoint required' });
+        }
+
+        const success = await PushNotificationService.updatePreferences(userId, endpoint, preferences);
+        res.json({ success });
+    } catch (error) {
+        Logger.error('[notifications] Update preferences failed', { error });
+        res.status(500).json({ error: 'Failed to update preferences' });
+    }
+});
+
 export default router;

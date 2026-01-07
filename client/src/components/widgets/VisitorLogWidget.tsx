@@ -3,7 +3,7 @@
  * Shows visitors with their recent actions as clickable icons
  */
 import React, { useEffect, useState } from 'react';
-import { Users, Clock, MapPin, FileText, Search, ShoppingCart, Eye, ExternalLink, User } from 'lucide-react';
+import { Users, Clock, MapPin, FileText, Search, ShoppingCart, Eye, ExternalLink, User, RefreshCw } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -28,6 +28,10 @@ interface VisitorSession {
     currentPath: string;
     referrer?: string;
     deviceType?: string;
+    // Cross-visit tracking fields
+    totalVisits?: number;
+    firstTouchSource?: string;
+    firstTouchAt?: string;
     _count?: {
         events: number;
     };
@@ -50,6 +54,8 @@ function getEventIcon(type: string) {
             return Search;
         case 'add_to_cart':
         case 'remove_from_cart':
+        case 'cart_view':
+        case 'checkout_view':
         case 'checkout_start':
         case 'checkout_success':
             return ShoppingCart;
@@ -71,6 +77,8 @@ function getEventIconClasses(type: string) {
             return 'bg-purple-50 text-purple-500 hover:bg-purple-100';
         case 'add_to_cart':
         case 'remove_from_cart':
+        case 'cart_view':
+        case 'checkout_view':
         case 'checkout_start':
         case 'checkout_success':
             return 'bg-amber-50 text-amber-600 hover:bg-amber-100';
@@ -195,8 +203,14 @@ const VisitorLogWidget: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    {/* Actions count badge */}
+                                    {/* Actions count badge + Returning indicator */}
                                     <div className="flex items-center gap-2 shrink-0">
+                                        {(v.totalVisits ?? 1) > 1 && (
+                                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full flex items-center gap-1" title={`${v.totalVisits} total visits since ${v.firstTouchAt ? new Date(v.firstTouchAt).toLocaleDateString() : 'first visit'}`}>
+                                                <RefreshCw className="w-3 h-3" />
+                                                Returning
+                                            </span>
+                                        )}
                                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                                             {v._count?.events || 0} actions
                                         </span>

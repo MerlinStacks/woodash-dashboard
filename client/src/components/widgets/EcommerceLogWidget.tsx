@@ -57,7 +57,9 @@ const EcommerceLogWidget: React.FC = () => {
     const getIcon = (type: string) => {
         switch (type) {
             case 'add_to_cart': return <ShoppingCart className="w-4 h-4 text-emerald-500" />;
-            case 'remove_from_cart': return <LogOut className="w-4 h-4 text-rose-400" />; // Or trash icon
+            case 'remove_from_cart': return <LogOut className="w-4 h-4 text-rose-400" />;
+            case 'cart_view': return <ShoppingCart className="w-4 h-4 text-amber-500" />;
+            case 'checkout_view': return <CreditCard className="w-4 h-4 text-amber-500" />;
             case 'checkout_start': return <CreditCard className="w-4 h-4 text-blue-500" />;
             case 'checkout_success':
             case 'purchase': return <CheckCircle className="w-4 h-4 text-green-600" />;
@@ -80,7 +82,14 @@ const EcommerceLogWidget: React.FC = () => {
             case 'checkout_start':
                 return <span><span className="font-semibold text-gray-800">{who}</span> started checkout</span>;
             case 'checkout_success':
+            case 'purchase':
                 return <span><span className="font-semibold text-emerald-700">{who} completed a purchase!</span></span>;
+            case 'cart_view':
+                const cartTotal = e.payload?.total ? ` ($${e.payload.total})` : '';
+                return <span><span className="font-semibold text-gray-800">{who}</span> viewed cart{cartTotal}</span>;
+            case 'checkout_view':
+                const checkoutTotal = e.payload?.total ? ` ($${e.payload.total})` : '';
+                return <span><span className="font-semibold text-gray-800">{who}</span> viewing checkout{checkoutTotal}</span>;
             default:
                 return <span>{who} performed {e.type}</span>;
         }

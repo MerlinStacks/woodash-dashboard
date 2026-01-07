@@ -343,6 +343,12 @@ class OverSeek_Server_Tracking
 	 * @var string|null
 	 */
 	private $visitor_id = null;
+	
+	/**
+	 * Event queue for deferred sending at shutdown.
+	 * @var array
+	 */
+	private $event_queue = array();
 
 	/**
 	 * Initialize hooks.
@@ -360,6 +366,9 @@ class OverSeek_Server_Tracking
 		// 'init' hook fires early enough that headers haven't been sent yet.
 		// This ensures the cookie is properly set and persisted across requests.
 		add_action('init', array($this, 'init_visitor_cookie'), 1);
+		
+		// Flush event queue at shutdown (non-blocking for performance)
+		add_action('shutdown', array($this, 'flush_event_queue'));
 
 		// Pageview - fires on every page load
 		add_action('template_redirect', array($this, 'track_pageview'));
@@ -382,6 +391,12 @@ class OverSeek_Server_Tracking
 
 		// Product View - detailed product tracking
 		add_action('woocommerce_after_single_product', array($this, 'track_product_view'));
+
+		// Cart View - track when cart page is viewed
+		add_action('woocommerce_before_cart', array($this, 'track_cart_view'));
+
+		// Checkout View - track when checkout page is viewed (not processing)
+		add_action('woocommerce_before_checkout_form', array($this, 'track_checkout_view'));
 
 		// Review Tracking
 		add_action('comment_post', array($this, 'track_review'), 10, 3);
@@ -503,10 +518,13 @@ class OverSeek_Server_Tracking
 	}
 
 	/**
-	 * Send tracking event to Overseek API.
-	 * Uses synchronous requests with error logging for reliability.
+	 * Queue tracking event for deferred sending at shutdown.
+	 * Collects event data now, sends non-blocking at request end.
+	 *
+	 * @param string $type Event type (pageview, add_to_cart, etc.)
+	 * @param array $payload Event-specific data
 	 */
-	private function send_event($type, $payload = array())
+	private function queue_event($type, $payload = array())
 	{
 		$visitor_id = $this->get_visitor_id();
 		$visitor_ip = $this->get_visitor_ip();
@@ -521,6 +539,7 @@ class OverSeek_Server_Tracking
 			'payload' => $payload,
 			'serverSide' => true,
 			'userAgent' => isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field($_SERVER['HTTP_USER_AGENT']) : '',
+			'visitorIp' => $visitor_ip,
 		);
 
 		// Add UTM parameters
@@ -531,27 +550,54 @@ class OverSeek_Server_Tracking
 		if (isset($_GET['utm_campaign']))
 			$data['utmCampaign'] = sanitize_text_field($_GET['utm_campaign']);
 
-		// Send request with proper timeout and error handling
-		$response = wp_remote_post($this->api_url . '/api/t/e', array(
-			'timeout' => 5, // 5 second timeout - enough for reliable delivery
-			'blocking' => true,
-			'headers' => array(
-				'Content-Type' => 'application/json',
-				'X-Forwarded-For' => $visitor_ip, // Forward real visitor IP
-				'X-Real-IP' => $visitor_ip,
-			),
-			'body' => wp_json_encode($data),
-		));
+		$this->event_queue[] = $data;
+	}
 
-		// Log errors for debugging (only if WP_DEBUG is enabled)
-		if (is_wp_error($response) && defined('WP_DEBUG') && WP_DEBUG) {
-			error_log('OverSeek Tracking Error: ' . $response->get_error_message() . ' | Event: ' . $type);
+	/**
+	 * Flush all queued events at shutdown.
+	 * Uses non-blocking requests for performance on VPS,
+	 * with 500ms timeout for shared hosting compatibility.
+	 */
+	public function flush_event_queue()
+	{
+		if (empty($this->event_queue)) {
+			return;
 		}
+
+		foreach ($this->event_queue as $data) {
+			$visitor_ip = $data['visitorIp'] ?? '';
+			unset($data['visitorIp']); // Don't send in body, use headers
+
+			$response = wp_remote_post($this->api_url . '/api/t/e', array(
+				'timeout' => 0.5, // 500ms - fast for shared hosting
+				'blocking' => false, // Non-blocking on VPS
+				'headers' => array(
+					'Content-Type' => 'application/json',
+					'X-Forwarded-For' => $visitor_ip,
+					'X-Real-IP' => $visitor_ip,
+				),
+				'body' => wp_json_encode($data),
+			));
+
+			// Log errors for debugging (only if WP_DEBUG is enabled)
+			if (is_wp_error($response) && defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('OverSeek Tracking Error: ' . $response->get_error_message() . ' | Event: ' . $data['type']);
+			}
+		}
+
+		// Clear queue after sending
+		$this->event_queue = array();
 	}
 
 	public function track_pageview()
 	{
 		if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('REST_REQUEST') && REST_REQUEST)) {
+			return;
+		}
+
+		// Skip pages where more specific events will fire
+		// product_view, cart_view, checkout_view provide richer data
+		if (is_product() || (function_exists('is_cart') && is_cart()) || (function_exists('is_checkout') && is_checkout())) {
 			return;
 		}
 
@@ -582,7 +628,7 @@ class OverSeek_Server_Tracking
 			$payload['searchQuery'] = get_search_query();
 		}
 
-		$this->send_event('pageview', $payload);
+		$this->queue_event('pageview', $payload);
 	}
 
 	private function get_page_type()
@@ -620,7 +666,7 @@ class OverSeek_Server_Tracking
 			$payload['total'] = floatval(WC()->cart->get_cart_contents_total());
 			$payload['itemCount'] = WC()->cart->get_cart_contents_count();
 		}
-		$this->send_event('add_to_cart', $payload);
+		$this->queue_event('add_to_cart', $payload);
 	}
 
 	public function track_remove_from_cart($cart_item_key, $cart)
@@ -635,7 +681,7 @@ class OverSeek_Server_Tracking
 			$payload['total'] = floatval(WC()->cart->get_cart_contents_total());
 			$payload['itemCount'] = WC()->cart->get_cart_contents_count();
 		}
-		$this->send_event('remove_from_cart', $payload);
+		$this->queue_event('remove_from_cart', $payload);
 	}
 
 	public function track_checkout_start()
@@ -646,7 +692,7 @@ class OverSeek_Server_Tracking
 			$payload['total'] = floatval(WC()->cart->get_cart_contents_total());
 			$payload['itemCount'] = WC()->cart->get_cart_contents_count();
 		}
-		$this->send_event('checkout_start', $payload);
+		$this->queue_event('checkout_start', $payload);
 	}
 
 	public function track_purchase($order_id)
@@ -684,7 +730,7 @@ class OverSeek_Server_Tracking
 			'couponCodes' => $order->get_coupon_codes(),
 		);
 
-		$this->send_event('purchase', $payload);
+		$this->queue_event('purchase', $payload);
 		$order->update_meta_data('_overseek_tracked', true);
 		$order->save();
 	}
@@ -700,7 +746,7 @@ class OverSeek_Server_Tracking
 			'firstName' => get_user_meta($user->ID, 'first_name', true),
 			'lastName' => get_user_meta($user->ID, 'last_name', true),
 		);
-		$this->send_event('identify', $payload);
+		$this->queue_event('identify', $payload);
 	}
 
 	/**
@@ -719,7 +765,7 @@ class OverSeek_Server_Tracking
 			'lastName' => get_user_meta($customer_id, 'last_name', true),
 			'isNewCustomer' => true,
 		);
-		$this->send_event('identify', $payload);
+		$this->queue_event('identify', $payload);
 	}
 
 	/**
@@ -761,7 +807,52 @@ class OverSeek_Server_Tracking
 			'categories' => $categories,
 			'productType' => $product->get_type(),
 		);
-		$this->send_event('product_view', $payload);
+		$this->queue_event('product_view', $payload);
+	}
+
+	/**
+	 * Track cart page view with cart details.
+	 */
+	public function track_cart_view()
+	{
+		$payload = array();
+
+		if (WC()->cart) {
+			$payload['total'] = floatval(WC()->cart->get_cart_contents_total());
+			$payload['itemCount'] = WC()->cart->get_cart_contents_count();
+			$payload['currency'] = get_woocommerce_currency();
+
+			// Include cart items summary
+			$items = array();
+			foreach (WC()->cart->get_cart() as $cart_item) {
+				$product = $cart_item['data'];
+				$items[] = array(
+					'productId' => $cart_item['product_id'],
+					'name' => $product ? $product->get_name() : '',
+					'quantity' => $cart_item['quantity'],
+					'price' => floatval($cart_item['line_total']),
+				);
+			}
+			$payload['items'] = $items;
+		}
+
+		$this->queue_event('cart_view', $payload);
+	}
+
+	/**
+	 * Track checkout page view (not processing, just viewing).
+	 */
+	public function track_checkout_view()
+	{
+		$payload = array();
+
+		if (WC()->cart) {
+			$payload['total'] = floatval(WC()->cart->get_cart_contents_total());
+			$payload['itemCount'] = WC()->cart->get_cart_contents_count();
+			$payload['currency'] = get_woocommerce_currency();
+		}
+
+		$this->queue_event('checkout_view', $payload);
 	}
 
 	/**
@@ -774,7 +865,8 @@ class OverSeek_Server_Tracking
 			'experimentId' => $experiment_id,
 			'variationId' => $variation_id,
 		);
-		$instance->send_event('experiment', $payload);
+		$instance->queue_event('experiment', $payload);
+		$instance->flush_event_queue(); // Flush immediately for static calls
 	}
 
 	/**
@@ -805,7 +897,7 @@ class OverSeek_Server_Tracking
 			'reviewerEmail' => $comment->comment_author_email,
 			'reviewerName' => $comment->comment_author,
 		);
-		$this->send_event('review', $payload);
+		$this->queue_event('review', $payload);
 	}
 }
 

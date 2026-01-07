@@ -132,7 +132,8 @@ export async function getFunnel(accountId: string, days: number = 30) {
 
 /**
  * Get revenue analytics: AOV, total, by source.
- * Falls back to Elasticsearch order data if no analytics purchase events exist.
+ * Uses WooCommerce orders as the primary source of truth for revenue totals,
+ * enriched with analytics session data for attribution when available.
  *
  * @param accountId - The account ID to query
  * @param days - Number of days to look back (default: 30)
@@ -141,6 +142,22 @@ export async function getFunnel(accountId: string, days: number = 30) {
 export async function getRevenue(accountId: string, days: number = 30) {
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
+    // Primary source: WooCommerce orders (canonical revenue data)
+    const orders = await prisma.wooOrder.findMany({
+        where: {
+            accountId,
+            dateCreated: { gte: startDate },
+            status: { in: ['completed', 'processing'] }
+        },
+        select: {
+            wooId: true,
+            total: true,
+            rawData: true
+        }
+    });
+
+    // Secondary source: Analytics sessions for attribution enrichment
+    // Build a map of order ID to session data from purchase events
     const purchaseEvents = await prisma.analyticsEvent.findMany({
         where: {
             session: { accountId },
@@ -159,63 +176,59 @@ export async function getRevenue(accountId: string, days: number = 30) {
         }
     });
 
+    // Map orderId from purchase event payload to session attribution data
+    const orderAttributionMap = new Map<number, {
+        firstTouchSource: string | null;
+        lastTouchSource: string | null;
+        country: string | null;
+        deviceType: string | null;
+    }>();
+
+    for (const event of purchaseEvents) {
+        const orderId = (event.payload as any)?.orderId;
+        if (orderId && event.session) {
+            // @ts-ignore - Prisma include type inference not working correctly with select
+            orderAttributionMap.set(orderId, event.session);
+        }
+    }
+
     let totalRevenue = 0;
-    let orderCount = 0;
     const revenueByFirstTouch = new Map<string, number>();
     const revenueByLastTouch = new Map<string, number>();
     const revenueByCountry = new Map<string, number>();
     const revenueByDevice = new Map<string, number>();
 
-    // If we have analytics purchase events, use them
-    if (purchaseEvents.length > 0) {
-        for (const event of purchaseEvents) {
-            const total = (event.payload as any)?.total || 0;
-            totalRevenue += total;
+    for (const order of orders) {
+        const total = parseFloat(String(order.total)) || 0;
+        totalRevenue += total;
 
-            // @ts-ignore - Prisma include type inference not working correctly with select
-            const session = event.session as { firstTouchSource: string | null; lastTouchSource: string | null; country: string | null; deviceType: string | null };
-            const firstTouch = session?.firstTouchSource || 'direct';
-            const lastTouch = session?.lastTouchSource || 'direct';
-            const country = session?.country || 'Unknown';
-            const device = session?.deviceType || 'unknown';
+        // Try to get attribution from analytics session
+        const attribution = orderAttributionMap.get(order.wooId);
+
+        if (attribution) {
+            // Use analytics session data for attribution
+            const firstTouch = attribution.firstTouchSource || 'direct';
+            const lastTouch = attribution.lastTouchSource || 'direct';
+            const country = attribution.country || 'Unknown';
+            const device = attribution.deviceType || 'unknown';
 
             revenueByFirstTouch.set(firstTouch, (revenueByFirstTouch.get(firstTouch) || 0) + total);
             revenueByLastTouch.set(lastTouch, (revenueByLastTouch.get(lastTouch) || 0) + total);
             revenueByCountry.set(country, (revenueByCountry.get(country) || 0) + total);
             revenueByDevice.set(device, (revenueByDevice.get(device) || 0) + total);
-        }
-        orderCount = purchaseEvents.length;
-    } else {
-        // Fallback: Use WooCommerce orders from database when no analytics events exist
-        const orders = await prisma.wooOrder.findMany({
-            where: {
-                accountId,
-                dateCreated: { gte: startDate },
-                status: { in: ['completed', 'processing', 'on-hold'] }
-            },
-            select: {
-                total: true,
-                rawData: true
-            }
-        });
-
-        for (const order of orders) {
-            const total = parseFloat(String(order.total)) || 0;
-            totalRevenue += total;
-
-            // Extract billing country from rawData JSON
+        } else {
+            // Fallback: Extract billing country from rawData, mark attribution as 'direct'
             const rawDataObj = order.rawData as any;
             const country = rawDataObj?.billing?.country || 'Unknown';
-            revenueByCountry.set(country, (revenueByCountry.get(country) || 0) + total);
 
-            // For fallback orders without analytics, mark as 'direct'
             revenueByFirstTouch.set('direct', (revenueByFirstTouch.get('direct') || 0) + total);
             revenueByLastTouch.set('direct', (revenueByLastTouch.get('direct') || 0) + total);
+            revenueByCountry.set(country, (revenueByCountry.get(country) || 0) + total);
             revenueByDevice.set('unknown', (revenueByDevice.get('unknown') || 0) + total);
         }
-        orderCount = orders.length;
     }
 
+    const orderCount = orders.length;
     const aov = orderCount > 0 ? totalRevenue / orderCount : 0;
 
     return {

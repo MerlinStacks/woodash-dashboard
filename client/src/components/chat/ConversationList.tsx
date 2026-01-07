@@ -1,8 +1,9 @@
 
 import { formatDistanceToNow } from 'date-fns';
-import { Mail, User, MessageSquare, Filter, ChevronDown } from 'lucide-react';
+import { Mail, User, MessageSquare, Filter, ChevronDown, Pencil, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useState } from 'react';
+import { useDrafts } from '../../hooks/useDrafts';
 
 interface Conversation {
     id: string;
@@ -36,19 +37,32 @@ type FilterType = 'all' | 'mine' | 'unassigned';
 export function ConversationList({ conversations, selectedId, onSelect, currentUserId }: ConversationListProps) {
     const [filter, setFilter] = useState<FilterType>('all');
     const [showFilterMenu, setShowFilterMenu] = useState(false);
+    const [showResolved, setShowResolved] = useState(false);
+    const { hasDraft } = useDrafts();
 
-    // Filter conversations
+    // Filter conversations - by default only show OPEN unless showResolved is true
     const filteredConversations = conversations.filter(conv => {
+        // Status filter: only show OPEN by default
+        if (!showResolved && conv.status !== 'OPEN') return false;
+
+        // Assignment filter
         if (filter === 'mine') return conv.assignedTo === currentUserId;
         if (filter === 'unassigned') return !conv.assignedTo;
         return true;
     });
 
-    // Count by filter
+    // Count by filter (only count OPEN conversations unless showResolved)
+    const getFilteredCount = (filterFn: (c: Conversation) => boolean) => {
+        return conversations.filter(c => {
+            if (!showResolved && c.status !== 'OPEN') return false;
+            return filterFn(c);
+        }).length;
+    };
+
     const counts = {
-        all: conversations.length,
-        mine: conversations.filter(c => c.assignedTo === currentUserId).length,
-        unassigned: conversations.filter(c => !c.assignedTo).length
+        all: getFilteredCount(() => true),
+        mine: getFilteredCount(c => c.assignedTo === currentUserId),
+        unassigned: getFilteredCount(c => !c.assignedTo)
     };
 
     const getDisplayName = (conv: Conversation) => {
@@ -121,6 +135,20 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                         All {counts.all > 0 && <span className="ml-1 text-gray-400">{counts.all}</span>}
                     </button>
                 </div>
+
+                {/* Show Resolved Toggle */}
+                <button
+                    onClick={() => setShowResolved(!showResolved)}
+                    className={cn(
+                        "flex items-center justify-center gap-1.5 w-full mt-2 py-1.5 text-xs rounded-md transition-colors",
+                        showResolved
+                            ? "bg-gray-200 text-gray-700"
+                            : "text-gray-500 hover:bg-gray-100"
+                    )}
+                >
+                    {showResolved ? <EyeOff size={12} /> : <Eye size={12} />}
+                    {showResolved ? 'Hide Resolved' : 'Show Resolved'}
+                </button>
             </div>
 
             {/* Conversations List */}
@@ -136,6 +164,7 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                         const initials = getInitials(name);
                         const isSelected = selectedId === conv.id;
                         const isEmail = conv.guestEmail || conv.wooCustomer?.email;
+                        const conversationHasDraft = hasDraft(conv.id);
 
                         return (
                             <div
@@ -179,6 +208,12 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                                         {conv.assignee && (
                                             <span className="text-[10px] text-gray-400">
                                                 → {conv.assignee.fullName || 'Assigned'}
+                                            </span>
+                                        )}
+                                        {conversationHasDraft && (
+                                            <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-medium rounded">
+                                                <Pencil size={10} />
+                                                Draft
                                             </span>
                                         )}
                                     </div>

@@ -13,6 +13,8 @@ import EcommerceLogWidget from './EcommerceLogWidget';
 import HotCacheWidget from './HotCacheWidget';
 import QuickProductsWidget from './QuickProductsWidget';
 import { VisitorCountWidget } from './VisitorCountWidget';
+import { OpenInboxWidget } from './OpenInboxWidget';
+import { AdSuggestionsWidget } from './AdSuggestionsWidget';
 
 export interface WidgetProps {
     settings?: any;
@@ -35,7 +37,9 @@ export const WidgetRegistry: Record<string, { component: React.FC<WidgetProps>, 
     'ecommerce-log': { component: EcommerceLogWidget, label: 'Ecommerce Stream', defaultW: 6, defaultH: 6 },
     'hot-cache': { component: HotCacheWidget as any, label: 'Hot Cache', defaultW: 4, defaultH: 5 },
     'quick-products': { component: QuickProductsWidget as any, label: 'Quick Products', defaultW: 4, defaultH: 6 },
-    'visitor-count': { component: VisitorCountWidget, label: 'Live Visitors', defaultW: 3, defaultH: 2 }
+    'visitor-count': { component: VisitorCountWidget, label: 'Live Visitors', defaultW: 3, defaultH: 2 },
+    'open-inbox': { component: OpenInboxWidget, label: 'Open Inbox', defaultW: 3, defaultH: 2 },
+    'ad-suggestions': { component: AdSuggestionsWidget, label: 'Ad Suggestions', defaultW: 4, defaultH: 5 }
 };
 
 export function renderWidget(key: string, props: WidgetProps): ReactNode {

@@ -109,6 +109,14 @@ export class ChatService {
         // Handle Auto-Replies if sender is CUSTOMER
         if (senderType === 'CUSTOMER') {
             await this.handleAutoReply(conversation);
+
+            // Send push notification for customer messages
+            const { PushNotificationService } = require('./PushNotificationService');
+            await PushNotificationService.sendToAccount(conversation.accountId, {
+                title: '💬 New Chat Message',
+                body: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+                data: { url: '/inbox' }
+            }, 'message');
         }
 
         return message;
@@ -163,18 +171,51 @@ export class ChatService {
 
     // --- Internal Logic ---
 
-    private async handleAutoReply(conversation: any) {
-        // Check business hours logic (Generic placeholder for now)
-        // we would check AccountFeature config here
+    /**
+     * Checks if current time is outside business hours for the account.
+     * Uses the day schedule from CHAT_SETTINGS to determine open/closed status.
+     */
+    private isOutsideBusinessHours(businessHours: any): boolean {
+        const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        const now = new Date();
+        const dayKey = days[now.getDay()];
+        const schedule = businessHours.days?.[dayKey];
 
-        /* 
+        // If no schedule for today or marked as closed, we're outside hours
+        if (!schedule || !schedule.isOpen) return true;
+
+        const currentTime = now.toTimeString().slice(0, 5); // "HH:MM" format
+        return currentTime < schedule.open || currentTime > schedule.close;
+    }
+
+    /**
+     * Handles auto-reply logic for incoming customer messages.
+     * Sends an offline message if business hours are enabled and we're outside operating hours.
+     */
+    private async handleAutoReply(conversation: any) {
         const config = await prisma.accountFeature.findFirst({
             where: { accountId: conversation.accountId, featureKey: 'CHAT_SETTINGS' }
         });
-        if (config?.isEnabled && isOutsideBusinessHours(config.config)) {
-           await this.addMessage(conversation.id, config.config.offlineMessage, 'SYSTEM');
+
+        if (!config?.isEnabled || !config.config) return;
+
+        const settings = config.config as any;
+
+        // Check if business hours auto-reply is enabled
+        if (!settings.businessHours?.enabled) return;
+
+        const isOutsideHours = this.isOutsideBusinessHours(settings.businessHours);
+
+        if (isOutsideHours && settings.businessHours.offlineMessage) {
+            Logger.info(`[AutoReply] Sending offline message for conversation`, {
+                conversationId: conversation.id
+            });
+            await this.addMessage(
+                conversation.id,
+                settings.businessHours.offlineMessage,
+                'SYSTEM'
+            );
         }
-        */
     }
     async handleIncomingEmail(emailData: {
         emailAccountId: string;

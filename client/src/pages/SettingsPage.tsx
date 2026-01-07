@@ -11,9 +11,10 @@ import { EmailSettings } from '../components/settings/EmailSettings';
 import { GoldPriceSettings } from '../components/settings/GoldPriceSettings';
 import { InventoryAlertsSettings } from '../components/settings/InventoryAlertsSettings';
 import { OrderTagSettings } from '../components/settings/OrderTagSettings';
-import { LayoutGrid, Palette, MessageSquare, Bot, Activity, RefreshCw, Mail, Package, Tags, Coins } from 'lucide-react';
+import { NotificationSettings } from '../components/settings/NotificationSettings';
+import { LayoutGrid, Palette, MessageSquare, Bot, Activity, RefreshCw, Mail, Package, Tags, Coins, Bell } from 'lucide-react';
 
-type TabId = 'general' | 'appearance' | 'chat' | 'intelligence' | 'analytics' | 'sync' | 'email' | 'inventory' | 'orderTags' | 'goldPrice';
+type TabId = 'general' | 'appearance' | 'chat' | 'intelligence' | 'analytics' | 'sync' | 'email' | 'inventory' | 'orderTags' | 'goldPrice' | 'notifications';
 
 export function SettingsPage() {
     const { currentAccount } = useAccount();
@@ -33,6 +34,7 @@ export function SettingsPage() {
         { id: 'inventory', label: 'Inventory', icon: Package },
         { id: 'sync', label: 'Sync Status', icon: RefreshCw },
         { id: 'email', label: 'Email', icon: Mail },
+        { id: 'notifications', label: 'Notifications', icon: Bell },
     ];
 
     return (
@@ -134,6 +136,8 @@ export function SettingsPage() {
                 {activeTab === 'sync' && <SyncStatus />}
 
                 {activeTab === 'email' && <EmailSettings />}
+
+                {activeTab === 'notifications' && <NotificationSettings />}
             </div>
         </div>
     );

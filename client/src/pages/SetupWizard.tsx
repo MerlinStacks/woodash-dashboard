@@ -13,15 +13,33 @@ export function SetupWizard() {
         wooConsumerSecret: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { token, logout } = useAuth();
+    const { token, logout, isLoading: authLoading } = useAuth();
     const { refreshAccounts, currentAccount, accounts, isLoading } = useAccount();
     const navigate = useNavigate();
 
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        if (!authLoading && !token) {
+            navigate('/login', { replace: true });
+        }
+    }, [authLoading, token, navigate]);
+
+    // Redirect to dashboard if user already has accounts
     useEffect(() => {
         if (!isLoading && accounts.length > 0) {
             navigate('/');
         }
     }, [accounts, isLoading, navigate]);
+
+    // Show loading during auth check
+    if (authLoading) {
+        return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    }
+
+    // Don't render wizard if not authenticated (redirect will happen)
+    if (!token) {
+        return null;
+    }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });

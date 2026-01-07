@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { formatDate } from '../utils/format';
@@ -26,10 +27,16 @@ interface Order {
 }
 
 export function OrdersPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Initialize state from URL query params
+    const tagsFromUrl = searchParams.get('tags');
+    const searchFromUrl = searchParams.get('q');
+
     const [orders, setOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(searchFromUrl || '');
 
     // Picklist State
     const [picklistStatus, setPicklistStatus] = useState('processing');
@@ -40,17 +47,28 @@ export function OrdersPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
-    // Tag filtering
+    // Tag filtering - initialize from URL
     const [availableTags, setAvailableTags] = useState<string[]>([]);
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [selectedTags, setSelectedTags] = useState<string[]>(
+        tagsFromUrl ? tagsFromUrl.split(',').filter(Boolean) : []
+    );
     const [showTagDropdown, setShowTagDropdown] = useState(false);
 
     const { token } = useAuth();
     const { currentAccount } = useAccount();
 
+    // Sync filter state to URL
+    useEffect(() => {
+        const params: Record<string, string> = {};
+        if (selectedTags.length > 0) params.tags = selectedTags.join(',');
+        if (searchQuery) params.q = searchQuery;
+        setSearchParams(params, { replace: true });
+    }, [selectedTags, searchQuery, setSearchParams]);
+
     useEffect(() => {
         fetchOrders();
     }, [currentAccount, token, searchQuery, page, limit, selectedTags]);
+
 
     // Fetch available tags
     useEffect(() => {

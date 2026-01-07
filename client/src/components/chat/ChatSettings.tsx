@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { Save, Loader2 } from 'lucide-react';
+import { InboxRichTextEditor } from './InboxRichTextEditor';
 
 export function ChatSettings() {
     const { token } = useAuth();
@@ -174,12 +175,14 @@ export function ChatSettings() {
 
                         <div>
                             <label className="block text-sm font-medium mb-1">Offline Message</label>
-                            <textarea
-                                value={config.businessHours.offlineMessage}
-                                onChange={e => setConfig({ ...config, businessHours: { ...config.businessHours, offlineMessage: e.target.value } })}
-                                className="w-full border rounded p-2"
-                                rows={3}
-                            />
+                            <div className="border rounded p-3 bg-white">
+                                <InboxRichTextEditor
+                                    value={config.businessHours.offlineMessage}
+                                    onChange={(val) => setConfig({ ...config, businessHours: { ...config.businessHours, offlineMessage: val } })}
+                                    placeholder="We are currently closed. We will reply when we return."
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Supports bold, italic, links, and emojis</p>
                         </div>
                     </div>
                 )}

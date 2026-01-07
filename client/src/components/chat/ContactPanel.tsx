@@ -9,6 +9,7 @@ import {
 import { cn } from '../../utils/cn';
 import { format } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
+import { useAccount } from '../../context/AccountContext';
 
 interface ContactPanelProps {
     conversation?: {
@@ -69,6 +70,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
 
 export function ContactPanel({ conversation, onStatusChange, onMerge }: ContactPanelProps) {
     const { token } = useAuth();
+    const { currentAccount } = useAccount();
     const [isUpdating, setIsUpdating] = useState(false);
 
     if (!conversation) return null;
@@ -84,7 +86,7 @@ export function ContactPanel({ conversation, onStatusChange, onMerge }: ContactP
     const isClosed = conversation.status === 'CLOSED';
 
     const handleStatusChange = async (newStatus: string) => {
-        if (!token || isUpdating) return;
+        if (!token || !currentAccount || isUpdating) return;
 
         setIsUpdating(true);
         try {
@@ -92,13 +94,16 @@ export function ContactPanel({ conversation, onStatusChange, onMerge }: ContactP
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
                 },
                 body: JSON.stringify({ status: newStatus })
             });
 
             if (res.ok && onStatusChange) {
                 onStatusChange(newStatus);
+            } else {
+                console.error('Failed to update status:', await res.text());
             }
         } catch (error) {
             console.error('Failed to update status', error);

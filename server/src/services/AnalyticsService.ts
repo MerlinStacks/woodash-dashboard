@@ -25,7 +25,22 @@ export class AnalyticsService {
                 orderBy: { lastActiveAt: 'desc' },
                 skip,
                 take: limit,
-                include: {
+                select: {
+                    id: true,
+                    visitorId: true,
+                    email: true,
+                    ipAddress: true,
+                    country: true,
+                    city: true,
+                    lastActiveAt: true,
+                    currentPath: true,
+                    referrer: true,
+                    deviceType: true,
+                    wooCustomerId: true,
+                    // Attribution fields for cross-visit tracking
+                    totalVisits: true,
+                    firstTouchSource: true,
+                    firstTouchAt: true,
                     _count: {
                         select: { events: true }
                     },
@@ -87,7 +102,7 @@ export class AnalyticsService {
     static async getEcommerceLog(accountId: string, page = 1, limit = 50, liveMode = false) {
         const skip = (page - 1) * limit;
 
-        const commerceTypes = ['add_to_cart', 'remove_from_cart', 'checkout_start', 'checkout_success', 'purchase'];
+        const commerceTypes = ['add_to_cart', 'remove_from_cart', 'cart_view', 'checkout_view', 'checkout_start', 'checkout_success', 'purchase'];
 
         // Build where clause with optional live mode filter
         const whereClause: any = {

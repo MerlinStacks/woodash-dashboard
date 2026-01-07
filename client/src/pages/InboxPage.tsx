@@ -172,6 +172,23 @@ export function InboxPage() {
                         onSendMessage={handleSendMessage}
                         recipientEmail={recipientEmail}
                         recipientName={recipientName}
+                        status={activeConversation?.status}
+                        onStatusChange={async (newStatus) => {
+                            const res = await fetch(`/api/chat/${selectedId}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`,
+                                    'x-account-id': currentAccount?.id || ''
+                                },
+                                body: JSON.stringify({ status: newStatus })
+                            });
+                            if (res.ok) {
+                                setConversations(prev => prev.map(c =>
+                                    c.id === selectedId ? { ...c, status: newStatus } : c
+                                ));
+                            }
+                        }}
                     />
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400">

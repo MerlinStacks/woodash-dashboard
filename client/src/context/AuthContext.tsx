@@ -7,6 +7,7 @@ interface User {
     avatarUrl?: string | null;
     shiftStart?: string | null;
     shiftEnd?: string | null;
+    emailSignature?: string | null;
     isSuperAdmin?: boolean;
 }
 

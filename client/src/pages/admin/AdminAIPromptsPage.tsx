@@ -59,8 +59,16 @@ const PROMPT_CONFIGS: PromptConfig[] = [
         description: 'Generate SEO-optimized meta titles and descriptions',
         placeholder: 'Generate SEO meta content for the following page:\n\nPage Type: {{page_type}}\nPrimary Keyword: {{keyword}}\nContent Summary: {{summary}}\n\nProvide:\n1. Meta Title (50-60 characters)\n2. Meta Description (150-160 characters)\n\nEnsure keywords are naturally incorporated.',
         helpText: 'Available variables: {{page_type}}, {{keyword}}, {{summary}}'
+    },
+    {
+        id: 'inbox_draft_reply',
+        name: 'Inbox Draft Reply Generator',
+        description: 'Generate draft replies for customer conversations in the inbox',
+        placeholder: 'You are a helpful customer service agent. Draft a professional reply to the customer based on the conversation history and customer context.\n\nCONVERSATION HISTORY:\n{{conversation_history}}\n\nCUSTOMER DETAILS:\n{{customer_details}}\n\nSTORE POLICIES:\n{{policies}}\n\nGuidelines:\n- Be polite, empathetic, and professional\n- Reference specific order details if mentioned in the conversation\n- Follow store policies when applicable\n- Keep response concise but complete\n- Address all customer concerns raised\n\nIMPORTANT: Return the reply as valid HTML. Use:\n- <p> for paragraphs\n- <strong> for emphasis\n- <ul>/<li> for lists if needed\n\nDo NOT include markdown, code blocks, or any wrapping. Only return the HTML content of the reply.',
+        helpText: 'Available variables: {{conversation_history}}, {{customer_details}}, {{policies}}'
     }
 ];
+
 
 /**
  * Super Admin page for managing AI prompts across the platform.

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { User, Mail, Shield, Building, LogOut, Camera, Clock, Save, X } from 'lucide-react';
+import { User, Mail, Shield, Building, LogOut, Camera, Clock, Save, X, FileSignature } from 'lucide-react';
 import SessionManager from '../components/settings/SessionManager';
 
 export function UserProfilePage() {
@@ -15,7 +15,8 @@ export function UserProfilePage() {
     const [formData, setFormData] = useState({
         fullName: user?.fullName || '',
         shiftStart: user?.shiftStart || '',
-        shiftEnd: user?.shiftEnd || ''
+        shiftEnd: user?.shiftEnd || '',
+        emailSignature: user?.emailSignature || ''
     });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -277,6 +278,43 @@ export function UserProfilePage() {
                                 </div>
                             )}
                         </div>
+                    </div>
+
+                    {/* Email Signature Section */}
+                    <div className="col-span-1 md:col-span-2 mt-8">
+                        <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2 flex items-center gap-2">
+                            <FileSignature size={20} className="text-gray-400" />
+                            Email Signature
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-2 mb-4">
+                            This signature will be appended to emails you send from the Inbox. Supports rich text and images.
+                        </p>
+
+                        {isEditing ? (
+                            <div className="space-y-3">
+                                <div
+                                    contentEditable
+                                    className="min-h-[120px] p-4 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white text-sm"
+                                    onBlur={(e) => setFormData({ ...formData, emailSignature: e.currentTarget.innerHTML })}
+                                    dangerouslySetInnerHTML={{ __html: formData.emailSignature }}
+                                    style={{ whiteSpace: 'pre-wrap' }}
+                                />
+                                <p className="text-xs text-gray-400">
+                                    Tip: You can paste formatted text and images directly into the editor above.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 min-h-[80px]">
+                                {user.emailSignature ? (
+                                    <div
+                                        className="text-sm text-gray-700"
+                                        dangerouslySetInnerHTML={{ __html: user.emailSignature }}
+                                    />
+                                ) : (
+                                    <span className="text-gray-400 italic text-sm">No email signature configured. Click "Edit Profile" to add one.</span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

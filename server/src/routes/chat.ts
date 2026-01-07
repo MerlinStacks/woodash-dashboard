@@ -2,7 +2,42 @@
 import { Router } from 'express';
 import { prisma } from '../utils/prisma';
 import { ChatService } from '../services/ChatService';
+import { InboxAIService } from '../services/InboxAIService';
 import { requireAuth } from '../middleware/auth';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+// Set up multer for chat attachments
+const attachmentsDir = path.join(__dirname, '../../uploads/attachments');
+if (!fs.existsSync(attachmentsDir)) {
+    fs.mkdirSync(attachmentsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, attachmentsDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + '-' + file.originalname);
+    }
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    fileFilter: (req, file, cb) => {
+        // Allow common file types
+        const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|csv|zip/;
+        const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        if (ext) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type'));
+        }
+    }
+});
 
 // We need to inject the service or use singleton. 
 // For simplicity, we'll attach it to the req or export a setup function.
@@ -87,8 +122,8 @@ export const createChatRouter = (chatService: ChatService) => {
         const accountId = req.headers['x-account-id'];
         if (!accountId) return res.status(400).json({});
 
-        const { businessHours, autoReply } = req.body;
-        const config = { businessHours, autoReply };
+        const { businessHours, autoReply, position, showOnMobile } = req.body;
+        const config = { businessHours, autoReply, position, showOnMobile };
 
         await prisma.accountFeature.upsert({
             where: { accountId_featureKey: { accountId: String(accountId), featureKey: 'CHAT_SETTINGS' } },
@@ -143,6 +178,71 @@ export const createChatRouter = (chatService: ChatService) => {
         const { sourceId } = req.body;
         await chatService.mergeConversations(req.params.id, sourceId);
         res.json({ success: true });
+    });
+
+    // POST /api/chat/:id/ai-draft - Generate AI draft reply
+    router.post('/:id/ai-draft', async (req: any, res) => {
+        try {
+            const conversationId = req.params.id;
+            const accountId = req.headers['x-account-id'];
+
+            if (!accountId) {
+                return res.status(400).json({ error: 'Account ID required' });
+            }
+
+            const result = await InboxAIService.generateDraftReply(
+                conversationId,
+                String(accountId)
+            );
+
+            if (result.error) {
+                return res.status(400).json({ error: result.error });
+            }
+
+            res.json({ draft: result.draft });
+        } catch (error) {
+            console.error('Failed to generate AI draft:', error);
+            res.status(500).json({ error: 'Failed to generate AI draft' });
+        }
+    });
+
+    // POST /api/chat/:id/attachment - Upload attachment
+    router.post('/:id/attachment', upload.single('file'), async (req: any, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ error: 'No file uploaded' });
+            }
+
+            const conversationId = req.params.id;
+            const userId = req.user?.id;
+            const attachmentUrl = `/uploads/attachments/${req.file.filename}`;
+            const originalName = req.file.originalname;
+            const mimeType = req.file.mimetype;
+
+            // Create a message with the attachment
+            const content = `[Attachment: ${originalName}](${attachmentUrl})`;
+
+            const msg = await chatService.addMessage(
+                conversationId,
+                content,
+                'AGENT',
+                userId,
+                false
+            );
+
+            res.json({
+                success: true,
+                message: msg,
+                attachment: {
+                    url: attachmentUrl,
+                    name: originalName,
+                    type: mimeType
+                }
+            });
+        } catch (error) {
+            console.error('Failed to upload attachment:', error);
+            res.status(500).json({ error: 'Failed to upload attachment' });
+        }
     });
 
 

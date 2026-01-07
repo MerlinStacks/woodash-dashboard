@@ -22,6 +22,7 @@
         "jspdf-autotable": "^5.0.2",
         "lodash": "^4.17.21",
         "lucide-react": "^0.294.0",
+        "quill-emoji": "^0.2.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-email-editor": "^1.7.11",
