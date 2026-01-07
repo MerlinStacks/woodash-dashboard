@@ -44,4 +44,19 @@ router.post('/:id/reply', async (req: AuthenticatedRequest, res: Response) => {
     }
 });
 
+
+// Rematch all reviews to orders
+router.post('/rematch-all', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const accountId = req.accountId!;
+        Logger.info('Starting review-order rematch', { accountId });
+        const result = await reviewService.rematchAllReviews(accountId);
+        Logger.info('Review-order rematch complete', { accountId, ...result });
+        res.json(result);
+    } catch (error) {
+        Logger.error('Error during review rematch', { error });
+        res.status(500).json({ error: 'Failed to rematch reviews' });
+    }
+});
+
 export default router;

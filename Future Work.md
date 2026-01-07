@@ -1,20 +1,62 @@
 # Future Work & Roadmap
 
+This document tracks planned enhancements, known bugs, and future feature ideas for the OverSeek platform.
+
+---
+
+## 🐛 Known Issues & Bugs
+
+### Analytics & Tracking
+- [ ] **Live Streams**: Ecommerce Stream and Live Visitor Log not displaying live data correctly
+- [ ] **Active Visitor Count**: Count appears inaccurate
+- [ ] **Revenue Page**: Analytics revenue page shows no data
+
+
+## 🔧 Settings & Configuration
+
+### Super Admin
+- [ ] **Platform SMTP Configuration**: Add SMTP settings for platform-level emails (separate from user email automations)
+
+---
+
 ## 📣 Unified Marketing
-- [ ] **SMS & WhatsApp Channels**
-  - [ ] Extend `MarketingAutomation` to support SMS/WhatsApp nodes
-  - [ ] Twilio or similar integration
 
-The ecommerce strem doesn't seem to be working with live data
+- [ ] **SMS & WhatsApp Channels**: Extend `MarketingAutomation` to support SMS/WhatsApp nodes via Twilio
+- [ ] **Lead Capture Builder**: Popup/form builder linked to `CustomerSegment`s with Exit Intent triggers
 
-The active visitor count seems to be off also.
-The live visitor log seems to be off still too.
+---
 
-The analytics - revenue page doesn't show any data.
-the order tag mappings on the settings page is so long and big, maybe we need to update this ui and put it in a seperate tab on the settings page.
+## 🏷️ Orders & Tags
 
-the gold price configuration on the settings page needs to be in a seperate tab on the settings page and only show if the account has this enabled.
+- [ ] **Order Filtering**: Robust filtering by product and order tags
+- [ ] **Reviews Matching**: Reviews-to-orders matching logic
 
-We can get rid of "Auto-Configure Plugin" on the settings page.
+---
 
-In  the superadmin settings we need to have a smtp details for the platform to send emails, this will be different than the email automations for the users.
+## �️ Mobile & UI
+
+- [ ] **Full-Screen Modals**: Optimize `OrderPreviewModal` and `CustomerDetails` for small screens
+- [ ] **Tab Stacking**: Vertically stack horizontal tabs on narrow screens
+
+---
+
+## 🔌 Integrations
+
+- [ ] **Google Ads Connector**: Complete integration with Google Ads API
+- [ ] **Meta Ads Connector**: Complete integration with Meta Ads API
+
+---
+
+## 🏭 Advanced Operations
+
+- [ ] **Scheduled Reports**: Automated email delivery of custom report segments
+- [ ] **Janitor Jobs**: Cron jobs for data retention and pruning
+
+---
+
+## 🔒 Security & Technical Debt
+
+- [ ] **Webhook Secret Logic**: Complete implementation in `webhook.ts`
+- [ ] **Credential Encryption**: Encryption-at-rest for email credentials
+- [ ] **AutomationEngine Filters**: Detailed filter implementation
+- [ ] **CI/CD Optimization**: Optimized Docker layers

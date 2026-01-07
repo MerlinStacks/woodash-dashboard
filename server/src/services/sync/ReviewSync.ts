@@ -7,13 +7,60 @@ import { IndexingService } from '../search/IndexingService';
 
 const prisma = new PrismaClient();
 
-// Type for order matching results
 interface OrderMatchResult {
     orderId: string;
     orderNumber: string;
     score: number;
     daysDiff: number;
 }
+
+/**
+ * Normalizes email for comparison: lowercase, trim, remove + addressing.
+ * E.g., "User+test@Gmail.com " → "user@gmail.com"
+ */
+function normalizeEmail(email: string | null | undefined): string | null {
+    if (!email) return null;
+    const trimmed = email.trim().toLowerCase();
+    // Handle + addressing (e.g., user+tag@domain.com → user@domain.com)
+    const atIndex = trimmed.indexOf('@');
+    if (atIndex === -1) return trimmed;
+    const localPart = trimmed.substring(0, atIndex);
+    const domain = trimmed.substring(atIndex);
+    const plusIndex = localPart.indexOf('+');
+    if (plusIndex !== -1) {
+        return localPart.substring(0, plusIndex) + domain;
+    }
+    return trimmed;
+}
+
+/**
+ * Compares reviewer name against order billing name.
+ * Returns true if names are similar enough to suggest same person.
+ */
+function namesMatch(reviewerName: string, billingFirst: string | undefined, billingLast: string | undefined): boolean {
+    if (!reviewerName) return false;
+    const normalizedReviewer = reviewerName.toLowerCase().trim();
+    const fullBilling = `${billingFirst || ''} ${billingLast || ''}`.toLowerCase().trim();
+
+    // Exact full name match
+    if (normalizedReviewer === fullBilling) return true;
+
+    // Reviewer contains both billing parts
+    const first = (billingFirst || '').toLowerCase().trim();
+    const last = (billingLast || '').toLowerCase().trim();
+    if (first && last && normalizedReviewer.includes(first) && normalizedReviewer.includes(last)) {
+        return true;
+    }
+
+    // Split reviewer name and check if any part matches last name (most reliable)
+    const reviewerParts = normalizedReviewer.split(/\s+/);
+    if (last && reviewerParts.some(part => part === last)) {
+        return true;
+    }
+
+    return false;
+}
+
 
 export class ReviewSync extends BaseSync {
     protected entityType = 'reviews';
@@ -82,33 +129,52 @@ export class ReviewSync extends BaseSync {
                     const hasProduct = lineItems.some((item: any) => {
                         // Exact product match
                         if (item.product_id === r.product_id) return true;
-                        // Variation match - if reviewed product is the parent
+                        // Variation match - review on parent, order has variation
                         if (item.variation_id && item.product_id === r.product_id) return true;
-                        // Variation match - if reviewed product ID matches a variation's parent
-                        // WooCommerce stores parent ID in product_id for variations
+                        // Variation match - review on variation, order has parent
+                        // WooCommerce: variation_id is the actual variation, product_id is parent
+                        if (item.variation_id === r.product_id) return true;
                         return false;
                     });
 
                     if (!hasProduct) continue;
 
-                    // Check customer/email match
+                    // Check customer/email/name match with tiered scoring
                     let matchScore = 0;
-                    const orderEmail = data.billing?.email?.toLowerCase();
+                    const normalizedOrderEmail = normalizeEmail(data.billing?.email);
+                    const normalizedReviewerEmail = normalizeEmail(reviewerEmail);
                     const orderCustomerId = data.customer_id;
+                    const billingFirst = data.billing?.first_name;
+                    const billingLast = data.billing?.last_name;
 
-                    // Priority 1: Exact WooCommerce customer ID match
+                    // Priority 1: Exact WooCommerce customer ID match (score 100)
                     if (wooCustomerId) {
                         const customer = await prisma.wooCustomer.findUnique({ where: { id: wooCustomerId } });
                         if (customer && orderCustomerId === customer.wooId) {
-                            matchScore = 100; // Highest priority
-                        } else if (customer && orderEmail === customer.email?.toLowerCase()) {
+                            matchScore = 100;
+                        } else if (customer && normalizedOrderEmail === normalizeEmail(customer.email)) {
                             matchScore = 90; // Email match via customer record
                         }
                     }
 
-                    // Priority 2: Direct email match (for guests or unlinked customers)
-                    if (matchScore === 0 && reviewerEmail && orderEmail === reviewerEmail.toLowerCase()) {
-                        matchScore = 80; // Direct email match
+                    // Priority 2: Direct email match with normalization (score 80)
+                    if (matchScore === 0 && normalizedReviewerEmail && normalizedOrderEmail === normalizedReviewerEmail) {
+                        matchScore = 80;
+                    }
+
+                    // Priority 3: Name-based match fallback (score 60)
+                    if (matchScore === 0 && r.reviewer && namesMatch(r.reviewer, billingFirst, billingLast)) {
+                        matchScore = 60;
+                    }
+
+                    // Priority 4: Product-only match with tight temporal proximity (score 40)
+                    // Useful for gift purchases where reviewer ≠ purchaser
+                    if (matchScore === 0) {
+                        const daysDiff = (reviewDate.getTime() - new Date(order.dateCreated).getTime()) / (1000 * 60 * 60 * 24);
+                        // Only allow if review is 7-60 days after order (typical usage/shipping time)
+                        if (daysDiff >= 7 && daysDiff <= 60) {
+                            matchScore = 40;
+                        }
                     }
 
                     if (matchScore > 0) {

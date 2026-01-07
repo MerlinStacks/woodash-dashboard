@@ -31,7 +31,7 @@ const EcommerceLogWidget: React.FC = () => {
         if (!token || !currentAccount) return;
 
         try {
-            const res = await fetch('/api/analytics/ecommerce/log?limit=20', {
+            const res = await fetch('/api/analytics/ecommerce/log?limit=20&live=true', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'x-account-id': currentAccount.id

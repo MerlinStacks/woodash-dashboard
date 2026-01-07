@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAccount } from '../context/AccountContext';
 import { useAuth } from '../context/AuthContext';
-import { Star, RefreshCw, Search, Loader2, CheckCircle, ExternalLink } from 'lucide-react';
+import { Star, RefreshCw, Search, Loader2, CheckCircle, ExternalLink, Link2 } from 'lucide-react';
 import { Pagination } from '../components/ui/Pagination';
 import { formatDate } from '../utils/format';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ export const ReviewsPage = () => {
     const [reviews, setReviews] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isRematching, setIsRematching] = useState(false);
 
     // Filters & Pagination
     const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +94,31 @@ export const ReviewsPage = () => {
         }
     };
 
+    const handleRematch = async () => {
+        if (!currentAccount || !token) return;
+        setIsRematching(true);
+        try {
+            const res = await fetch('/api/reviews/rematch-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id
+                }
+            });
+
+            if (!res.ok) throw new Error('Rematch failed');
+            const result = await res.json();
+            alert(`Rematch complete!\n\nTotal: ${result.totalReviews}\nMatched: ${result.matchedReviews}\nUpdated: ${result.updatedReviews}\nMatch Rate: ${result.matchRate}`);
+            fetchReviews();
+        } catch (error) {
+            console.error('Rematch failed', error);
+            alert('Failed to rematch reviews');
+        } finally {
+            setIsRematching(false);
+        }
+    };
+
     // Reset page when filters change
     useEffect(() => {
         setPage(1);
@@ -133,6 +159,16 @@ export const ReviewsPage = () => {
                         <option value="spam">Spam</option>
                         <option value="trash">Trash</option>
                     </select>
+
+                    <button
+                        onClick={handleRematch}
+                        disabled={isRematching || isSyncing}
+                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        title="Re-link reviews to their matching orders"
+                    >
+                        <Link2 size={18} className={isRematching ? "animate-pulse" : ""} />
+                        {isRematching ? 'Matching...' : 'Link to Orders'}
+                    </button>
 
                     <button
                         onClick={handleSync}

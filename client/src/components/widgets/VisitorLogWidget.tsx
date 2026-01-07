@@ -84,7 +84,7 @@ const VisitorLogWidget: React.FC = () => {
         if (!token || !currentAccount) return;
 
         try {
-            const res = await fetch('/api/analytics/visitors/log?limit=15', {
+            const res = await fetch('/api/analytics/visitors/log?limit=15&live=true', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'x-account-id': currentAccount.id

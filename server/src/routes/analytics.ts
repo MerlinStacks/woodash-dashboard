@@ -4,6 +4,7 @@ import { SalesAnalytics } from '../services/analytics/sales';
 import { AcquisitionAnalytics } from '../services/analytics/acquisition';
 import { BehaviourAnalytics } from '../services/analytics/behaviour';
 import { CustomerAnalytics } from '../services/analytics/customer';
+import { RoadblockAnalytics } from '../services/analytics/roadblock';
 import { AdsService } from '../services/ads';
 import { requireAuth } from '../middleware/auth';
 import { esClient } from '../utils/elastic';
@@ -20,7 +21,8 @@ router.get('/visitors/log', async (req: AuthenticatedRequest, res: Response) => 
         const accountId = (req as any).accountId;
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 50;
-        const data = await AnalyticsService.getVisitorLog(accountId, page, limit);
+        const liveMode = req.query.live === 'true';
+        const data = await AnalyticsService.getVisitorLog(accountId, page, limit, liveMode);
         res.json(data);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -30,7 +32,8 @@ router.get('/ecommerce/log', async (req: AuthenticatedRequest, res: Response) =>
         const accountId = (req as any).accountId;
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 50;
-        const data = await AnalyticsService.getEcommerceLog(accountId, page, limit);
+        const liveMode = req.query.live === 'true';
+        const data = await AnalyticsService.getEcommerceLog(accountId, page, limit, liveMode);
         res.json(data);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -260,6 +263,24 @@ router.get('/behaviour/exit', async (req: AuthenticatedRequest, res: Response) =
         const data = await BehaviourAnalytics.getExitPages(accountId, startDate as string, endDate as string);
         res.json(data);
     } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+router.get('/behaviour/roadblocks', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const accountId = (req as any).accountId;
+        const { startDate, endDate } = req.query;
+        const data = await RoadblockAnalytics.getRoadblockPages(accountId, startDate as string, endDate as string);
+        res.json(data);
+    } catch (e) { res.status(500).json({ error: 'Failed to fetch roadblocks' }); }
+});
+
+router.get('/behaviour/funnel-dropoff', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const accountId = (req as any).accountId;
+        const { startDate, endDate } = req.query;
+        const data = await RoadblockAnalytics.getDropOffFunnel(accountId, startDate as string, endDate as string);
+        res.json(data);
+    } catch (e) { res.status(500).json({ error: 'Failed to fetch funnel' }); }
 });
 
 

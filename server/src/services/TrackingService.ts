@@ -584,6 +584,7 @@ export class TrackingService {
 
     /**
      * Get revenue analytics: AOV, total, by source
+     * Falls back to Elasticsearch order data if no analytics purchase events exist
      */
     static async getRevenue(accountId: string, days: number = 30) {
         const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -607,29 +608,62 @@ export class TrackingService {
         });
 
         let totalRevenue = 0;
+        let orderCount = 0;
         const revenueByFirstTouch = new Map<string, number>();
         const revenueByLastTouch = new Map<string, number>();
         const revenueByCountry = new Map<string, number>();
         const revenueByDevice = new Map<string, number>();
 
-        for (const event of purchaseEvents) {
-            const total = (event.payload as any)?.total || 0;
-            totalRevenue += total;
+        // If we have analytics purchase events, use them
+        if (purchaseEvents.length > 0) {
+            for (const event of purchaseEvents) {
+                const total = (event.payload as any)?.total || 0;
+                totalRevenue += total;
 
-            // @ts-ignore - Prisma include type inference not working correctly with select
-            const session = event.session as { firstTouchSource: string | null; lastTouchSource: string | null; country: string | null; deviceType: string | null };
-            const firstTouch = session?.firstTouchSource || 'direct';
-            const lastTouch = session?.lastTouchSource || 'direct';
-            const country = session?.country || 'Unknown';
-            const device = session?.deviceType || 'unknown';
+                // @ts-ignore - Prisma include type inference not working correctly with select
+                const session = event.session as { firstTouchSource: string | null; lastTouchSource: string | null; country: string | null; deviceType: string | null };
+                const firstTouch = session?.firstTouchSource || 'direct';
+                const lastTouch = session?.lastTouchSource || 'direct';
+                const country = session?.country || 'Unknown';
+                const device = session?.deviceType || 'unknown';
 
-            revenueByFirstTouch.set(firstTouch, (revenueByFirstTouch.get(firstTouch) || 0) + total);
-            revenueByLastTouch.set(lastTouch, (revenueByLastTouch.get(lastTouch) || 0) + total);
-            revenueByCountry.set(country, (revenueByCountry.get(country) || 0) + total);
-            revenueByDevice.set(device, (revenueByDevice.get(device) || 0) + total);
+                revenueByFirstTouch.set(firstTouch, (revenueByFirstTouch.get(firstTouch) || 0) + total);
+                revenueByLastTouch.set(lastTouch, (revenueByLastTouch.get(lastTouch) || 0) + total);
+                revenueByCountry.set(country, (revenueByCountry.get(country) || 0) + total);
+                revenueByDevice.set(device, (revenueByDevice.get(device) || 0) + total);
+            }
+            orderCount = purchaseEvents.length;
+        } else {
+            // Fallback: Use WooCommerce orders from database when no analytics events exist
+            const orders = await prisma.wooOrder.findMany({
+                where: {
+                    accountId,
+                    dateCreated: { gte: startDate },
+                    status: { in: ['completed', 'processing', 'on-hold'] }
+                },
+                select: {
+                    total: true,
+                    rawData: true
+                }
+            });
+
+            for (const order of orders) {
+                const total = parseFloat(String(order.total)) || 0;
+                totalRevenue += total;
+
+                // Extract billing country from rawData JSON
+                const rawDataObj = order.rawData as any;
+                const country = rawDataObj?.billing?.country || 'Unknown';
+                revenueByCountry.set(country, (revenueByCountry.get(country) || 0) + total);
+
+                // For fallback orders without analytics, mark as 'direct'
+                revenueByFirstTouch.set('direct', (revenueByFirstTouch.get('direct') || 0) + total);
+                revenueByLastTouch.set('direct', (revenueByLastTouch.get('direct') || 0) + total);
+                revenueByDevice.set('unknown', (revenueByDevice.get('unknown') || 0) + total);
+            }
+            orderCount = orders.length;
         }
 
-        const orderCount = purchaseEvents.length;
         const aov = orderCount > 0 ? totalRevenue / orderCount : 0;
 
         return {

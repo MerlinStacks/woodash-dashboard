@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAccount } from '../context/AccountContext';
+import { useAccountFeature } from '../hooks/useAccountFeature';
 import { SyncStatus } from '../components/sync/SyncStatus';
 import { ChatSettings } from '../components/chat/ChatSettings';
 import { AISettings } from '../components/settings/AISettings';
@@ -10,24 +11,26 @@ import { EmailSettings } from '../components/settings/EmailSettings';
 import { GoldPriceSettings } from '../components/settings/GoldPriceSettings';
 import { InventoryAlertsSettings } from '../components/settings/InventoryAlertsSettings';
 import { OrderTagSettings } from '../components/settings/OrderTagSettings';
-import { LayoutGrid, Palette, MessageSquare, Bot, Activity, RefreshCw, Mail, Package } from 'lucide-react';
+import { LayoutGrid, Palette, MessageSquare, Bot, Activity, RefreshCw, Mail, Package, Tags, Coins } from 'lucide-react';
 
-type TabId = 'general' | 'appearance' | 'chat' | 'intelligence' | 'analytics' | 'sync' | 'email' | 'inventory';
+type TabId = 'general' | 'appearance' | 'chat' | 'intelligence' | 'analytics' | 'sync' | 'email' | 'inventory' | 'orderTags' | 'goldPrice';
 
 export function SettingsPage() {
     const { currentAccount } = useAccount();
+    const isGoldPriceEnabled = useAccountFeature('GOLD_PRICE_CALCULATOR');
     const [activeTab, setActiveTab] = useState<TabId>('general');
 
     if (!currentAccount) return <div>Loading...</div>;
 
-    const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
+    const tabs: { id: TabId; label: string; icon: React.ElementType; hidden?: boolean }[] = [
         { id: 'general', label: 'General', icon: LayoutGrid },
         { id: 'appearance', label: 'Appearance', icon: Palette },
+        { id: 'orderTags', label: 'Order Tags', icon: Tags },
+        { id: 'goldPrice', label: 'Gold Price', icon: Coins, hidden: !isGoldPriceEnabled },
         { id: 'chat', label: 'Chat', icon: MessageSquare },
         { id: 'intelligence', label: 'Intelligence', icon: Bot },
         { id: 'analytics', label: 'Analytics', icon: Activity },
         { id: 'inventory', label: 'Inventory', icon: Package },
-
         { id: 'sync', label: 'Sync Status', icon: RefreshCw },
         { id: 'email', label: 'Email', icon: Mail },
     ];
@@ -38,7 +41,7 @@ export function SettingsPage() {
 
             {/* Tabs Navigation */}
             <div className="flex overflow-x-auto border-b border-gray-200 no-scrollbar">
-                {tabs.map((tab) => {
+                {tabs.filter(tab => !tab.hidden).map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
                     return (
@@ -62,13 +65,11 @@ export function SettingsPage() {
 
             {/* Tab Content */}
             <div className="mt-6">
-                {activeTab === 'general' && (
-                    <div className="space-y-6">
-                        <GeneralSettings />
-                        <GoldPriceSettings />
-                        <OrderTagSettings />
-                    </div>
-                )}
+                {activeTab === 'general' && <GeneralSettings />}
+
+                {activeTab === 'orderTags' && <OrderTagSettings />}
+
+                {activeTab === 'goldPrice' && <GoldPriceSettings />}
 
                 {activeTab === 'appearance' && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

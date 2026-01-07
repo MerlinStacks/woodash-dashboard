@@ -17,6 +17,39 @@ interface OrderMatchResult {
     daysDiff: number;
 }
 
+/**
+ * Normalizes email for comparison: lowercase, trim, remove + addressing.
+ */
+function normalizeEmail(email: string | null | undefined): string | null {
+    if (!email) return null;
+    const trimmed = email.trim().toLowerCase();
+    const atIndex = trimmed.indexOf('@');
+    if (atIndex === -1) return trimmed;
+    const localPart = trimmed.substring(0, atIndex);
+    const domain = trimmed.substring(atIndex);
+    const plusIndex = localPart.indexOf('+');
+    if (plusIndex !== -1) {
+        return localPart.substring(0, plusIndex) + domain;
+    }
+    return trimmed;
+}
+
+/**
+ * Compares reviewer name against order billing name.
+ */
+function namesMatch(reviewerName: string, billingFirst: string | undefined, billingLast: string | undefined): boolean {
+    if (!reviewerName) return false;
+    const normalizedReviewer = reviewerName.toLowerCase().trim();
+    const fullBilling = `${billingFirst || ''} ${billingLast || ''}`.toLowerCase().trim();
+    if (normalizedReviewer === fullBilling) return true;
+    const first = (billingFirst || '').toLowerCase().trim();
+    const last = (billingLast || '').toLowerCase().trim();
+    if (first && last && normalizedReviewer.includes(first) && normalizedReviewer.includes(last)) return true;
+    const reviewerParts = normalizedReviewer.split(/\s+/);
+    if (last && reviewerParts.some(part => part === last)) return true;
+    return false;
+}
+
 async function rematchReviewsToOrders() {
     Logger.info('Starting review-to-order re-matching...');
 
@@ -68,33 +101,52 @@ async function rematchReviewsToOrders() {
                 const data = order.rawData as any;
                 const lineItems = data.line_items || [];
 
-                // Check if order contains the reviewed product
+                // Check if order contains the reviewed product (including variations)
                 const hasProduct = lineItems.some((item: any) => {
                     if (item.product_id === productId) return true;
                     if (item.variation_id && item.product_id === productId) return true;
+                    // Variation match - review on variation, order has parent
+                    if (item.variation_id === productId) return true;
                     return false;
                 });
 
                 if (!hasProduct) continue;
 
-                // Check customer/email match
+                // Check customer/email/name match with tiered scoring
                 let matchScore = 0;
-                const orderEmail = data.billing?.email?.toLowerCase();
+                const normalizedOrderEmail = normalizeEmail(data.billing?.email);
+                const normalizedReviewerEmail = normalizeEmail(reviewerEmail);
                 const orderCustomerId = data.customer_id;
+                const billingFirst = data.billing?.first_name;
+                const billingLast = data.billing?.last_name;
 
-                // Priority 1: Exact WooCommerce customer ID match
+                // Priority 1: Exact WooCommerce customer ID match (score 100)
                 if (wooCustomerId) {
                     const customer = await prisma.wooCustomer.findUnique({ where: { id: wooCustomerId } });
                     if (customer && orderCustomerId === customer.wooId) {
                         matchScore = 100;
-                    } else if (customer && orderEmail === customer.email?.toLowerCase()) {
+                    } else if (customer && normalizedOrderEmail === normalizeEmail(customer.email)) {
                         matchScore = 90;
                     }
                 }
 
-                // Priority 2: Direct email match
-                if (matchScore === 0 && reviewerEmail && orderEmail === reviewerEmail.toLowerCase()) {
+                // Priority 2: Direct email match with normalization (score 80)
+                if (matchScore === 0 && normalizedReviewerEmail && normalizedOrderEmail === normalizedReviewerEmail) {
                     matchScore = 80;
+                }
+
+                // Priority 3: Name-based match fallback (score 60)
+                if (matchScore === 0 && review.reviewer && namesMatch(review.reviewer, billingFirst, billingLast)) {
+                    matchScore = 60;
+                }
+
+                // Priority 4: Product-only match with tight temporal proximity (score 40)
+                if (matchScore === 0) {
+                    const daysDiff = (reviewDate.getTime() - new Date(order.dateCreated).getTime()) / (1000 * 60 * 60 * 24);
+                    // Only allow if review is 7-60 days after order
+                    if (daysDiff >= 7 && daysDiff <= 60) {
+                        matchScore = 40;
+                    }
                 }
 
                 if (matchScore > 0) {

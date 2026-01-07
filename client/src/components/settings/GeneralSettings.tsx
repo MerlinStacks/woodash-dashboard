@@ -7,7 +7,6 @@ export function GeneralSettings() {
     const { token } = useAuth();
     const { currentAccount, refreshAccounts } = useAccount();
     const [isSaving, setIsSaving] = useState(false);
-    const [isConfiguring, setIsConfiguring] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -78,49 +77,6 @@ export function GeneralSettings() {
             alert('Failed to save settings: ' + (error instanceof Error ? error.message : 'Unknown error'));
         } finally {
             setIsSaving(false);
-        }
-    };
-
-    const handleConfigurePlugin = async () => {
-        if (!currentAccount || !token) {
-            alert("No active account selected. Please select an account first.");
-            return;
-        }
-
-        if (!formData.wooUrl || !formData.wooConsumerKey) {
-            alert("Please save your WooCommerce URL and Consumer Key before configuring the plugin.");
-            return;
-        }
-
-        setIsConfiguring(true);
-        try {
-            const res = await fetch('/api/woo/configure', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'x-account-id': currentAccount.id
-                },
-                body: JSON.stringify({
-                    origin: window.location.origin,
-                    wooUrl: formData.wooUrl,
-                    wooConsumerKey: formData.wooConsumerKey,
-                    wooConsumerSecret: formData.wooConsumerSecret
-                })
-            });
-
-            const data = await res.json();
-            if (!res.ok) {
-                console.error('Plugin Config Error Data:', data);
-                throw new Error(data.error || 'Failed to configure plugin');
-            }
-
-            alert('Plugin configured successfully! The settings have been pushed to your WooCommerce site.');
-        } catch (error: any) {
-            console.error(error);
-            alert(error.message || 'Failed to configure plugin. Please check your credentials and try again.');
-        } finally {
-            setIsConfiguring(false);
         }
     };
 
@@ -197,16 +153,7 @@ export function GeneralSettings() {
                 </div>
             </div>
 
-            <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
-                <button
-                    onClick={handleConfigurePlugin}
-                    disabled={isConfiguring || isSaving}
-                    className="text-gray-600 hover:text-gray-900 text-sm font-medium flex items-center gap-2"
-                >
-                    {isConfiguring ? <Loader2 size={16} className="animate-spin" /> : null}
-                    {isConfiguring ? 'Configuring...' : 'Auto-Configure Plugin'}
-                </button>
-
+            <div className="bg-gray-50 px-6 py-4 flex justify-end">
                 <button
                     onClick={handleSave}
                     disabled={isSaving}

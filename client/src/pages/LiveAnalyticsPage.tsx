@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { Globe, LayoutDashboard, Link, FileText, MousePointer, LogOut, LogIn, History, Search, X, Menu } from 'lucide-react';
+import { Globe, LayoutDashboard, Link, FileText, MousePointer, LogOut, LogIn, History, Search, X, Menu, AlertTriangle } from 'lucide-react';
 import { LiveSession } from '../types/analytics';
 import { VisitorsTable } from '../components/analytics/VisitorsTable';
 import { ReportsTable } from '../components/analytics/ReportsTable';
 import { AnalyticsOverview } from '../components/analytics/AnalyticsOverview';
 import { UrlBuilder } from '../components/analytics/UrlBuilder';
+import { RoadblocksView } from '../components/analytics/RoadblocksView';
 
 // Sidebar Menu Items
 const MENUS = [
@@ -27,10 +28,12 @@ const MENUS = [
             { id: 'pages', label: 'Pages', icon: FileText },
             { id: 'entry', label: 'Entry Pages', icon: LogIn },
             { id: 'exit', label: 'Exit Pages', icon: LogOut },
+            { id: 'roadblocks', label: 'Roadblocks', icon: AlertTriangle },
             { id: 'search', label: 'Site Search', icon: Search },
         ]
     }
 ];
+
 
 export function LiveAnalyticsPage() {
     const { token } = useAuth();
@@ -185,9 +188,10 @@ export function LiveAnalyticsPage() {
                         </div>
                     )}
                     {activeView === 'url-builder' && <UrlBuilder />}
+                    {activeView === 'roadblocks' && <RoadblocksView dateRange={dateRange} />}
 
                     {/* Render Generic Report Table for others */}
-                    {activeView !== 'overview' && activeView !== 'realtime' && activeView !== 'url-builder' && (
+                    {activeView !== 'overview' && activeView !== 'realtime' && activeView !== 'url-builder' && activeView !== 'roadblocks' && (
                         <ReportsTable
                             data={reportData}
                             loading={loadingReport}

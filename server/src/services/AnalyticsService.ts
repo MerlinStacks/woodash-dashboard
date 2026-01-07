@@ -6,14 +6,22 @@ export class AnalyticsService {
     /**
      * Get Visitor Log (Real-time Traffic)
      * Includes last 10 events per session for action display
+     * @param liveMode - If true, only returns sessions active in last 30 minutes
      */
-    static async getVisitorLog(accountId: string, page = 1, limit = 50) {
+    static async getVisitorLog(accountId: string, page = 1, limit = 50, liveMode = false) {
         if (!accountId) throw new Error("Account ID is required");
         const skip = (page - 1) * limit;
 
+        // Build where clause with optional live mode filter
+        const whereClause: any = { accountId };
+        if (liveMode) {
+            const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+            whereClause.lastActiveAt = { gte: thirtyMinsAgo };
+        }
+
         const [data, total] = await Promise.all([
             prisma.analyticsSession.findMany({
-                where: { accountId },
+                where: whereClause,
                 orderBy: { lastActiveAt: 'desc' },
                 skip,
                 take: limit,
@@ -34,7 +42,7 @@ export class AnalyticsService {
                     }
                 }
             }),
-            prisma.analyticsSession.count({ where: { accountId } })
+            prisma.analyticsSession.count({ where: whereClause })
         ]);
 
         return { data, total, page, totalPages: Math.ceil(total / limit) };
@@ -42,18 +50,26 @@ export class AnalyticsService {
 
     /**
      * Get Ecommerce Log (Transaction/Event Stream)
+     * @param liveMode - If true, only returns events from last 30 minutes
      */
-    static async getEcommerceLog(accountId: string, page = 1, limit = 50) {
+    static async getEcommerceLog(accountId: string, page = 1, limit = 50, liveMode = false) {
         const skip = (page - 1) * limit;
 
         const commerceTypes = ['add_to_cart', 'remove_from_cart', 'checkout_start', 'checkout_success', 'purchase'];
 
+        // Build where clause with optional live mode filter
+        const whereClause: any = {
+            session: { accountId },
+            type: { in: commerceTypes }
+        };
+        if (liveMode) {
+            const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+            whereClause.createdAt = { gte: thirtyMinsAgo };
+        }
+
         const [data, total] = await Promise.all([
             prisma.analyticsEvent.findMany({
-                where: {
-                    session: { accountId },
-                    type: { in: commerceTypes }
-                },
+                where: whereClause,
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit,
@@ -68,12 +84,7 @@ export class AnalyticsService {
                     }
                 }
             }),
-            prisma.analyticsEvent.count({
-                where: {
-                    session: { accountId },
-                    type: { in: commerceTypes }
-                }
-            })
+            prisma.analyticsEvent.count({ where: whereClause })
         ]);
 
         return { data, total, page, totalPages: Math.ceil(total / limit) };
