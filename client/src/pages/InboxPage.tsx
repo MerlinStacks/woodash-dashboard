@@ -5,10 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { ConversationList } from '../components/chat/ConversationList';
 import { ChatWindow } from '../components/chat/ChatWindow';
+import { ContactPanel } from '../components/chat/ContactPanel';
+import { MessageSquare } from 'lucide-react';
 
 export function InboxPage() {
     const { socket, isConnected } = useSocket();
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const { currentAccount } = useAccount();
 
     const [conversations, setConversations] = useState<any[]>([]);
@@ -17,6 +19,12 @@ export function InboxPage() {
     const [isLoading, setIsLoading] = useState(true);
 
     const activeConversation = conversations.find(c => c.id === selectedId);
+
+    // Get recipient info for ChatWindow
+    const recipientEmail = activeConversation?.wooCustomer?.email || activeConversation?.guestEmail;
+    const recipientName = activeConversation?.wooCustomer
+        ? `${activeConversation.wooCustomer.firstName || ''} ${activeConversation.wooCustomer.lastName || ''}`.trim()
+        : activeConversation?.guestName;
 
     // Initial Load
     useEffect(() => {
@@ -51,8 +59,6 @@ export function InboxPage() {
             setConversations(prev => {
                 const idx = prev.findIndex(c => c.id === data.id);
                 if (idx === -1) {
-                    // New conversation - fetch it and prepend
-                    // We'll do this asynchronously and update state when done
                     fetchNewConversation(data.id);
                     return prev;
                 }
@@ -62,11 +68,9 @@ export function InboxPage() {
                     messages: [data.lastMessage],
                     updatedAt: data.updatedAt
                 };
-                // Re-sort
                 return updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
             });
 
-            // If this is the active conversation, append message
             if (selectedId === data.id && data.lastMessage) {
                 setMessages(prev => {
                     if (prev.find(m => m.id === data.lastMessage.id)) return prev;
@@ -76,13 +80,11 @@ export function InboxPage() {
         });
 
         socket.on('message:new', (msg: any) => {
-            // Only append if it's the current one
             if (selectedId === msg.conversationId) {
                 setMessages(prev => [...prev, msg]);
             }
         });
 
-        // Helper to fetch a new conversation by ID and add it to the list
         const fetchNewConversation = async (id: string) => {
             try {
                 const res = await fetch(`/api/chat/${id}`, {
@@ -91,7 +93,6 @@ export function InboxPage() {
                 if (res.ok) {
                     const newConv = await res.json();
                     setConversations(prev => {
-                        // Check if it was added while we were fetching
                         if (prev.find(c => c.id === id)) return prev;
                         return [newConv, ...prev];
                     });
@@ -107,12 +108,10 @@ export function InboxPage() {
         };
     }, [socket, selectedId, currentAccount, token]);
 
-
     // Fetch Messages when selected
     useEffect(() => {
         if (!selectedId || !token) return;
 
-        // Join room
         socket?.emit('join:conversation', selectedId);
 
         const fetchMessages = async () => {
@@ -132,8 +131,6 @@ export function InboxPage() {
     const handleSendMessage = async (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean) => {
         if (!selectedId) return;
 
-        // Optimistic UI could be added here
-
         const res = await fetch(`/api/chat/${selectedId}/messages`, {
             method: 'POST',
             headers: {
@@ -144,54 +141,58 @@ export function InboxPage() {
         });
 
         if (!res.ok) {
-            alert('Failed to send'); // Simple error handling
+            alert('Failed to send');
         }
-
-        // Socket should handle the update in UI
     };
 
-    if (isLoading) return <div className="h-full flex items-center justify-center">Loading inbox...</div>;
+    if (isLoading) {
+        return (
+            <div className="h-full flex items-center justify-center">
+                <div className="text-gray-400">Loading inbox...</div>
+            </div>
+        );
+    }
 
     return (
-        <div className="h-[calc(100vh-64px)] flex bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+        <div className="-m-4 md:-m-6 lg:-m-8 h-[calc(100vh-64px)] flex bg-gray-100 overflow-hidden">
+            {/* Conversations List */}
             <ConversationList
                 conversations={conversations}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                currentUserId={user?.id}
             />
 
-            <div className="flex-1 flex flex-col min-w-0">
+            {/* Main Chat Area */}
+            <div className="flex-1 flex flex-col min-w-0 bg-white">
                 {selectedId ? (
                     <ChatWindow
                         conversationId={selectedId}
                         messages={messages}
                         onSendMessage={handleSendMessage}
+                        recipientEmail={recipientEmail}
+                        recipientName={recipientName}
                     />
                 ) : (
-                    <div className="flex-1 flex items-center justify-center text-gray-400">
-                        Select a conversation
+                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+                        <MessageSquare size={48} strokeWidth={1} className="mb-4" />
+                        <p className="text-lg font-medium">Select a conversation</p>
+                        <p className="text-sm">Choose from the list on the left</p>
                     </div>
                 )}
             </div>
 
-            {/* Right Sidebar (Details) Placeholder */}
+            {/* Contact Panel - Right Sidebar */}
             {selectedId && (
-                <div className="w-72 border-l border-gray-200 bg-gray-50 p-4 hidden lg:block">
-                    <h3 className="font-semibold text-gray-700 mb-4">Details</h3>
-                    <div className="text-sm text-gray-500">
-                        {activeConversation?.wooCustomer ? (
-                            <>
-                                <p className="font-medium text-gray-900">{activeConversation.wooCustomer.firstName} {activeConversation.wooCustomer.lastName}</p>
-                                <p>{activeConversation.wooCustomer.email}</p>
-                            </>
-                        ) : (
-                            <p>Anonymous Visitor</p>
-                        )}
-                        <div className="mt-4">
-                            <button className="text-blue-600 hover:underline">Link Customer</button>
-                        </div>
-                    </div>
-                </div>
+                <ContactPanel
+                    conversation={activeConversation}
+                    onStatusChange={(newStatus) => {
+                        // Update local state
+                        setConversations(prev => prev.map(c =>
+                            c.id === selectedId ? { ...c, status: newStatus } : c
+                        ));
+                    }}
+                />
             )}
         </div>
     );

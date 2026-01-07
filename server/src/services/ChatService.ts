@@ -223,10 +223,9 @@ export class ChatService {
                     accountId,
                     status: 'OPEN',
                     wooCustomerId: customer?.id,
-                    // If no customer, we might need a way to store "Guest Email" on conversation
-                    // For now, we rely on the first message or context.
-                    // Ideally: Add `guestEmail` field to Conversation or use VisitorToken as email hash?
-                    // Let's create a System Message with the email info if no customer profile exists.
+                    // Store guest info if no customer found
+                    guestEmail: customer ? undefined : fromEmail,
+                    guestName: customer ? undefined : fromName || undefined,
                     priority: 'MEDIUM'
                 }
             });

@@ -595,6 +595,10 @@ model Conversation {
   // For "Live Chat", we might track a visitor token if they aren't logged in
   visitorToken String?
 
+  // For email conversations from unknown senders (no WooCustomer match)
+  guestEmail String?
+  guestName  String?
+
   // Merging support
   mergedIntoId String?
   mergedInto   Conversation?  @relation("ConversationMerges", fields: [mergedIntoId], references: [id])
