@@ -131,9 +131,9 @@ router.delete('/accounts/:accountId', async (req: AuthenticatedRequest, res: Res
         });
 
         res.json({ success: true, message: `Account "${account.name}" has been deleted.` });
-    } catch (e) {
-        console.error('Failed to delete account:', e);
-        res.status(500).json({ error: 'Failed to delete account' });
+    } catch (e: any) {
+        console.error('Failed to delete account:', e?.message || e, e?.stack);
+        res.status(500).json({ error: 'Failed to delete account', details: e?.message || String(e) });
     }
 });
 

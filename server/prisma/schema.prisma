@@ -160,8 +160,8 @@ model AccountUser {
   // Granular permissions override (e.g. { "can_manage_ads": true })
   permissions Json? @default("{}")
 
-  user    User    @relation(fields: [userId], references: [id])
-  account Account @relation(fields: [accountId], references: [id])
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -182,7 +182,7 @@ model AccountFeature {
   // Feature specific config (e.g. Ad Account ID, Access Token)
   config Json? @default("{}")
 
-  account Account @relation(fields: [accountId], references: [id])
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -216,8 +216,8 @@ model DashboardLayout {
   isDefault Boolean @default(false)
 
   // Layout Grid Configuration
-  user    User    @relation(fields: [userId], references: [id])
-  account Account @relation(fields: [accountId], references: [id])
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   widgets DashboardWidget[]
 
@@ -506,7 +506,7 @@ model AdAccount {
   refreshToken String?
   currency     String?
 
-  account   Account  @relation(fields: [accountId], references: [id])
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
