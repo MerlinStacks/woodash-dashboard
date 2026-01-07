@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { useNavigate } from 'react-router-dom';
-import { Shield, LogIn, Check, X, Settings } from 'lucide-react';
+import { Shield, LogIn, Check, X, Settings, Trash2 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface Account {
@@ -30,6 +30,9 @@ export function AdminAccountsPage() {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null); // For feature modal
+    const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
+    const [confirmName, setConfirmName] = useState('');
+    const [deleting, setDeleting] = useState(false);
 
     const fetchAccounts = () => {
         fetch('/api/admin/accounts', {
@@ -128,6 +131,36 @@ export function AdminAccountsPage() {
         }
     };
 
+    const handleDeleteAccount = async () => {
+        if (!deleteTarget || confirmName !== deleteTarget.name) return;
+
+        setDeleting(true);
+        try {
+            const res = await fetch(`/api/admin/accounts/${deleteTarget.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ confirmAccountName: confirmName })
+            });
+
+            if (res.ok) {
+                setAccounts(prev => prev.filter(acc => acc.id !== deleteTarget.id));
+                setDeleteTarget(null);
+                setConfirmName('');
+            } else {
+                const data = await res.json();
+                alert('Delete failed: ' + data.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to delete account');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     if (loading) return <div>Loading accounts...</div>;
 
     return (
@@ -174,19 +207,71 @@ export function AdminAccountsPage() {
                                     </div>
                                 </td>
                                 <td className="p-4 text-right">
-                                    <button
-                                        onClick={() => handleImpersonate(account.id)}
-                                        className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                                    >
-                                        <LogIn size={14} />
-                                        Impersonate
-                                    </button>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button
+                                            onClick={() => handleImpersonate(account.id)}
+                                            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                                        >
+                                            <LogIn size={14} />
+                                            Impersonate
+                                        </button>
+                                        <button
+                                            onClick={() => { setDeleteTarget(account); setConfirmName(''); }}
+                                            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                                        >
+                                            <Trash2 size={14} />
+                                            Delete
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-md mx-4">
+                        <h2 className="text-lg font-bold text-slate-900 mb-2">Delete Account</h2>
+                        <p className="text-sm text-slate-600 mb-4">
+                            This action is <span className="font-semibold text-red-600">irreversible</span>. All data associated with this account will be permanently deleted.
+                        </p>
+                        <p className="text-sm text-slate-700 mb-4">
+                            To confirm, type the account name: <span className="font-mono font-bold text-slate-900">{deleteTarget.name}</span>
+                        </p>
+                        <input
+                            type="text"
+                            value={confirmName}
+                            onChange={(e) => setConfirmName(e.target.value)}
+                            placeholder="Type account name to confirm"
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent mb-4"
+                            autoFocus
+                        />
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => { setDeleteTarget(null); setConfirmName(''); }}
+                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteAccount}
+                                disabled={confirmName !== deleteTarget.name || deleting}
+                                className={cn(
+                                    "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                                    confirmName === deleteTarget.name && !deleting
+                                        ? "bg-red-600 text-white hover:bg-red-700"
+                                        : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                                )}
+                            >
+                                {deleting ? 'Deleting...' : 'Confirm Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -19,13 +19,20 @@ export interface AuthRequest extends Request {
 
 export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader) {
-        return res.status(401).json({ error: 'No token provided' });
+    // Support query param token for Bull Board (opened in new tab)
+    const queryToken = req.query.token as string | undefined;
+
+    let token: string | undefined;
+
+    if (authHeader) {
+        token = authHeader.split(' ')[1];
+    } else if (queryToken && req.originalUrl.startsWith('/admin/queues')) {
+        // Only allow query token for Bull Board route
+        token = queryToken;
     }
 
-    const token = authHeader.split(' ')[1];
     if (!token) {
-        return res.status(401).json({ error: 'Invalid token format' });
+        return res.status(401).json({ error: 'No token provided' });
     }
 
     try {

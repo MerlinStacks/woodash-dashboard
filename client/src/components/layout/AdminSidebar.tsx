@@ -6,23 +6,26 @@ import {
     FileText,
     Server,
     Radio,
-    BookOpen,
     ChevronLeft,
     ChevronRight,
     LogOut
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
     { icon: Users, label: 'Accounts', path: '/admin/accounts' },
-    { icon: BookOpen, label: 'Help Center', path: '/admin/help' },
     { icon: FileText, label: 'System Logs', path: '/admin/logs' },
     { icon: Radio, label: 'Broadcasts', path: '/admin/broadcast' },
 ];
 
 export function AdminSidebar() {
     const [collapsed, setCollapsed] = useState(false);
+    const { token } = useAuth();
+
+    // Construct Bull Board URL with token for authentication in new tab
+    const queueMonitorUrl = `/admin/queues${token ? `?token=${token}` : ''}`;
 
     return (
         <aside
@@ -72,7 +75,7 @@ export function AdminSidebar() {
                 <div className="my-4 border-t border-slate-800 mx-2" />
 
                 <a
-                    href="/admin/queues"
+                    href={queueMonitorUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={cn(

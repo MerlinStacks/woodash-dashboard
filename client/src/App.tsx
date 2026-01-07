@@ -44,7 +44,6 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminAccountsPage } from './pages/admin/AdminAccountsPage';
 import { AdminLogsPage } from './pages/admin/AdminLogsPage';
 import { AdminBroadcastPage } from './pages/admin/AdminBroadcastPage';
-import { AdminHelpCenterPage } from './pages/admin/AdminHelpCenterPage';
 import { AdminCredentialsPage } from './pages/admin/AdminCredentialsPage';
 
 // Component to handle redirection based on account status
@@ -84,7 +83,6 @@ function App() {
                                         <Route path="/admin/accounts" element={<AdminAccountsPage />} />
                                         <Route path="/admin/logs" element={<AdminLogsPage />} />
                                         <Route path="/admin/broadcast" element={<AdminBroadcastPage />} />
-                                        <Route path="/admin/help" element={<AdminHelpCenterPage />} />
                                         <Route path="/admin/credentials" element={<AdminCredentialsPage />} />
                                     </Route>
 

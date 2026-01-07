@@ -61,6 +61,46 @@ router.get('/accounts', async (req: AuthenticatedRequest, res: Response) => {
     }
 });
 
+/**
+ * DELETE /api/admin/accounts/:accountId
+ * Delete an account with double confirmation (must provide exact account name).
+ * Body: { confirmAccountName: string }
+ */
+router.delete('/accounts/:accountId', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { accountId } = req.params;
+        const { confirmAccountName } = req.body;
+
+        if (!confirmAccountName || typeof confirmAccountName !== 'string') {
+            return res.status(400).json({ error: 'confirmAccountName is required' });
+        }
+
+        const account = await prisma.account.findUnique({
+            where: { id: accountId },
+            select: { id: true, name: true }
+        });
+
+        if (!account) {
+            return res.status(404).json({ error: 'Account not found' });
+        }
+
+        // Double confirmation: name must match exactly
+        if (account.name !== confirmAccountName) {
+            return res.status(400).json({ error: 'Account name does not match. Deletion cancelled.' });
+        }
+
+        // Delete account (Prisma cascades handle related data)
+        await prisma.account.delete({
+            where: { id: accountId }
+        });
+
+        res.json({ success: true, message: `Account "${account.name}" has been deleted.` });
+    } catch (e) {
+        console.error('Failed to delete account:', e);
+        res.status(500).json({ error: 'Failed to delete account' });
+    }
+});
+
 // Toggle Feature Flag
 router.post('/accounts/:accountId/toggle-feature', async (req: AuthenticatedRequest, res: Response) => {
     try {

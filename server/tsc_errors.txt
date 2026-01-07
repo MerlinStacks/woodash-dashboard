@@ -1,4 +1,0 @@
-﻿src/services/OrderTaggingService.ts(31,30): error TS2352: Conversion of type 'string | number | boolean | JsonObject | JsonArray' to type 'TagMapping[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-  Type 'JsonArray' is not comparable to type 'TagMapping[]'.
-    Type 'JsonValue' is not comparable to type 'TagMapping'.
-      Type 'JsonValue[]' is missing the following properties from type 'TagMapping': productTag, orderTag, enabled
