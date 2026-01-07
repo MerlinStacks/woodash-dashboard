@@ -31,6 +31,7 @@ import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import { ProductEditPage } from './pages/ProductEditPage';
 import { PurchaseOrderEditPage } from './pages/PurchaseOrderEditPage';
 import { InvoiceDesigner } from './pages/InvoiceDesigner';
+import { PoliciesPage } from './pages/PoliciesPage';
 
 // Analytics Sub-Pages
 import { AnalyticsOverviewPage } from './pages/analytics/AnalyticsOverviewPage';
@@ -119,6 +120,7 @@ function App() {
 
                                         <Route path="/invoices/design" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
                                         <Route path="/invoices/design/:id" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
+                                        <Route path="/policies" element={<AccountGuard><PoliciesPage /></AccountGuard>} />
                                     </Route>
                                 </Route>
 

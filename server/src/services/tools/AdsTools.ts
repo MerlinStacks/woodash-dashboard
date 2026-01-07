@@ -304,80 +304,188 @@ export class AdsTools {
     }
 
     /**
-     * Get AI-powered optimization suggestions for Google Ads campaigns.
-     * Analyzes campaign data and provides actionable recommendations.
+     * Analyze Meta Ads campaigns with detailed performance breakdown.
+     * Returns campaign-level metrics and identifies opportunities.
+     */
+    static async analyzeMetaAdsCampaigns(accountId: string, days: number = 30) {
+        try {
+            const adAccounts = await prisma.adAccount.findMany({
+                where: { accountId, platform: 'META' },
+                select: { id: true, name: true, externalId: true }
+            });
+
+            if (adAccounts.length === 0) {
+                return "No Meta Ads accounts connected. Connect your Meta Ads account in Marketing > Ad Accounts.";
+            }
+
+            const allCampaigns: any[] = [];
+
+            for (const adAccount of adAccounts) {
+                try {
+                    const campaigns = await AdsService.getMetaCampaignInsights(adAccount.id, days);
+                    campaigns.forEach(c => {
+                        allCampaigns.push({
+                            account: adAccount.name || adAccount.externalId,
+                            ...c
+                        });
+                    });
+                } catch (err) {
+                    Logger.warn(`Failed to fetch Meta campaigns for ${adAccount.id}`, { error: err });
+                }
+            }
+
+            if (allCampaigns.length === 0) {
+                return "No campaign data available. Please check your Meta Ads connection.";
+            }
+
+            // Calculate totals
+            const totals = allCampaigns.reduce((acc, c) => ({
+                spend: acc.spend + c.spend,
+                clicks: acc.clicks + c.clicks,
+                impressions: acc.impressions + c.impressions,
+                conversions: acc.conversions + c.conversions,
+                conversionsValue: acc.conversionsValue + c.conversionsValue
+            }), { spend: 0, clicks: 0, impressions: 0, conversions: 0, conversionsValue: 0 });
+
+            const bySpend = [...allCampaigns].sort((a, b) => b.spend - a.spend);
+            const byRoas = [...allCampaigns].filter(c => c.spend > 0).sort((a, b) => b.roas - a.roas);
+
+            const underperformers = allCampaigns
+                .filter(c => c.spend > totals.spend * 0.05 && c.roas < 1)
+                .sort((a, b) => b.spend - a.spend)
+                .slice(0, 3);
+
+            const highPerformers = allCampaigns
+                .filter(c => c.roas >= 3)
+                .sort((a, b) => b.conversionsValue - a.conversionsValue)
+                .slice(0, 3);
+
+            return {
+                platform: 'META',
+                summary: {
+                    total_campaigns: allCampaigns.length,
+                    total_spend: `$${totals.spend.toFixed(2)}`,
+                    total_clicks: totals.clicks,
+                    total_impressions: totals.impressions,
+                    total_conversions: totals.conversions.toFixed(0),
+                    overall_roas: totals.spend > 0 ? `${(totals.conversionsValue / totals.spend).toFixed(2)}x` : 'N/A',
+                    overall_ctr: totals.impressions > 0 ? `${((totals.clicks / totals.impressions) * 100).toFixed(2)}%` : 'N/A',
+                    period: `Last ${days} days`
+                },
+                top_spenders: bySpend.slice(0, 5).map(c => ({
+                    campaign: c.campaignName,
+                    spend: `$${c.spend.toFixed(2)}`,
+                    roas: `${c.roas.toFixed(2)}x`,
+                    status: c.status
+                })),
+                highest_roas: byRoas.slice(0, 5).map(c => ({
+                    campaign: c.campaignName,
+                    roas: `${c.roas.toFixed(2)}x`,
+                    spend: `$${c.spend.toFixed(2)}`,
+                    conversions: c.conversions.toFixed(0)
+                })),
+                underperformers: underperformers.map(c => ({
+                    campaign: c.campaignName,
+                    spend: `$${c.spend.toFixed(2)}`,
+                    roas: `${c.roas.toFixed(2)}x`,
+                    issue: c.roas < 0.5 ? 'Very low ROAS - consider pausing' : 'Below breakeven - needs optimization'
+                })),
+                high_performers: highPerformers.map(c => ({
+                    campaign: c.campaignName,
+                    roas: `${c.roas.toFixed(2)}x`,
+                    revenue: `$${c.conversionsValue.toFixed(2)}`,
+                    suggestion: 'Consider increasing budget'
+                }))
+            };
+
+        } catch (error) {
+            Logger.error('Tool Error (analyzeMetaAdsCampaigns)', { error });
+            return "Failed to analyze Meta Ads campaigns.";
+        }
+    }
+
+    /**
+     * Get AI-powered optimization suggestions for all ad campaigns.
+     * Analyzes both Google and Meta Ads and provides actionable recommendations.
      */
     static async getAdOptimizationSuggestions(accountId: string) {
         try {
-            const analysis = await this.analyzeGoogleAdsCampaigns(accountId, 30);
+            // Try to analyze both platforms
+            const googleAnalysis = await this.analyzeGoogleAdsCampaigns(accountId, 30);
+            const metaAnalysis = await this.analyzeMetaAdsCampaigns(accountId, 30);
 
-            if (typeof analysis === 'string') {
-                return analysis; // Error message
+            const hasGoogle = typeof googleAnalysis !== 'string';
+            const hasMeta = typeof metaAnalysis !== 'string';
+
+            if (!hasGoogle && !hasMeta) {
+                return "No ad accounts connected. Connect your Google or Meta Ads account in Marketing > Ad Accounts.";
             }
 
             const suggestions: string[] = [];
+            let combinedSummary: any = {};
 
-            // Budget reallocation suggestions
-            if (analysis.underperformers && analysis.underperformers.length > 0) {
-                suggestions.push(
-                    `🔴 **Underperforming Campaigns**: ${analysis.underperformers.length} campaign(s) have ROAS below 1x. ` +
-                    `Consider pausing or reducing budget for: ${analysis.underperformers.map((c: any) => c.campaign).join(', ')}.`
-                );
+            // Process Google Ads
+            if (hasGoogle) {
+                if (googleAnalysis.underperformers?.length > 0) {
+                    suggestions.push(
+                        `🔴 **Google Ads - Underperforming Campaigns**: ${googleAnalysis.underperformers.length} campaign(s) have ROAS below 1x. ` +
+                        `Consider pausing or reducing budget for: ${googleAnalysis.underperformers.map((c: any) => c.campaign).join(', ')}.`
+                    );
+                }
+                if (googleAnalysis.high_performers?.length > 0) {
+                    suggestions.push(
+                        `🟢 **Google Ads - High Performers**: ${googleAnalysis.high_performers.length} campaign(s) have ROAS above 3x. ` +
+                        `Consider increasing budget for: ${googleAnalysis.high_performers.map((c: any) => c.campaign).join(', ')}.`
+                    );
+                }
+                combinedSummary.google = googleAnalysis.summary;
             }
 
-            if (analysis.high_performers && analysis.high_performers.length > 0) {
-                suggestions.push(
-                    `🟢 **High Performers**: ${analysis.high_performers.length} campaign(s) have ROAS above 3x. ` +
-                    `Consider increasing budget for: ${analysis.high_performers.map((c: any) => c.campaign).join(', ')}.`
-                );
+            // Process Meta Ads
+            if (hasMeta) {
+                if (metaAnalysis.underperformers?.length > 0) {
+                    suggestions.push(
+                        `🔴 **Meta Ads - Underperforming Campaigns**: ${metaAnalysis.underperformers.length} campaign(s) have ROAS below 1x. ` +
+                        `Consider pausing or reducing budget for: ${metaAnalysis.underperformers.map((c: any) => c.campaign).join(', ')}.`
+                    );
+                }
+                if (metaAnalysis.high_performers?.length > 0) {
+                    suggestions.push(
+                        `🟢 **Meta Ads - High Performers**: ${metaAnalysis.high_performers.length} campaign(s) have ROAS above 3x. ` +
+                        `Consider increasing budget for: ${metaAnalysis.high_performers.map((c: any) => c.campaign).join(', ')}.`
+                    );
+                }
+                combinedSummary.meta = metaAnalysis.summary;
             }
 
-            // CTR suggestions
-            const overallCtr = parseFloat(analysis.summary.overall_ctr) || 0;
-            if (overallCtr < 1) {
-                suggestions.push(
-                    `📊 **Low Overall CTR** (${analysis.summary.overall_ctr}): Your ads aren't getting clicks. ` +
-                    `Consider testing new ad copy, headlines, or targeting options to improve click-through rates.`
-                );
-            } else if (overallCtr < 2) {
-                suggestions.push(
-                    `📊 **Average CTR** (${analysis.summary.overall_ctr}): There's room for improvement. ` +
-                    `A/B test your ad creatives and try more compelling calls-to-action.`
-                );
-            }
+            // Cross-platform comparison
+            if (hasGoogle && hasMeta) {
+                const googleRoas = parseFloat(googleAnalysis.summary.overall_roas) || 0;
+                const metaRoas = parseFloat(metaAnalysis.summary.overall_roas) || 0;
 
-            // ROAS suggestions
-            const overallRoas = parseFloat(analysis.summary.overall_roas) || 0;
-            if (overallRoas < 2) {
-                suggestions.push(
-                    `💰 **Low Overall ROAS** (${analysis.summary.overall_roas}): Your return on ad spend is below optimal. ` +
-                    `Focus on high-intent keywords, improve landing pages, and review your conversion tracking setup.`
-                );
-            } else if (overallRoas >= 4) {
-                suggestions.push(
-                    `🚀 **Excellent ROAS** (${analysis.summary.overall_roas}): Your campaigns are highly profitable. ` +
-                    `Consider scaling up your best performers and testing similar audiences or keywords.`
-                );
-            }
-
-            // Campaign count suggestions
-            if (analysis.summary.total_campaigns > 10) {
-                suggestions.push(
-                    `📁 **Many Active Campaigns** (${analysis.summary.total_campaigns}): Consider consolidating campaigns ` +
-                    `with similar objectives to simplify management and improve learning for Google's algorithm.`
-                );
+                if (googleRoas > metaRoas * 1.5) {
+                    suggestions.push(
+                        `📊 **Platform Comparison**: Google Ads (${googleAnalysis.summary.overall_roas}) is significantly outperforming Meta Ads (${metaAnalysis.summary.overall_roas}). ` +
+                        `Consider shifting more budget to Google.`
+                    );
+                } else if (metaRoas > googleRoas * 1.5) {
+                    suggestions.push(
+                        `📊 **Platform Comparison**: Meta Ads (${metaAnalysis.summary.overall_roas}) is significantly outperforming Google Ads (${googleAnalysis.summary.overall_roas}). ` +
+                        `Consider shifting more budget to Meta.`
+                    );
+                }
             }
 
             if (suggestions.length === 0) {
                 suggestions.push(
-                    `✅ **Overall Performance**: Your Google Ads campaigns appear to be performing well. ` +
+                    `✅ **Overall Performance**: Your ad campaigns appear to be performing well. ` +
                     `Continue monitoring and make incremental optimizations as data accumulates.`
                 );
             }
 
             return {
                 suggestions,
-                summary: analysis.summary,
+                summary: combinedSummary,
                 action_items: suggestions.length > 1
                     ? suggestions.slice(0, 3).map((s, i) => `${i + 1}. ${s.split(':')[0].replace(/[🔴🟢📊💰🚀📁✅]/g, '').trim()}`)
                     : ['Monitor campaign performance', 'Review conversion tracking', 'Test new ad variations']
@@ -389,3 +497,4 @@ export class AdsTools {
         }
     }
 }
+

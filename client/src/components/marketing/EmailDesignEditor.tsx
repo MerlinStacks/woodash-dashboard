@@ -76,8 +76,8 @@ export const EmailDesignEditor: React.FC<Props> = ({ initialDesign, onSave, onCa
                     </div>
                 </div>
 
-                {/* Editor Container */}
-                <div className="flex-1 min-h-0 relative bg-gray-100">
+                {/* Editor Container - Use absolute positioning for iframe */}
+                <div className="flex-1 relative bg-gray-100">
                     {/* Loading Overlay */}
                     {loading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white z-20">
@@ -94,34 +94,36 @@ export const EmailDesignEditor: React.FC<Props> = ({ initialDesign, onSave, onCa
                         </div>
                     )}
 
-                    {/* Unlayer Email Editor */}
-                    <EmailEditor
-                        ref={emailEditorRef}
-                        onLoad={onLoad}
-                        onReady={onReady}
-                        style={{
-                            height: '100%',
-                            width: '100%',
-                            display: 'flex',
-                            flex: 1
-                        }}
-                        options={{
-                            appearance: {
-                                theme: 'light',
-                                panels: {
-                                    tools: {
-                                        dock: 'left'
+                    {/* Unlayer Email Editor - absolutely positioned to fill parent */}
+                    <div className="absolute inset-0">
+                        <EmailEditor
+                            ref={emailEditorRef}
+                            onLoad={onLoad}
+                            onReady={onReady}
+                            minHeight="100%"
+                            style={{
+                                height: '100%',
+                                width: '100%',
+                                minHeight: '100%'
+                            }}
+                            options={{
+                                appearance: {
+                                    theme: 'light',
+                                    panels: {
+                                        tools: {
+                                            dock: 'left'
+                                        }
                                     }
-                                }
-                            },
-                            features: {
-                                textEditor: {
-                                    spellChecker: true
-                                }
-                            },
-                            displayMode: 'email'
-                        }}
-                    />
+                                },
+                                features: {
+                                    textEditor: {
+                                        spellChecker: true
+                                    }
+                                },
+                                displayMode: 'email'
+                            }}
+                        />
+                    </div>
                 </div>
             </div>
         </div>

@@ -204,6 +204,180 @@ export class AdsService {
         }
     }
 
+    /**
+     * Fetch Meta Ads campaign-level insights.
+     * Uses Facebook Graph API to retrieve campaign breakdown.
+     */
+    static async getMetaCampaignInsights(adAccountId: string, days: number = 30): Promise<CampaignInsight[]> {
+        const adAccount = await prisma.adAccount.findUnique({
+            where: { id: adAccountId }
+        });
+
+        if (!adAccount || adAccount.platform !== 'META' || !adAccount.accessToken || !adAccount.externalId) {
+            throw new Error('Invalid Meta Ad Account');
+        }
+
+        const actId = adAccount.externalId.startsWith('act_') ? adAccount.externalId : `act_${adAccount.externalId}`;
+
+        // Calculate date range
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - days);
+
+        const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+        // Fetch campaigns with insights - only ACTIVE campaigns
+        const fields = 'campaign_id,campaign_name,spend,impressions,clicks,actions,action_values';
+        const timeRange = JSON.stringify({
+            since: formatDate(startDate),
+            until: formatDate(endDate)
+        });
+        const filtering = JSON.stringify([{ field: 'campaign.effective_status', operator: 'IN', value: ['ACTIVE'] }]);
+        const url = `https://graph.facebook.com/v18.0/${actId}/insights?fields=${fields}&level=campaign&time_range=${encodeURIComponent(timeRange)}&filtering=${encodeURIComponent(filtering)}&access_token=${adAccount.accessToken}`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.error) {
+                Logger.error('Meta API Error (campaigns)', { error: data.error });
+                throw new Error(data.error.message);
+            }
+
+            const campaigns: CampaignInsight[] = (data.data || []).map((row: any) => {
+                const spend = parseFloat(row.spend || '0');
+                const impressions = parseInt(row.impressions || '0');
+                const clicks = parseInt(row.clicks || '0');
+
+                // Get conversions from actions
+                let conversions = 0;
+                let conversionsValue = 0;
+
+                if (row.actions && Array.isArray(row.actions)) {
+                    const purchaseAction = row.actions.find(
+                        (a: any) => a.action_type === 'purchase' || a.action_type === 'omni_purchase'
+                    );
+                    if (purchaseAction?.value) {
+                        conversions = parseFloat(purchaseAction.value);
+                    }
+                }
+
+                if (row.action_values && Array.isArray(row.action_values)) {
+                    const purchaseValue = row.action_values.find(
+                        (a: any) => a.action_type === 'purchase' || a.action_type === 'omni_purchase'
+                    );
+                    if (purchaseValue?.value) {
+                        conversionsValue = parseFloat(purchaseValue.value);
+                    }
+                }
+
+                const roas = spend > 0 ? conversionsValue / spend : 0;
+                const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+                const cpc = clicks > 0 ? spend / clicks : 0;
+                const cpa = conversions > 0 ? spend / conversions : 0;
+
+                return {
+                    campaignId: row.campaign_id || '',
+                    campaignName: row.campaign_name || 'Unknown Campaign',
+                    status: 'ACTIVE', // Graph API doesn't return status in insights
+                    spend,
+                    impressions,
+                    clicks,
+                    conversions,
+                    conversionsValue,
+                    roas,
+                    ctr,
+                    cpc,
+                    cpa,
+                    currency: adAccount.currency || 'USD',
+                    dateStart: formatDate(startDate),
+                    dateStop: formatDate(endDate)
+                };
+            });
+
+            // Sort by spend descending
+            return campaigns.sort((a, b) => b.spend - a.spend);
+
+        } catch (error) {
+            Logger.error('Failed to fetch Meta Campaign Insights', { error });
+            throw error;
+        }
+    }
+
+    /**
+     * Fetch daily performance trends for a Meta Ads account.
+     */
+    static async getMetaDailyTrends(adAccountId: string, days: number = 30): Promise<DailyTrend[]> {
+        const adAccount = await prisma.adAccount.findUnique({
+            where: { id: adAccountId }
+        });
+
+        if (!adAccount || adAccount.platform !== 'META' || !adAccount.accessToken || !adAccount.externalId) {
+            throw new Error('Invalid Meta Ad Account');
+        }
+
+        const actId = adAccount.externalId.startsWith('act_') ? adAccount.externalId : `act_${adAccount.externalId}`;
+
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - days);
+
+        const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+        const fields = 'spend,impressions,clicks,actions,action_values';
+        const timeRange = JSON.stringify({
+            since: formatDate(startDate),
+            until: formatDate(endDate)
+        });
+        const url = `https://graph.facebook.com/v18.0/${actId}/insights?fields=${fields}&time_increment=1&time_range=${encodeURIComponent(timeRange)}&access_token=${adAccount.accessToken}`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.error) {
+                Logger.error('Meta API Error (trends)', { error: data.error });
+                throw new Error(data.error.message);
+            }
+
+            return (data.data || []).map((row: any) => {
+                let conversions = 0;
+                let conversionsValue = 0;
+
+                if (row.actions && Array.isArray(row.actions)) {
+                    const purchaseAction = row.actions.find(
+                        (a: any) => a.action_type === 'purchase' || a.action_type === 'omni_purchase'
+                    );
+                    if (purchaseAction?.value) {
+                        conversions = parseFloat(purchaseAction.value);
+                    }
+                }
+
+                if (row.action_values && Array.isArray(row.action_values)) {
+                    const purchaseValue = row.action_values.find(
+                        (a: any) => a.action_type === 'purchase' || a.action_type === 'omni_purchase'
+                    );
+                    if (purchaseValue?.value) {
+                        conversionsValue = parseFloat(purchaseValue.value);
+                    }
+                }
+
+                return {
+                    date: row.date_start || '',
+                    spend: parseFloat(row.spend || '0'),
+                    impressions: parseInt(row.impressions || '0'),
+                    clicks: parseInt(row.clicks || '0'),
+                    conversions,
+                    conversionsValue
+                };
+            });
+
+        } catch (error) {
+            Logger.error('Failed to fetch Meta Daily Trends', { error });
+            throw error;
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────
     // GOOGLE ADS - Google Ads API v17
     // ──────────────────────────────────────────────────────────────
@@ -379,7 +553,7 @@ export class AdsService {
 
             const formatDate = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
 
-            // GAQL query for campaign-level metrics
+            // GAQL query for campaign-level metrics - only ENABLED campaigns
             const query = `
                 SELECT
                     campaign.id,
@@ -392,6 +566,7 @@ export class AdsService {
                     metrics.conversions_value
                 FROM campaign
                 WHERE segments.date BETWEEN '${formatDate(startDate)}' AND '${formatDate(endDate)}'
+                    AND campaign.status = 'ENABLED'
                 ORDER BY metrics.cost_micros DESC
             `;
 

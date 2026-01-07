@@ -19,11 +19,15 @@ interface AdInsights {
     currency: string;
 }
 
+interface AdsViewProps {
+    onSelectAccount?: (account: AdAccount) => void;
+}
+
 /**
  * AdsView component for managing connected ad platform accounts.
  * Supports Meta Ads (manual token) and Google Ads (OAuth flow).
  */
-export function AdsView() {
+export function AdsView({ onSelectAccount }: AdsViewProps = {}) {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
     const [accounts, setAccounts] = useState<AdAccount[]>([]);
@@ -45,8 +49,9 @@ export function AdsView() {
         isSubmitting: false
     });
 
-    // Selected account for campaign breakdown view
+    // Selected account for campaign breakdown view (only when no onSelectAccount prop)
     const [selectedAccount, setSelectedAccount] = useState<AdAccount | null>(null);
+
 
     useEffect(() => {
         fetchAccounts();
@@ -461,9 +466,9 @@ export function AdsView() {
                                                         >
                                                             <RefreshCw size={16} className={loadingInsights[acc.id] ? 'animate-spin' : ''} />
                                                         </button>
-                                                        {acc.platform === 'GOOGLE' && !isPending && (
+                                                        {(acc.platform === 'GOOGLE' || acc.platform === 'META') && !isPending && (
                                                             <button
-                                                                onClick={() => setSelectedAccount(acc)}
+                                                                onClick={() => onSelectAccount ? onSelectAccount(acc) : setSelectedAccount(acc)}
                                                                 className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
                                                                 title="View campaign breakdown"
                                                             >
@@ -526,7 +531,7 @@ export function AdsView() {
                             })
                         )}
                     </div>
-            </>
+                </>
             )}
         </div>
     );

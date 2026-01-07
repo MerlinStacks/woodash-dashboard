@@ -32,6 +32,7 @@ import invoicesRoutes from './routes/invoices';
 import oauthRoutes from './routes/oauth'; // OAuth flows for ad platforms
 
 import segmentsRoutes from './routes/segments';
+import policiesRoutes from './routes/policies';
 import { auditsRouter } from './routes/audits';
 import sessionsRoutes from './routes/sessions';
 
@@ -175,6 +176,7 @@ app.use('/api/marketing', marketingRoutes); // Mount Marketing API
 app.use('/api/invoices', invoicesRoutes); // Mount Invoices API
 app.use('/api/email', emailRoutes);
 app.use('/api/segments', segmentsRoutes);
+app.use('/api/policies', policiesRoutes);
 app.use('/api/orders', ordersRoutes); // Mount Orders API
 app.use('/api/audits', auditsRouter);
 app.use('/api/sessions', sessionsRoutes);

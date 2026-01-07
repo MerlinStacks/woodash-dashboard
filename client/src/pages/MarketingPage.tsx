@@ -2,11 +2,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdsView } from '../components/marketing/AdsView';
+import { GoogleAdsCampaigns } from '../components/marketing/GoogleAdsCampaigns';
 import { CampaignsList } from '../components/marketing/CampaignsList';
 import { AutomationsList } from '../components/marketing/AutomationsList';
 import { EmailDesignEditor } from '../components/marketing/EmailDesignEditor';
 import { FlowBuilder } from '../components/marketing/FlowBuilder';
-import { LayoutGrid, Mail, Zap, Megaphone, ArrowLeft } from 'lucide-react';
+import { LayoutGrid, Mail, Zap, Megaphone, ArrowLeft, BarChart2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 
@@ -24,15 +25,16 @@ export function MarketingPage() {
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Initialize activeTab from URL query param or default to 'campaigns'
-    const tabFromUrl = searchParams.get('tab') as 'overview' | 'campaigns' | 'automations' | 'ads' | null;
-    const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'automations' | 'ads'>(
-        tabFromUrl && ['overview', 'campaigns', 'automations', 'ads'].includes(tabFromUrl) ? tabFromUrl : 'campaigns'
+    const tabFromUrl = searchParams.get('tab') as 'overview' | 'campaigns' | 'automations' | 'performance' | 'ads' | null;
+    const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'automations' | 'performance' | 'ads'>(
+        tabFromUrl && ['overview', 'campaigns', 'automations', 'performance', 'ads'].includes(tabFromUrl) ? tabFromUrl : 'campaigns'
     );
 
     // Editor State
     const [editorMode, setEditorMode] = useState<EditorMode>(null);
     const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
     const [editingAutomationData, setEditingAutomationData] = useState<any>(null); // To store full automation data
+    const [selectedAdAccount, setSelectedAdAccount] = useState<any>(null); // For Ad Performance tab
 
     // Sync tab changes to URL
     useEffect(() => {
@@ -47,7 +49,8 @@ export function MarketingPage() {
     const tabs = [
         { id: 'campaigns', label: 'Campaigns', icon: Mail },
         { id: 'automations', label: 'Automations', icon: Zap },
-        { id: 'ads', label: 'Ads Intelligence', icon: Megaphone },
+        { id: 'performance', label: 'Ad Performance', icon: BarChart2 },
+        { id: 'ads', label: 'Ad Accounts', icon: Megaphone },
     ];
 
     const handleEditCampaign = (id: string, name: string) => {
@@ -205,6 +208,17 @@ export function MarketingPage() {
             <div className="py-4">
                 {activeTab === 'campaigns' && <CampaignsList onEdit={handleEditCampaign} />}
                 {activeTab === 'automations' && <AutomationsList onEdit={handleEditAutomation} />}
+                {activeTab === 'performance' && (
+                    selectedAdAccount ? (
+                        <GoogleAdsCampaigns
+                            adAccountId={selectedAdAccount.id}
+                            accountName={selectedAdAccount.name}
+                            onBack={() => setSelectedAdAccount(null)}
+                        />
+                    ) : (
+                        <AdsView onSelectAccount={(acc: any) => setSelectedAdAccount(acc)} />
+                    )
+                )}
                 {activeTab === 'ads' && <AdsView />}
             </div>
         </div>

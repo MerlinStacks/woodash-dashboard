@@ -207,6 +207,63 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack }: GoogleA
                 </div>
             )}
 
+            {/* AI Suggestions Panel - at top for prominence */}
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200 shadow-sm overflow-hidden">
+                <button
+                    onClick={() => setShowSuggestions(!showSuggestions)}
+                    className="w-full p-4 flex items-center justify-between hover:bg-purple-100/50 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-500 rounded-lg">
+                            <Lightbulb size={20} className="text-white" />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="font-semibold text-gray-900">AI Optimization Suggestions</h3>
+                            <p className="text-sm text-gray-600">Smart recommendations based on your campaign data</p>
+                        </div>
+                    </div>
+                    {loadingSuggestions ? (
+                        <Loader2 size={20} className="animate-spin text-purple-500" />
+                    ) : showSuggestions ? (
+                        <ChevronUp size={20} className="text-gray-500" />
+                    ) : (
+                        <ChevronDown size={20} className="text-gray-500" />
+                    )}
+                </button>
+
+                {showSuggestions && suggestions && (
+                    <div className="px-4 pb-4 space-y-3">
+                        {suggestions.suggestions?.map((suggestion: string, i: number) => (
+                            <div key={i} className="bg-white p-4 rounded-lg border border-purple-100">
+                                <p className="text-gray-800" dangerouslySetInnerHTML={{
+                                    __html: suggestion.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                }} />
+                            </div>
+                        ))}
+
+                        {suggestions.action_items && suggestions.action_items.length > 0 && (
+                            <div className="bg-white p-4 rounded-lg border border-purple-100">
+                                <h4 className="font-medium text-gray-900 mb-2">Quick Action Items:</h4>
+                                <ul className="space-y-1">
+                                    {suggestions.action_items.map((item: string, i: number) => (
+                                        <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
+                                            <span className="text-purple-500 mt-1">•</span>
+                                            {item}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {showSuggestions && !suggestions && !loadingSuggestions && (
+                    <div className="px-4 pb-4">
+                        <p className="text-gray-500 text-sm">No suggestions available. Try refreshing the data.</p>
+                    </div>
+                )}
+            </div>
+
             {/* Summary Stats */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="bg-white p-4 rounded-xl border shadow-sm">
@@ -372,63 +429,7 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack }: GoogleA
                     </div>
                 </div>
             )}
-
-            {/* AI Suggestions Panel */}
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200 shadow-sm overflow-hidden">
-                <button
-                    onClick={() => setShowSuggestions(!showSuggestions)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-purple-100/50 transition-colors"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-500 rounded-lg">
-                            <Lightbulb size={20} className="text-white" />
-                        </div>
-                        <div className="text-left">
-                            <h3 className="font-semibold text-gray-900">AI Optimization Suggestions</h3>
-                            <p className="text-sm text-gray-600">Smart recommendations based on your campaign data</p>
-                        </div>
-                    </div>
-                    {loadingSuggestions ? (
-                        <Loader2 size={20} className="animate-spin text-purple-500" />
-                    ) : showSuggestions ? (
-                        <ChevronUp size={20} className="text-gray-500" />
-                    ) : (
-                        <ChevronDown size={20} className="text-gray-500" />
-                    )}
-                </button>
-
-                {showSuggestions && suggestions && (
-                    <div className="px-4 pb-4 space-y-3">
-                        {suggestions.suggestions?.map((suggestion: string, i: number) => (
-                            <div key={i} className="bg-white p-4 rounded-lg border border-purple-100">
-                                <p className="text-gray-800" dangerouslySetInnerHTML={{
-                                    __html: suggestion.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                }} />
-                            </div>
-                        ))}
-
-                        {suggestions.action_items && suggestions.action_items.length > 0 && (
-                            <div className="bg-white p-4 rounded-lg border border-purple-100">
-                                <h4 className="font-medium text-gray-900 mb-2">Quick Action Items:</h4>
-                                <ul className="space-y-1">
-                                    {suggestions.action_items.map((item: string, i: number) => (
-                                        <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
-                                            <span className="text-purple-500 mt-1">•</span>
-                                            {item}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {showSuggestions && !suggestions && !loadingSuggestions && (
-                    <div className="px-4 pb-4">
-                        <p className="text-gray-500 text-sm">No suggestions available. Try refreshing the data.</p>
-                    </div>
-                )}
-            </div>
         </div>
     );
 }
+

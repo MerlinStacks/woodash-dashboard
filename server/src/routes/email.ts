@@ -162,4 +162,44 @@ router.post('/test', async (req: AuthenticatedRequest, res: Response) => {
     }
 });
 
+// Manual Sync - Check Emails Now
+router.post('/sync', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const accountId = (req as any).user?.accountId || (req as any).accountId;
+        if (!accountId) return res.status(400).json({ error: 'No account selected' });
+
+        // Find all IMAP accounts for this account
+        const imapAccounts = await prisma.emailAccount.findMany({
+            where: { accountId, type: 'IMAP' }
+        });
+
+        if (imapAccounts.length === 0) {
+            return res.json({ success: true, message: 'No IMAP accounts configured', checked: 0 });
+        }
+
+        let checked = 0;
+        let errors: string[] = [];
+
+        for (const acc of imapAccounts) {
+            try {
+                await emailService.checkEmails(acc.id);
+                checked++;
+            } catch (e: any) {
+                Logger.error('Manual sync error', { emailAccountId: acc.id, error: e });
+                errors.push(`${acc.email}: ${e.message}`);
+            }
+        }
+
+        res.json({
+            success: true,
+            checked,
+            total: imapAccounts.length,
+            errors: errors.length > 0 ? errors : undefined
+        });
+    } catch (error: any) {
+        Logger.error('Sync error', { error });
+        res.status(500).json({ error: 'Failed to sync emails' });
+    }
+});
+
 export default router;

@@ -24,7 +24,8 @@ import {
     DollarSign,
     GitBranch,
     Repeat,
-    X
+    X,
+    BookOpen
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { AccountSwitcher } from './AccountSwitcher';
@@ -84,6 +85,14 @@ const navItems = [
         icon: PenTool,
         children: [
             { icon: FileText, label: 'Invoice Designer', path: '/invoices/design' },
+        ]
+    },
+    {
+        type: 'group',
+        label: 'Operations',
+        icon: BookOpen,
+        children: [
+            { icon: FileText, label: 'Policies & SOP', path: '/policies' },
         ]
     },
     { type: 'link', icon: Shield, label: 'Team', path: '/team' },

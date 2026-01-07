@@ -120,7 +120,8 @@ router.get('/:adAccountId/insights', async (req: AuthenticatedRequest, res: Resp
 
 /**
  * GET /api/ads/:adAccountId/campaigns
- * Fetch campaign-level breakdown for a Google Ads account.
+ * Fetch campaign-level breakdown for an ad account.
+ * Supports both Google Ads and Meta Ads.
  * Query params: days (default: 30)
  */
 router.get('/:adAccountId/campaigns', async (req: AuthenticatedRequest, res: Response) => {
@@ -128,7 +129,7 @@ router.get('/:adAccountId/campaigns', async (req: AuthenticatedRequest, res: Res
         const { adAccountId } = req.params;
         const days = parseInt(req.query.days as string) || 30;
 
-        // Get account to verify platform
+        // Get account to determine platform
         const accounts = await AdsService.getAdAccounts((req as any).accountId);
         const adAccount = accounts.find(a => a.id === adAccountId);
 
@@ -136,11 +137,15 @@ router.get('/:adAccountId/campaigns', async (req: AuthenticatedRequest, res: Res
             return res.status(404).json({ error: 'Ad account not found' });
         }
 
-        if (adAccount.platform !== 'GOOGLE') {
-            return res.status(400).json({ error: 'Campaign breakdown only available for Google Ads' });
+        let campaigns = null;
+        if (adAccount.platform === 'GOOGLE') {
+            campaigns = await AdsService.getGoogleCampaignInsights(adAccountId, days);
+        } else if (adAccount.platform === 'META') {
+            campaigns = await AdsService.getMetaCampaignInsights(adAccountId, days);
+        } else {
+            return res.status(400).json({ error: `Campaign breakdown not supported for platform: ${adAccount.platform}` });
         }
 
-        const campaigns = await AdsService.getGoogleCampaignInsights(adAccountId, days);
         res.json(campaigns);
     } catch (error: any) {
         Logger.error('Failed to fetch campaign insights', { error });
@@ -150,7 +155,8 @@ router.get('/:adAccountId/campaigns', async (req: AuthenticatedRequest, res: Res
 
 /**
  * GET /api/ads/:adAccountId/trends
- * Fetch daily performance trends for a Google Ads account.
+ * Fetch daily performance trends for an ad account.
+ * Supports both Google Ads and Meta Ads.
  * Query params: days (default: 30)
  */
 router.get('/:adAccountId/trends', async (req: AuthenticatedRequest, res: Response) => {
@@ -158,7 +164,7 @@ router.get('/:adAccountId/trends', async (req: AuthenticatedRequest, res: Respon
         const { adAccountId } = req.params;
         const days = parseInt(req.query.days as string) || 30;
 
-        // Get account to verify platform
+        // Get account to determine platform
         const accounts = await AdsService.getAdAccounts((req as any).accountId);
         const adAccount = accounts.find(a => a.id === adAccountId);
 
@@ -166,11 +172,15 @@ router.get('/:adAccountId/trends', async (req: AuthenticatedRequest, res: Respon
             return res.status(404).json({ error: 'Ad account not found' });
         }
 
-        if (adAccount.platform !== 'GOOGLE') {
-            return res.status(400).json({ error: 'Trend data only available for Google Ads' });
+        let trends = null;
+        if (adAccount.platform === 'GOOGLE') {
+            trends = await AdsService.getGoogleDailyTrends(adAccountId, days);
+        } else if (adAccount.platform === 'META') {
+            trends = await AdsService.getMetaDailyTrends(adAccountId, days);
+        } else {
+            return res.status(400).json({ error: `Trend data not supported for platform: ${adAccount.platform}` });
         }
 
-        const trends = await AdsService.getGoogleDailyTrends(adAccountId, days);
         res.json(trends);
     } catch (error: any) {
         Logger.error('Failed to fetch daily trends', { error });

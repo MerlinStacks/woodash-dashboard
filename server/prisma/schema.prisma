@@ -125,7 +125,9 @@ model Account {
   // Advanced Operations
   auditLogs         AuditLog[]
   inventorySettings InventorySettings?
-}
+  
+  // Policies & SOP
+  policies          Policy[]
 
 model Notification {
   id        String @id @default(uuid())
@@ -1055,3 +1057,25 @@ model AIPrompt {
   updatedAt DateTime @updatedAt
 }
 
+// --------------------------------------
+// Policies & SOP
+// --------------------------------------
+
+/// Stores policies, SOPs, and training materials for staff and AI reference.
+model Policy {
+  id        String @id @default(uuid())
+  accountId String
+
+  title     String
+  content   String  @db.Text  // Markdown content
+  type      String  @default("POLICY")  // POLICY, SOP, TRAINING
+  category  String?  // Optional grouping (e.g. "Safety", "Operations")
+  isPublished Boolean @default(true)
+  
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId, type])
+}

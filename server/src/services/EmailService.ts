@@ -5,6 +5,7 @@ import * as imaps from 'imap-simple';
 import { prisma } from '../utils/prisma';
 import { EventBus, EVENTS } from './events';
 import { Logger } from '../utils/logger';
+import { decrypt } from '../utils/encryption';
 
 
 export class EmailService {
@@ -110,10 +111,19 @@ export class EmailService {
         // Port 993 uses implicit TLS, port 143 uses STARTTLS
         const useImplicitTLS = account.port === 993;
 
+        // Decrypt the stored password
+        let decryptedPassword: string;
+        try {
+            decryptedPassword = decrypt(account.password);
+        } catch (e) {
+            Logger.error('Failed to decrypt email password', { emailAccountId, error: e });
+            return;
+        }
+
         const config = {
             imap: {
                 user: account.username,
-                password: account.password,
+                password: decryptedPassword,
                 host: account.host,
                 port: account.port,
                 tls: useImplicitTLS,
