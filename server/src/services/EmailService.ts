@@ -160,48 +160,61 @@ export class EmailService {
             Logger.info(`[checkEmails] Found ${messages.length} unseen email(s)`, { email: account.email });
 
             for (const message of messages) {
-                const parts = (imaps as any).getParts(message.attributes.struct);
-
-                const subject = message.parts.find(p => p.which === 'HEADER')?.body.subject?.[0] || '(No Subject)';
-                const fromLine = message.parts.find(p => p.which === 'HEADER')?.body.from?.[0] || '';
-                const messageId = message.parts.find(p => p.which === 'HEADER')?.body['message-id']?.[0] || `local-${Date.now()}`;
-
-                // Parse "Name <email@domain.com>"
-                // Simple regex or nodemailer/addressparser? simple split for now
-                let fromEmail = fromLine;
-                let fromName = '';
-                if (fromLine.includes('<')) {
-                    const match = fromLine.match(/(.*)<(.*)>/);
-                    if (match) {
-                        fromName = match[1].trim().replace(/^"|"$/g, '');
-                        fromEmail = match[2].trim();
+                try {
+                    // Safely access message parts
+                    if (!message.parts || message.parts.length === 0) {
+                        Logger.warn('[checkEmails] Message has no parts, skipping', { messageUid: message.attributes?.uid });
+                        continue;
                     }
+
+                    const headerPart = message.parts.find(p => p.which === 'HEADER');
+                    const subject = headerPart?.body?.subject?.[0] || '(No Subject)';
+                    const fromLine = headerPart?.body?.from?.[0] || '';
+                    const messageId = headerPart?.body?.['message-id']?.[0] || `local-${Date.now()}`;
+
+                    // Parse "Name <email@domain.com>"
+                    let fromEmail = fromLine;
+                    let fromName = '';
+                    if (fromLine.includes('<')) {
+                        const match = fromLine.match(/(.*)<(.*)>/);
+                        if (match) {
+                            fromName = match[1].trim().replace(/^"|"$/g, '');
+                            fromEmail = match[2].trim();
+                        }
+                    }
+
+                    // Get Body (Text or HTML)
+                    const bodyPart = message.parts.find(p => p.which === 'TEXT');
+                    const body = bodyPart ? bodyPart.body : '[Content cannot be displayed]';
+
+                    Logger.info(`[checkEmails] Processing email`, { fromEmail, subject });
+
+                    EventBus.emit(EVENTS.EMAIL.RECEIVED, {
+                        emailAccountId,
+                        fromEmail,
+                        fromName,
+                        subject,
+                        body,
+                        messageId
+                    });
+
+                    Logger.info(`[checkEmails] Emitted EMAIL.RECEIVED event`, { fromEmail, subject });
+                } catch (msgError: any) {
+                    Logger.error('[checkEmails] Error processing individual message', {
+                        messageUid: message.attributes?.uid,
+                        error: msgError?.message || String(msgError)
+                    });
                 }
-
-                // Get Body (Text or HTML)
-                // imap-simple bodies fetch: ['HEADER', 'TEXT'] gave us the raw parts. 
-                // We need to parse multipart. This is complex without a parser like 'mailparser'.
-                // For MVP, assuming text/plain exists or we take the first part logic.
-                // Actually 'TEXT' fetch option in imap-simple fetches the body content.
-                const bodyPart = message.parts.find(p => p.which === 'TEXT');
-                const body = bodyPart ? bodyPart.body : '[Content cannot be displayed]';
-
-                Logger.info(`[checkEmails] Emitting EMAIL.RECEIVED event`, { fromEmail, subject });
-
-                EventBus.emit(EVENTS.EMAIL.RECEIVED, {
-                    emailAccountId,
-                    fromEmail,
-                    fromName,
-                    subject,
-                    body,
-                    messageId
-                });
             }
 
             connection.end();
             Logger.info('[checkEmails] Disconnected from IMAP server');
-        } catch (error) {
-            Logger.error(`[checkEmails] Error checking emails`, { email: account.email, error });
+        } catch (error: any) {
+            Logger.error(`[checkEmails] Error checking emails`, {
+                email: account.email,
+                error: error?.message || String(error),
+                stack: error?.stack
+            });
         }
     }
 }

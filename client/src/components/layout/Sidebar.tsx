@@ -45,6 +45,7 @@ interface SidebarProps {
 
 const navItems = [
     { type: 'link', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { type: 'link', icon: MessageSquare, label: 'Inbox', path: '/inbox' },
     {
         type: 'group',
         label: 'Commerce',
@@ -74,7 +75,6 @@ const navItems = [
         label: 'Growth',
         icon: TrendingUp,
         children: [
-            { icon: MessageSquare, label: 'Inbox', path: '/inbox' },
             { icon: Star, label: 'Reviews', path: '/reviews' },
             { icon: Megaphone, label: 'Marketing', path: '/marketing' },
         ]
