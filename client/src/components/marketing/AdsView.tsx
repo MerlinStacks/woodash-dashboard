@@ -108,7 +108,7 @@ export function AdsView() {
         if (!currentAccount) return;
 
         try {
-            const res = await fetch(`/api/oauth/google/authorize?redirect=${encodeURIComponent(window.location.pathname)}`, {
+            const res = await fetch(`/api/oauth/google/authorize?redirect=${encodeURIComponent('/marketing?tab=ads')}`, {
                 headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
             });
             const data = await res.json();

@@ -1,5 +1,6 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdsView } from '../components/marketing/AdsView';
 import { CampaignsList } from '../components/marketing/CampaignsList';
 import { AutomationsList } from '../components/marketing/AutomationsList';
@@ -20,12 +21,28 @@ interface EditingItem {
 export function MarketingPage() {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
-    const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'automations' | 'ads'>('campaigns');
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Initialize activeTab from URL query param or default to 'campaigns'
+    const tabFromUrl = searchParams.get('tab') as 'overview' | 'campaigns' | 'automations' | 'ads' | null;
+    const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'automations' | 'ads'>(
+        tabFromUrl && ['overview', 'campaigns', 'automations', 'ads'].includes(tabFromUrl) ? tabFromUrl : 'campaigns'
+    );
 
     // Editor State
     const [editorMode, setEditorMode] = useState<EditorMode>(null);
     const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
     const [editingAutomationData, setEditingAutomationData] = useState<any>(null); // To store full automation data
+
+    // Sync tab changes to URL
+    useEffect(() => {
+        if (activeTab !== 'campaigns') {
+            setSearchParams({ tab: activeTab }, { replace: true });
+        } else {
+            // Remove tab param when on default tab
+            setSearchParams({}, { replace: true });
+        }
+    }, [activeTab, setSearchParams]);
 
     const tabs = [
         { id: 'campaigns', label: 'Campaigns', icon: Mail },
