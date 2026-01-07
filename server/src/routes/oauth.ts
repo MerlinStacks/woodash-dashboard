@@ -59,24 +59,39 @@ router.get('/google/authorize', requireAuth, async (req: AuthenticatedRequest, r
  * Exchanges authorization code for tokens and creates AdAccount.
  */
 router.get('/google/callback', async (req: Request, res: Response) => {
+    let frontendRedirect = '/marketing?tab=ads'; // Default fallback
+
     try {
         const { code, state, error } = req.query;
 
+        Logger.info('Google OAuth callback received', {
+            hasCode: !!code,
+            hasState: !!state,
+            error
+        });
+
         if (error) {
             Logger.warn('Google OAuth denied', { error });
-            return res.redirect('/settings/integrations?error=oauth_denied');
+            return res.redirect(`${frontendRedirect}?error=oauth_denied`);
         }
 
         if (!code || !state) {
-            return res.status(400).json({ error: 'Missing code or state parameter' });
+            Logger.warn('Missing code or state in OAuth callback');
+            return res.redirect(`${frontendRedirect}?error=missing_params`);
         }
 
         // Decode state
         let stateData: { accountId: string; frontendRedirect: string };
         try {
             stateData = JSON.parse(Buffer.from(state as string, 'base64').toString('utf-8'));
-        } catch {
-            return res.status(400).json({ error: 'Invalid state parameter' });
+            frontendRedirect = stateData.frontendRedirect || frontendRedirect;
+            Logger.info('OAuth state decoded', {
+                accountId: stateData.accountId,
+                frontendRedirect: stateData.frontendRedirect
+            });
+        } catch (e) {
+            Logger.error('Failed to decode OAuth state', { state, error: e });
+            return res.redirect(`${frontendRedirect}?error=invalid_state`);
         }
 
         // Build redirect URI (must match exactly what was used in authorize)
@@ -91,18 +106,25 @@ router.get('/google/callback', async (req: Request, res: Response) => {
             redirectUri = `${protocol}://${host}/api/oauth/google/callback`;
         }
 
+        Logger.info('Exchanging OAuth code for tokens', { redirectUri });
+
         // Exchange code for tokens
         const tokens = await AdsService.exchangeGoogleCode(code as string, redirectUri);
+        Logger.info('Token exchange successful', { hasAccessToken: !!tokens.accessToken, hasRefreshToken: !!tokens.refreshToken });
 
         // List available Google Ads customer accounts
+        Logger.info('Listing Google Ads customer accounts');
         const customers = await AdsService.listGoogleCustomers(tokens.refreshToken);
+        Logger.info('Google Ads customers found', { count: customers.length, customers: customers.map(c => c.id) });
 
         if (customers.length === 0) {
-            return res.redirect(`${stateData.frontendRedirect}?error=no_google_accounts`);
+            Logger.warn('No Google Ads accounts found for user');
+            return res.redirect(`${frontendRedirect}?error=no_google_accounts`);
         }
 
         // If only one account, auto-connect it
         if (customers.length === 1) {
+            Logger.info('Auto-connecting single Google Ads account', { customerId: customers[0].id, name: customers[0].name });
             await AdsService.connectAccount(stateData.accountId, {
                 platform: 'GOOGLE',
                 externalId: customers[0].id,
@@ -111,12 +133,12 @@ router.get('/google/callback', async (req: Request, res: Response) => {
                 name: customers[0].name
             });
 
-            return res.redirect(`${stateData.frontendRedirect}?success=google_connected`);
+            Logger.info('Google Ads account connected successfully');
+            return res.redirect(`${frontendRedirect}?success=google_connected`);
         }
 
-        // Multiple accounts - redirect to selection page with data
-        // Store tokens temporarily in session or pass via secure method
-        // For simplicity, we'll connect the first account and let user manage via UI
+        // Multiple accounts - connect the first one for simplicity
+        Logger.info('Connecting first of multiple Google Ads accounts', { customerId: customers[0].id, totalAccounts: customers.length });
         await AdsService.connectAccount(stateData.accountId, {
             platform: 'GOOGLE',
             externalId: customers[0].id,
@@ -125,11 +147,16 @@ router.get('/google/callback', async (req: Request, res: Response) => {
             name: customers[0].name
         });
 
-        return res.redirect(`${stateData.frontendRedirect}?success=google_connected&accounts=${customers.length}`);
+        Logger.info('Google Ads account connected successfully');
+        return res.redirect(`${frontendRedirect}?success=google_connected&accounts=${customers.length}`);
 
     } catch (error: any) {
-        Logger.error('Google OAuth callback failed', { error });
-        res.redirect('/settings/integrations?error=oauth_failed');
+        Logger.error('Google OAuth callback failed', {
+            error: error.message,
+            stack: error.stack,
+            frontendRedirect
+        });
+        res.redirect(`${frontendRedirect}?error=oauth_failed&message=${encodeURIComponent(error.message || 'Unknown error')}`);
     }
 });
 

@@ -148,11 +148,13 @@ export function AdsView() {
         if (params.get('success') === 'google_connected') {
             // Show success message and clean URL
             alert('Google Ads account connected successfully!');
-            window.history.replaceState({}, '', window.location.pathname);
+            window.history.replaceState({}, '', '/marketing?tab=ads');
             fetchAccounts();
         } else if (params.get('error')) {
-            alert(`OAuth Error: ${params.get('error')}`);
-            window.history.replaceState({}, '', window.location.pathname);
+            const errorType = params.get('error');
+            const errorMessage = params.get('message');
+            alert(`OAuth Error: ${errorType}${errorMessage ? ` - ${errorMessage}` : ''}`);
+            window.history.replaceState({}, '', '/marketing?tab=ads');
         }
     }, []);
 
