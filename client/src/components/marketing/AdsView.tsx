@@ -29,6 +29,7 @@ export function AdsView() {
     const [accounts, setAccounts] = useState<AdAccount[]>([]);
     const [insights, setInsights] = useState<Record<string, AdInsights>>({});
     const [loadingInsights, setLoadingInsights] = useState<Record<string, boolean>>({});
+    const [insightErrors, setInsightErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [showConnect, setShowConnect] = useState(false);
 
@@ -70,6 +71,7 @@ export function AdsView() {
 
     async function fetchInsights(adAccountId: string) {
         setLoadingInsights(prev => ({ ...prev, [adAccountId]: true }));
+        setInsightErrors(prev => ({ ...prev, [adAccountId]: '' })); // Clear previous error
         try {
             const res = await fetch(`/api/ads/${adAccountId}/insights`, {
                 headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount?.id || '' }
@@ -79,9 +81,11 @@ export function AdsView() {
                 setInsights(prev => ({ ...prev, [adAccountId]: data }));
             } else {
                 console.error(`Insights fetch error for ${adAccountId}:`, data.error);
+                setInsightErrors(prev => ({ ...prev, [adAccountId]: data.error }));
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(`Failed to fetch insights/`, err);
+            setInsightErrors(prev => ({ ...prev, [adAccountId]: err.message || 'Connection error' }));
         } finally {
             setLoadingInsights(prev => ({ ...prev, [adAccountId]: false }));
         }
@@ -482,6 +486,19 @@ export function AdsView() {
                                         </p>
                                     </div>
                                 </div>
+
+                                {/* Error Display */}
+                                {insightErrors[acc.id] && (
+                                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                        <div className="flex items-start gap-2">
+                                            <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={16} />
+                                            <div className="text-sm text-red-700">
+                                                <p className="font-medium">Failed to load data</p>
+                                                <p className="text-xs mt-1 text-red-600">{insightErrors[acc.id]}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })

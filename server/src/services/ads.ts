@@ -247,11 +247,41 @@ export class AdsService {
             };
 
         } catch (error: any) {
+            // Parse Google Ads API specific errors for better diagnostics
+            const errorMessage = error.message || '';
+            const errorCode = error.code;
+
+            let userFriendlyMessage = errorMessage;
+
+            // GRPC error code 12 = UNIMPLEMENTED
+            if (errorCode === 12 || errorMessage.includes('UNIMPLEMENTED') || errorMessage.includes('GRPC target method')) {
+                userFriendlyMessage = 'Google Ads API access denied. Your developer token may be at "Test Account" level. ' +
+                    'Please upgrade to "Explorer Access" or higher at https://ads.google.com/aw/apicenter. ' +
+                    'If recently upgraded, wait a few hours for changes to propagate.';
+            }
+            // GRPC error code 7 = PERMISSION_DENIED
+            else if (errorCode === 7 || errorMessage.includes('PERMISSION_DENIED')) {
+                userFriendlyMessage = 'Permission denied. Ensure the connected Google account has access to this Google Ads account (Customer ID: ' +
+                    adAccount.externalId + '). The user must be linked to this account in Google Ads.';
+            }
+            // GRPC error code 16 = UNAUTHENTICATED
+            else if (errorCode === 16 || errorMessage.includes('UNAUTHENTICATED') || errorMessage.includes('invalid_grant')) {
+                userFriendlyMessage = 'Authentication expired. Please disconnect and reconnect your Google Ads account to refresh the OAuth tokens.';
+            }
+            // Invalid customer ID format
+            else if (errorMessage.includes('INVALID_CUSTOMER_ID') || errorMessage.includes('customer_id')) {
+                userFriendlyMessage = 'Invalid Customer ID format. Please verify the Customer ID is correct (format: 123-456-7890 or 1234567890).';
+            }
+
             Logger.error('Failed to fetch Google Ads Insights', {
-                error: error.message,
-                adAccountId
+                error: errorMessage,
+                code: errorCode,
+                adAccountId,
+                customerId: adAccount.externalId,
+                userMessage: userFriendlyMessage
             });
-            throw error;
+
+            throw new Error(userFriendlyMessage);
         }
     }
 
