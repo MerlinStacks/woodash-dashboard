@@ -1,5 +1,6 @@
 
 import { prisma } from '../utils/prisma';
+import { cacheAside, CacheTTL, CacheNamespace } from '../utils/cache';
 
 export class AnalyticsService {
 
@@ -186,70 +187,72 @@ export class AnalyticsService {
 
     /**
      * Get Channel Breakdown (Attribution)
+     * Cached for 5 minutes to reduce DB load
      */
     static async getChannelBreakdown(accountId: string) {
-        // Group by utmSource or Referrer
-        // Prisma groupBy is good here
-        const sources = await prisma.analyticsSession.groupBy({
-            by: ['utmSource'],
-            where: { accountId },
-            _count: {
-                _all: true
-            },
-            orderBy: {
-                _count: {
-                    utmSource: 'desc'
-                }
-            },
-            take: 10
-        });
+        return cacheAside(
+            `channel:${accountId}`,
+            async () => {
+                // Group by utmSource or Referrer
+                const sources = await prisma.analyticsSession.groupBy({
+                    by: ['utmSource'],
+                    where: { accountId },
+                    _count: {
+                        _all: true
+                    },
+                    orderBy: {
+                        _count: {
+                            utmSource: 'desc'
+                        }
+                    },
+                    take: 10
+                });
 
-        // Also referrers if utmSource is null?
-        // For simple widget, let's return direct source breakdown
-        // Formatting: [{ name: 'google', count: 123 }, { name: 'Direct', count: 50 }]
-
-        return sources.map(s => ({
-            name: s.utmSource || 'Direct / None',
-            count: s._count._all
-        }));
+                return sources.map(s => ({
+                    name: s.utmSource || 'Direct / None',
+                    count: s._count._all
+                }));
+            },
+            { ttl: CacheTTL.MEDIUM, namespace: CacheNamespace.ANALYTICS }
+        );
     }
 
     /**
      * Get Search Insights
+     * Cached for 5 minutes due to in-memory aggregation
      */
     static async getSearchTerms(accountId: string) {
-        // We stored search terms in payload: { term: "..." } or similar
-        // Querying JSON fields in prisma aggregation is tricky.
-        // We might need raw query or just fetch recent search events and aggregate in memory for now (if low volume)
-        // Or if we had a dedicated SearchEvent table.
+        return cacheAside(
+            `search:${accountId}`,
+            async () => {
+                // Fetch last 500 search events and aggregate
+                const events = await prisma.analyticsEvent.findMany({
+                    where: {
+                        session: { accountId },
+                        type: 'search'
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 500,
+                    select: { payload: true }
+                });
 
-        // For MVP: Fetch last 500 search events and aggregate.
-        const events = await prisma.analyticsEvent.findMany({
-            where: {
-                session: { accountId },
-                type: 'search'
+                const termCounts: Record<string, number> = {};
+
+                events.forEach(e => {
+                    const term = (e.payload as any)?.term;
+                    if (term) {
+                        const lower = String(term).toLowerCase().trim();
+                        termCounts[lower] = (termCounts[lower] || 0) + 1;
+                    }
+                });
+
+                // Sort and return top 10
+                return Object.entries(termCounts)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 10)
+                    .map(([term, count]) => ({ term, count }));
             },
-            orderBy: { createdAt: 'desc' },
-            take: 500,
-            select: { payload: true }
-        });
-
-        const termCounts: Record<string, number> = {};
-
-        events.forEach(e => {
-            const term = (e.payload as any)?.term;
-            if (term) {
-                const lower = String(term).toLowerCase().trim();
-                termCounts[lower] = (termCounts[lower] || 0) + 1;
-            }
-        });
-
-        // Sort
-        const sorted = Object.entries(termCounts)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 10)
-            .map(([term, count]) => ({ term, count }));
-
-        return sorted;
+            { ttl: CacheTTL.MEDIUM, namespace: CacheNamespace.ANALYTICS }
+        );
     }
 }
