@@ -1030,12 +1030,18 @@ class OverSeek_Server_Tracking
 		// During AJAX, use blocking with short timeout to ensure delivery
 		// before wp_die() terminates the request
 		$is_ajax = wp_doing_ajax();
-		$timeout = $is_ajax ? 1 : 0.5;
-		$blocking = $is_ajax; // Blocking for AJAX, non-blocking for regular requests
+		$is_rest = defined('REST_REQUEST') && REST_REQUEST;
+		
+		// RELIABILITY FIX: Always use blocking requests with reasonable timeout
+		// Non-blocking wp_remote_post is unreliable - requests can be dropped
+		// before the HTTP connection is established. The shutdown hook runs
+		// AFTER output is sent, so blocking here doesn't affect user experience.
+		$timeout = 2; // 2 seconds is enough for local/fast connections
+		$blocking = true; // Always blocking for reliable delivery
 
 		// Debug: Log queue flush attempt
 		if (defined('WP_DEBUG') && WP_DEBUG && defined('OVERSEEK_DEBUG') && OVERSEEK_DEBUG) {
-			error_log('OverSeek: Flushing ' . count($all_events) . ' events (AJAX: ' . ($is_ajax ? 'yes' : 'no') . ', Blocking: ' . ($blocking ? 'yes' : 'no') . ')');
+			error_log('OverSeek: Flushing ' . count($all_events) . ' events (AJAX: ' . ($is_ajax ? 'yes' : 'no') . ', REST: ' . ($is_rest ? 'yes' : 'no') . ')');
 		}
 
 		foreach ($all_events as $data) {
@@ -1048,10 +1054,12 @@ class OverSeek_Server_Tracking
 			$response = wp_remote_post($this->api_url . '/api/t/e', array(
 				'timeout' => $timeout,
 				'blocking' => $blocking,
+				'httpversion' => '1.1',
 				'headers' => array(
 					'Content-Type' => 'application/json',
 					'X-Forwarded-For' => $visitor_ip,
 					'X-Real-IP' => $visitor_ip,
+					'Expect' => '', // CRITICAL: Prevents cURL from dropping large payloads (>1024 bytes)
 				),
 				'body' => wp_json_encode($data),
 			));
