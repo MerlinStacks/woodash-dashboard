@@ -40,8 +40,10 @@ services:
   # Node API (Express + Prisma)
   api:
     build:
-      context: .
-      dockerfile: server/Dockerfile
+      context: ./server
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
     pull_policy: build
     container_name: overseekv2-api-1
     ports:
