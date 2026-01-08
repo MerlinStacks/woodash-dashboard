@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
@@ -227,8 +227,21 @@ export function OrderDetailPage() {
                             <div className="flex items-start gap-3">
                                 <div className="p-2 bg-gray-100 rounded-full text-gray-500"><User size={14} /></div>
                                 <div>
-                                    <div className="text-sm font-medium text-gray-900">{billing.first_name} {billing.last_name}</div>
-                                    <div className="text-xs text-gray-500">Customer</div>
+                                    {order.customer_id && order.customer_id > 0 ? (
+                                        <Link
+                                            to={`/customers/${order.customer_id}`}
+                                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                        >
+                                            {billing.first_name} {billing.last_name}
+                                        </Link>
+                                    ) : (
+                                        <div className="text-sm font-medium text-gray-900">{billing.first_name} {billing.last_name}</div>
+                                    )}
+                                    <div className="text-xs text-gray-500">
+                                        {order._customerMeta?.ordersCount !== undefined
+                                            ? `${order._customerMeta.ordersCount} order${order._customerMeta.ordersCount !== 1 ? 's' : ''} previously`
+                                            : 'Guest Customer'}
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex items-start gap-3">
@@ -303,10 +316,34 @@ export function OrderDetailPage() {
     );
 }
 
-// Helper to check if value is an image url
-const isImage = (value: string) => {
-    if (typeof value !== 'string') return false;
-    return /\.(jpg|jpeg|png|gif|webp)$/i.test(value);
+/**
+ * Extracts an image URL from a meta value.
+ * Handles compound values like "filename.webp | https://example.com/path/to/image.webp"
+ * Returns the URL if found, null otherwise.
+ */
+const extractImageUrl = (value: string): string | null => {
+    if (typeof value !== 'string') return null;
+
+    // Common image extensions pattern
+    const imagePattern = /\.(jpg|jpeg|png|gif|webp|svg|bmp)/i;
+
+    // First, check if the value itself is a direct image URL
+    if (imagePattern.test(value) && value.startsWith('http')) {
+        return value;
+    }
+
+    // Look for URLs within the value (handles "filename | url" format)
+    const urlMatch = value.match(/(https?:\/\/[^\s|]+)/g);
+    if (urlMatch) {
+        // Find the first URL that looks like an image
+        for (const url of urlMatch) {
+            if (imagePattern.test(url)) {
+                return url.trim();
+            }
+        }
+    }
+
+    return null;
 };
 
 function OrderMetaItem({ meta, onImageClick }: { meta: any, onImageClick: (url: string) => void }) {
@@ -315,8 +352,8 @@ function OrderMetaItem({ meta, onImageClick }: { meta: any, onImageClick: (url: 
     // Filter out hidden meta (starts with _)
     if (meta.key.startsWith('_')) return null;
 
-    const isImg = isImage(meta.value);
-    const showImage = isImg && !imgError;
+    const imageUrl = extractImageUrl(meta.value);
+    const showImage = imageUrl && !imgError;
 
     return (
         <div className="text-xs text-gray-500 flex flex-col gap-1 mt-1">
@@ -340,10 +377,10 @@ function OrderMetaItem({ meta, onImageClick }: { meta: any, onImageClick: (url: 
             {showImage && (
                 <div
                     className="mt-1 cursor-zoom-in border border-gray-200 rounded-md overflow-hidden inline-block w-fit"
-                    onClick={() => onImageClick(meta.value)}
+                    onClick={() => onImageClick(imageUrl)}
                 >
                     <img
-                        src={meta.value}
+                        src={imageUrl}
                         alt={meta.key}
                         onError={() => setImgError(true)}
                         className="h-24 w-auto object-cover hover:opacity-90 transition-opacity"

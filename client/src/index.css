@@ -10,6 +10,9 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-md border border-white/40;
+  }
 }
 
 /* Force hide desktop sidebar on mobile screens */

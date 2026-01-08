@@ -220,7 +220,7 @@ export class SchedulerService {
 
         await queue.add('orchestrate-sync', {}, {
             repeat: {
-                pattern: '*/15 * * * *', // Every 15 mins
+                pattern: '*/5 * * * *', // Every 5 mins - faster sync for near real-time order visibility
             },
             jobId: 'orchestrator' // Singleton
         });
@@ -231,7 +231,7 @@ export class SchedulerService {
             }
         });
 
-        Logger.info('Scheduled Global Sync Orchestrator (Every 15 mins)');
+        Logger.info('Scheduled Global Sync Orchestrator (Every 5 mins)');
 
         // Schedule Inventory Alerts (Daily at 08:00 UTC)
         await queue.add('inventory-alerts', {}, {

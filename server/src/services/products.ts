@@ -24,7 +24,13 @@ export class ProductsService {
             // WooCommerce inventory & taxonomy fields
             manageStock: raw?.manage_stock ?? false,
             categories: raw?.categories || [],
-            tags: raw?.tags || []
+            tags: raw?.tags || [],
+            // Dimensions object for frontend compatibility (frontend expects data.dimensions.length/width/height)
+            dimensions: {
+                length: product.length?.toString() || '',
+                width: product.width?.toString() || '',
+                height: product.height?.toString() || ''
+            }
         };
     }
 

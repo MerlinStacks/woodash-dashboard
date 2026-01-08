@@ -10,19 +10,42 @@ import { prisma } from '../utils/prisma';
 
 const router = Router();
 
-// System Templates Config
+// System Templates Config - Organized by Category
 const SYSTEM_TEMPLATES = [
-    { id: 'sys_overview', name: 'Overview', type: 'SYSTEM', config: { dimension: 'day', metrics: ['sales', 'orders', 'aov'], dateRange: '30d' } },
-    { id: 'sys_products', name: 'Product Performance', type: 'SYSTEM', config: { dimension: 'product', metrics: ['quantity', 'sales'], dateRange: '30d' } },
-    { id: 'sys_top_sellers', name: 'Top Sellers (90d)', type: 'SYSTEM', config: { dimension: 'product', metrics: ['sales'], dateRange: '90d' } },
-    { id: 'sys_bought_together', name: 'Frequent Orders (Proxy)', type: 'SYSTEM', config: { dimension: 'product', metrics: ['orders'], dateRange: '90d' } }
+    // Sales Reports
+    { id: 'sys_overview', name: 'Sales Overview', type: 'SYSTEM', category: 'Sales', config: { dimension: 'day', metrics: ['sales', 'orders', 'aov'], dateRange: '30d' } },
+    { id: 'sys_products', name: 'Product Performance', type: 'SYSTEM', category: 'Sales', config: { dimension: 'product', metrics: ['quantity', 'sales', 'orders'], dateRange: '30d' } },
+    { id: 'sys_top_sellers', name: 'Top Sellers (90d)', type: 'SYSTEM', category: 'Sales', config: { dimension: 'product', metrics: ['sales', 'quantity'], dateRange: '90d' } },
+    { id: 'sys_order_status', name: 'Order Status Breakdown', type: 'SYSTEM', category: 'Sales', config: { dimension: 'order_status', metrics: ['orders', 'sales'], dateRange: '30d' } },
+    { id: 'sys_category_performance', name: 'Category Performance', type: 'SYSTEM', category: 'Sales', config: { dimension: 'category', metrics: ['sales', 'orders', 'quantity'], dateRange: '30d' } },
+
+    // Traffic Reports  
+    { id: 'sys_traffic_sources', name: 'Traffic Sources', type: 'SYSTEM', category: 'Traffic', config: { dimension: 'traffic_source', metrics: ['sessions', 'visitors', 'conversion_rate'], dateRange: '30d' } },
+    { id: 'sys_campaigns', name: 'Campaign Performance', type: 'SYSTEM', category: 'Traffic', config: { dimension: 'utm_source', metrics: ['sessions', 'sales', 'conversion_rate'], dateRange: '30d' } },
+    { id: 'sys_devices', name: 'Device Performance', type: 'SYSTEM', category: 'Traffic', config: { dimension: 'device', metrics: ['sessions', 'sales', 'conversion_rate'], dateRange: '30d' } },
+
+    // Customer Reports
+    { id: 'sys_geographic', name: 'Geographic Sales', type: 'SYSTEM', category: 'Customer', config: { dimension: 'country', metrics: ['sales', 'orders', 'sessions'], dateRange: '30d' } },
+    { id: 'sys_customer_performance', name: 'Top Customers', type: 'SYSTEM', category: 'Customer', config: { dimension: 'customer', metrics: ['sales', 'orders'], dateRange: '90d' } },
+    { id: 'sys_new_customers', name: 'New Customers', type: 'SYSTEM', category: 'Customer', config: { dimension: 'day', metrics: ['new_customers', 'sales'], dateRange: '30d' } },
+
+    // Conversion Reports
+    { id: 'sys_conversion', name: 'Conversion Report', type: 'SYSTEM', category: 'Conversion', config: { dimension: 'day', metrics: ['sessions', 'orders', 'conversion_rate'], dateRange: '30d' } }
 ];
 
 const SYSTEM_CONFIGS: Record<string, any> = {
     'sys_overview': { dimension: 'day', metrics: ['sales', 'orders', 'aov'], dateRange: '30d' },
-    'sys_products': { dimension: 'product', metrics: ['quantity', 'sales'], dateRange: '30d' },
-    'sys_top_sellers': { dimension: 'product', metrics: ['sales'], dateRange: '90d' },
-    'sys_bought_together': { dimension: 'product', metrics: ['orders'], dateRange: '90d' },
+    'sys_products': { dimension: 'product', metrics: ['quantity', 'sales', 'orders'], dateRange: '30d' },
+    'sys_top_sellers': { dimension: 'product', metrics: ['sales', 'quantity'], dateRange: '90d' },
+    'sys_order_status': { dimension: 'order_status', metrics: ['orders', 'sales'], dateRange: '30d' },
+    'sys_category_performance': { dimension: 'category', metrics: ['sales', 'orders', 'quantity'], dateRange: '30d' },
+    'sys_traffic_sources': { dimension: 'traffic_source', metrics: ['sessions', 'visitors', 'conversion_rate'], dateRange: '30d' },
+    'sys_campaigns': { dimension: 'utm_source', metrics: ['sessions', 'sales', 'conversion_rate'], dateRange: '30d' },
+    'sys_devices': { dimension: 'device', metrics: ['sessions', 'sales', 'conversion_rate'], dateRange: '30d' },
+    'sys_geographic': { dimension: 'country', metrics: ['sales', 'orders', 'sessions'], dateRange: '30d' },
+    'sys_customer_performance': { dimension: 'customer', metrics: ['sales', 'orders'], dateRange: '90d' },
+    'sys_new_customers': { dimension: 'day', metrics: ['new_customers', 'sales'], dateRange: '30d' },
+    'sys_conversion': { dimension: 'day', metrics: ['sessions', 'orders', 'conversion_rate'], dateRange: '30d' }
 };
 
 // Templates

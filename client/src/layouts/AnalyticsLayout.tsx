@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-    BarChart3, DollarSign, GitBranch, Users,
+    BarChart3, DollarSign, GitBranch,
     TrendingUp, Search, LogOut, Download
 } from 'lucide-react';
 import { DateRangeFilter } from '../components/analytics/DateRangeFilter';
@@ -11,7 +11,6 @@ const navItems = [
     { to: '/analytics/revenue', label: 'Revenue', icon: DollarSign },
     { to: '/analytics/attribution', label: 'Attribution', icon: GitBranch },
     { to: '/analytics/cohorts', label: 'Cohorts', icon: TrendingUp },
-    { to: '/analytics/customers', label: 'Customers', icon: Users },
 ];
 
 interface AnalyticsLayoutProps {

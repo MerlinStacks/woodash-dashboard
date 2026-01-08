@@ -64,7 +64,7 @@ export function SocialChannelsSettings() {
     const fetchAccounts = async () => {
         try {
             setLoading(true);
-            const response = await api.get<{ socialAccounts: SocialAccount[] }>('/oauth/social-accounts');
+            const response = await api.get<{ socialAccounts: SocialAccount[] }>('/api/oauth/social-accounts');
             setAccounts(response.socialAccounts || []);
         } catch (err: any) {
             setError(err.message || 'Failed to load connected accounts.');
@@ -83,8 +83,8 @@ export function SocialChannelsSettings() {
             setError(null);
 
             const endpoint = platform === 'meta'
-                ? '/oauth/meta/messaging/authorize?redirect=/settings?tab=channels'
-                : '/oauth/tiktok/authorize?redirect=/settings?tab=channels';
+                ? '/api/oauth/meta/messaging/authorize?redirect=/settings?tab=channels'
+                : '/api/oauth/tiktok/authorize?redirect=/settings?tab=channels';
 
             const response = await api.get<{ authUrl: string }>(endpoint);
 
@@ -102,7 +102,7 @@ export function SocialChannelsSettings() {
         }
 
         try {
-            await api.delete(`/oauth/social-accounts/${accountId}`);
+            await api.delete(`/api/oauth/social-accounts/${accountId}`);
             setAccounts(prev => prev.filter(a => a.id !== accountId));
             setSuccessMessage(`${platform} disconnected.`);
         } catch (err: any) {

@@ -179,6 +179,7 @@ export class PushNotificationService {
     ): Promise<{ sent: number; failed: number }> {
         const keys = await this.getVapidKeys();
         if (!keys) {
+            Logger.warn('[PushNotificationService] Skipping notification - No VAPID keys configured. Run generate-vapid-keys script.', { accountId, type });
             return { sent: 0, failed: 0 };
         }
 

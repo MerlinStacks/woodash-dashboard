@@ -1,67 +1,76 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAccount } from '../context/AccountContext';
 import { useAuth } from '../context/AuthContext';
-import { Save, ArrowLeft, Loader2, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Save, ArrowLeft, Loader2, CheckCircle, AlertCircle, X, FileText, Palette, Eye } from 'lucide-react';
 import { api } from '../services/api';
 import { generateId } from './invoiceUtils';
 import { DesignerSidebar } from './DesignerSidebar';
 import { DesignerCanvas } from './DesignerCanvas';
 import { DesignerProperties } from './DesignerProperties';
 
+/**
+ * InvoiceDesigner - Single template editor for invoice layouts.
+ * Only one template per account is supported - saves always overwrite.
+ */
 export function InvoiceDesigner() {
-    const { id } = useParams();
     const navigate = useNavigate();
     const { currentAccount } = useAccount();
     const { token } = useAuth();
 
-    const [name, setName] = useState('New Invoice Template');
+    const [templateId, setTemplateId] = useState<string | null>(null);
+    const [name, setName] = useState('Invoice Template');
     const [layout, setLayout] = useState<any[]>([]);
-    const [items, setItems] = useState<any[]>([]); // Store component config (e.g. text content)
+    const [items, setItems] = useState<any[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [showPreview, setShowPreview] = useState(false);
 
-    // Initial Load
+    // Load existing template on mount
     useEffect(() => {
         const fetchTemplate = async () => {
-            if (id && currentAccount && token) {
-                try {
-                    setIsLoading(true);
-                    const template: any = await api.get(`/api/invoices/templates/${id}`, token, currentAccount.id);
-                    if (template) {
-                        setName(template.name);
-                        let layoutData = template.layout;
-                        // Handle potential double-serialization or stringified JSON
-                        if (typeof layoutData === 'string') {
-                            try {
-                                layoutData = JSON.parse(layoutData);
-                            } catch (e) {
-                                console.error('Failed to parse layout string', e);
-                            }
-                        }
+            if (!currentAccount || !token) return;
 
-                        if (layoutData) {
-                            setLayout(layoutData.grid || []);
-                            setItems(layoutData.items || []);
+            try {
+                setIsLoading(true);
+                const templates: any[] = await api.get('/api/invoices/templates', token, currentAccount.id);
+
+                if (templates && templates.length > 0) {
+                    const template = templates[0]; // Only one template per account
+                    setTemplateId(template.id);
+                    setName(template.name || 'Invoice Template');
+
+                    let layoutData = template.layout;
+                    if (typeof layoutData === 'string') {
+                        try {
+                            layoutData = JSON.parse(layoutData);
+                        } catch (e) {
+                            console.error('Failed to parse layout string', e);
                         }
                     }
-                } catch (err) {
-                    console.error("Failed to load template", err);
-                } finally {
-                    setIsLoading(false);
+
+                    if (layoutData) {
+                        setLayout(layoutData.grid || []);
+                        setItems(layoutData.items || []);
+                    }
                 }
+            } catch (err) {
+                console.error("Failed to load template", err);
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchTemplate();
-    }, [id, currentAccount, token]);
+    }, [currentAccount, token]);
 
     const addItem = (type: string) => {
         const newItemId = generateId();
         const newItem = {
             i: newItemId,
             x: 0,
-            y: Infinity, // puts it at the bottom
+            y: Infinity,
             w: type === 'order_table' ? 12 : 6,
             h: type === 'order_table' ? 4 : 2,
             minW: 2,
@@ -84,8 +93,9 @@ export function InvoiceDesigner() {
 
     const saveTemplate = async () => {
         if (!currentAccount || !token) return;
-        setIsLoading(true);
+        setIsSaving(true);
         setSaveMessage(null);
+
         try {
             const payload = {
                 name,
@@ -95,80 +105,133 @@ export function InvoiceDesigner() {
                 }
             };
 
-            if (id) {
-                await api.put(`/api/invoices/templates/${id}`, payload, token, currentAccount.id);
-                setSaveMessage({ type: 'success', text: 'Template saved!' });
-            } else {
-                const newTemplate: any = await api.post(`/api/invoices/templates`, payload, token, currentAccount.id);
-                if (newTemplate && newTemplate.id) {
-                    setSaveMessage({ type: 'success', text: 'Template created!' });
-                    navigate(`/invoices/templates/${newTemplate.id}`, { replace: true });
-                }
+            // Always use POST - backend handles upsert logic
+            const result: any = await api.post('/api/invoices/templates', payload, token, currentAccount.id);
+
+            if (result && result.id) {
+                setTemplateId(result.id);
             }
-            // Auto-dismiss success message after 3s
+
+            setSaveMessage({ type: 'success', text: 'Template saved successfully!' });
             setTimeout(() => setSaveMessage(null), 3000);
         } catch (err: any) {
             console.error('Failed to save template', err);
-            // Parse error message from API response
-            const errorMessage = err?.message || 'Failed to save template';
-            if (errorMessage.includes('already exists')) {
-                setSaveMessage({ type: 'error', text: 'A template with this name already exists. Please choose a different name.' });
-            } else {
-                setSaveMessage({ type: 'error', text: errorMessage });
-            }
+            setSaveMessage({ type: 'error', text: err?.message || 'Failed to save template' });
         } finally {
-            setIsLoading(false);
+            setIsSaving(false);
         }
     };
 
-    return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-100">
-            {/* Header */}
-            <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <button type="button" onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-700">
-                        <ArrowLeft size={20} />
-                    </button>
-                    <div>
-                        <label className="block text-xs text-gray-400 font-medium">Template Name</label>
-                        <input
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            className="font-bold text-lg text-gray-800 border-none p-0 focus:ring-0 placeholder-gray-300"
-                        />
+    if (isLoading) {
+        return (
+            <div className="h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="relative">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg animate-pulse">
+                            <FileText className="text-white" size={28} />
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-600">
+                        <Loader2 size={18} className="animate-spin" />
+                        <span className="font-medium">Loading Invoice Designer...</span>
                     </div>
                 </div>
-                <button type="button" onClick={saveTemplate} disabled={isLoading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-                    {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                    {isLoading ? 'Saving...' : 'Save Template'}
-                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="h-[calc(100vh-64px)] flex flex-col bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50">
+            {/* Premium Header */}
+            <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 px-6 py-3 flex justify-between items-center shadow-sm">
+                <div className="flex items-center gap-4">
+                    <button
+                        type="button"
+                        onClick={() => navigate(-1)}
+                        className="p-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
+                            <FileText className="text-white" size={18} />
+                        </div>
+                        <div>
+                            <h1 className="font-bold text-slate-800 text-lg leading-tight">Invoice Designer</h1>
+                            <p className="text-xs text-slate-500">Customize your invoice template</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {/* Preview Toggle */}
+                    <button
+                        type="button"
+                        onClick={() => setShowPreview(!showPreview)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${showPreview
+                                ? 'bg-indigo-100 text-indigo-700 shadow-inner'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                    >
+                        <Eye size={16} />
+                        Preview
+                    </button>
+
+                    {/* Save Button */}
+                    <button
+                        type="button"
+                        onClick={saveTemplate}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-[1.02] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    >
+                        {isSaving ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin" />
+                                Saving...
+                            </>
+                        ) : (
+                            <>
+                                <Save size={16} />
+                                Save Template
+                            </>
+                        )}
+                    </button>
+                </div>
             </div>
 
             {/* Toast Notification */}
             {saveMessage && (
-                <div className={`fixed top-20 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${saveMessage.type === 'success'
-                        ? 'bg-green-50 border border-green-200 text-green-800'
-                        : 'bg-red-50 border border-red-200 text-red-800'
+                <div className={`fixed top-20 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl backdrop-blur-xl transition-all animate-in slide-in-from-right ${saveMessage.type === 'success'
+                        ? 'bg-emerald-50/90 border border-emerald-200 text-emerald-800'
+                        : 'bg-red-50/90 border border-red-200 text-red-800'
                     }`}>
                     {saveMessage.type === 'success' ? (
-                        <CheckCircle size={18} className="text-green-600 flex-shrink-0" />
+                        <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                            <CheckCircle size={18} className="text-white" />
+                        </div>
                     ) : (
-                        <AlertCircle size={18} className="text-red-600 flex-shrink-0" />
+                        <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center">
+                            <AlertCircle size={18} className="text-white" />
+                        </div>
                     )}
-                    <span className="text-sm font-medium">{saveMessage.text}</span>
+                    <span className="text-sm font-semibold">{saveMessage.text}</span>
                     <button
                         type="button"
                         onClick={() => setSaveMessage(null)}
-                        className="ml-2 text-gray-400 hover:text-gray-600"
+                        className="ml-2 p-1 rounded-full hover:bg-black/5 transition-colors"
                     >
                         <X size={16} />
                     </button>
                 </div>
             )}
 
+            {/* Main Content Area */}
             <div className="flex flex-1 overflow-hidden">
+                {/* Left Sidebar - Components */}
                 <DesignerSidebar onAddItem={addItem} />
 
+                {/* Canvas Area */}
                 <DesignerCanvas
                     layout={layout}
                     items={items}
@@ -177,6 +240,7 @@ export function InvoiceDesigner() {
                     onSelect={setSelectedId}
                 />
 
+                {/* Right Sidebar - Properties Panel */}
                 {selectedId && (
                     <DesignerProperties
                         items={items}

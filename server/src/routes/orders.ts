@@ -55,13 +55,42 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
+        // Lookup customer metadata for order count
+        const rawData = order.rawData as { customer_id?: number };
+        let customerMeta = null;
+
+        if (rawData.customer_id && rawData.customer_id > 0) {
+            const customer = await prisma.wooCustomer.findUnique({
+                where: {
+                    accountId_wooId: {
+                        accountId,
+                        wooId: rawData.customer_id
+                    }
+                },
+                select: {
+                    id: true,
+                    wooId: true,
+                    ordersCount: true
+                }
+            });
+
+            if (customer) {
+                customerMeta = {
+                    internalId: customer.id,
+                    wooId: customer.wooId,
+                    ordersCount: customer.ordersCount
+                };
+            }
+        }
+
         // Return the raw data which contains all the nice Woo fields
         // We also merge the internal status/id for convenience
         res.json({
             ...order.rawData as object,
             internal_id: order.id,
             internal_status: order.status,
-            internal_updated_at: order.updatedAt
+            internal_updated_at: order.updatedAt,
+            _customerMeta: customerMeta
         });
 
     } catch (error) {

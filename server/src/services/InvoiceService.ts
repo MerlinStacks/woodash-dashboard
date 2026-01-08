@@ -12,7 +12,28 @@ if (!fs.existsSync(INVOICE_DIR)) {
 
 export class InvoiceService {
 
+    /**
+     * Creates or updates the single invoice template for an account.
+     * Only one template is allowed per account - always overwrites existing.
+     */
     async createTemplate(accountId: string, data: { name: string, layout: any }) {
+        // Find existing template for this account
+        const existing = await prisma.invoiceTemplate.findFirst({
+            where: { accountId }
+        });
+
+        if (existing) {
+            // Update existing template
+            return await prisma.invoiceTemplate.update({
+                where: { id: existing.id },
+                data: {
+                    name: data.name,
+                    layout: data.layout
+                }
+            });
+        }
+
+        // Create new template
         return await prisma.invoiceTemplate.create({
             data: {
                 accountId,

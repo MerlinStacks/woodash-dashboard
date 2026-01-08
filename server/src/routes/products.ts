@@ -347,7 +347,19 @@ router.post('/:id/rewrite-description', requireAuth, async (req: AuthenticatedRe
             return res.status(500).json({ error: 'AI returned empty response' });
         }
 
-        res.json({ description: generatedDescription.trim() });
+        // Convert newlines to HTML for ReactQuill compatibility
+        // Split by double newline (paragraph breaks) and wrap each in <p> tags
+        // Single newlines within paragraphs become <br> tags
+        const formattedDescription = generatedDescription
+            .trim()
+            .split(/\n\n+/)  // Split on double+ newlines (paragraph breaks)
+            .map((paragraph: string) => {
+                const withBreaks = paragraph.trim().replace(/\n/g, '<br>');
+                return `<p>${withBreaks}</p>`;
+            })
+            .join('');
+
+        res.json({ description: formattedDescription });
 
     } catch (error: any) {
         Logger.error('Error rewriting product description', { error });

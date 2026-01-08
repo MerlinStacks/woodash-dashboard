@@ -77,6 +77,13 @@ router.post('/:accountId', async (req: AuthenticatedRequest, res: Response) => {
 
             // Create Notification for new orders
             if (topic === 'order.created') {
+                Logger.info(`[Webhook] New order received via webhook`, {
+                    accountId,
+                    orderId: req.body.id,
+                    orderNumber: req.body.number,
+                    total: req.body.total
+                });
+
                 await prisma.notification.create({
                     data: {
                         accountId,
@@ -99,11 +106,13 @@ router.post('/:accountId', async (req: AuthenticatedRequest, res: Response) => {
 
                 // Send push notification to subscribed devices
                 const { PushNotificationService } = require('../services/PushNotificationService');
-                await PushNotificationService.sendToAccount(accountId, {
+                const pushResult = await PushNotificationService.sendToAccount(accountId, {
                     title: '🛒 New Order!',
                     body: `Order #${req.body.number || req.body.id} - $${req.body.total}`,
                     data: { url: '/orders' }
                 }, 'order');
+
+                Logger.info(`[Webhook] Push notifications sent`, { accountId, ...pushResult });
             }
             Logger.info(`Indexed Order`, { orderId: req.body.id, accountId });
         }

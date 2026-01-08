@@ -122,54 +122,59 @@ export function ReportsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-                    <p className="text-sm text-gray-500">Deep dive into your store performance</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
+                    <p className="text-sm text-gray-500 mt-1">Deep dive into your store performance with custom and premade reports</p>
                 </div>
 
-                <div className="flex bg-gray-100 p-1 rounded-lg">
+                {/* Tab Navigation */}
+                <div className="flex bg-white/80 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200/60 shadow-sm">
                     <button
                         onClick={() => setActiveTab('overview')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'overview' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'overview' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/20' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
                     >
                         Overview
                     </button>
                     <button
                         onClick={() => setActiveTab('forecast')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'forecast' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'forecast' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/20' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
                     >
                         Forecasting
                     </button>
                     <button
                         onClick={() => setActiveTab('stock_velocity')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'stock_velocity' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'stock_velocity' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/20' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
                     >
                         Stock Velocity
                     </button>
                     <button
                         onClick={() => setActiveTab('premade')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'premade' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'premade' ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md shadow-purple-500/20' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
                     >
-                        Premade Reports
+                        Report Library
                     </button>
                     <button
                         onClick={() => {
                             setShouldAutoRun(false);
                             setActiveTab('custom');
                         }}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'custom' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'custom' ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-md shadow-green-500/20' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
                     >
-                        Custom Reports
+                        Custom Builder
                     </button>
                 </div>
+            </div>
 
-                {(activeTab === 'overview' || activeTab === 'forecast' || activeTab === 'premade') && (
-                    <div className="flex bg-white border border-gray-200 rounded-lg shadow-sm">
+            {/* Date Range Selector (for applicable tabs) */}
+            {(activeTab === 'overview' || activeTab === 'forecast' || activeTab === 'premade') && (
+                <div className="flex justify-end">
+                    <div className="flex bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                         <select
                             value={dateOption}
                             onChange={(e) => setDateOption(e.target.value as DateRangeOption)}
-                            className="bg-transparent border-r border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:bg-gray-50"
+                            className="bg-transparent border-r border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 outline-none focus:bg-gray-50"
                         >
                             <option value="today">Today</option>
                             <option value="yesterday">Yesterday</option>
@@ -182,15 +187,15 @@ export function ReportsPage() {
                         <select
                             value={comparisonOption}
                             onChange={(e) => setComparisonOption(e.target.value as ComparisonOption)}
-                            className="bg-transparent px-3 py-2 text-sm text-gray-500 outline-none focus:bg-gray-50"
+                            className="bg-transparent px-4 py-2.5 text-sm text-gray-500 outline-none focus:bg-gray-50"
                         >
                             <option value="none">No Comparison</option>
                             <option value="previous_period">vs Previous Period</option>
                             <option value="previous_year">vs Previous Year</option>
                         </select>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
             {
                 activeTab === 'overview' && (

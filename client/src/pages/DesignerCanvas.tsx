@@ -1,7 +1,7 @@
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { Layout, Image as ImageIcon } from 'lucide-react';
+import { GripVertical, Image as ImageIcon, Type, Table, DollarSign } from 'lucide-react';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -13,44 +13,114 @@ interface DesignerCanvasProps {
     onSelect: (id: string | null) => void;
 }
 
+/**
+ * DesignerCanvas - Visual drag-and-drop canvas for invoice layout.
+ * Renders a paper-like preview with resizable grid items.
+ */
 export function DesignerCanvas({ layout, items, selectedId, onLayoutChange, onSelect }: DesignerCanvasProps) {
 
     const renderItemContent = (itemConfig: any) => {
-        if (!itemConfig) return <div className="p-2 text-red-500">Error: Item config missing</div>;
+        if (!itemConfig) return <div className="p-3 text-red-500 text-sm">Error: Item config missing</div>;
 
         switch (itemConfig.type) {
             case 'text':
-                return <div className="p-2 h-full overflow-hidden">
-                    <p className="whitespace-pre-wrap">{itemConfig.content || 'Text Block'}</p>
-                </div>;
-            case 'image':
-                return <div className="w-full h-full flex items-center justify-center overflow-hidden bg-gray-50">
-                    {itemConfig.content ? (
-                        <img src={itemConfig.content} alt="Invoice" className="w-full h-full object-contain" />
-                    ) : (
-                        <div className="text-gray-400 flex flex-col items-center">
-                            <ImageIcon size={24} />
-                            <span className="text-xs mt-1">No Image</span>
+                return (
+                    <div className="p-4 h-full overflow-hidden">
+                        <div className="flex items-start gap-2 text-slate-500 mb-2">
+                            <Type size={14} className="flex-shrink-0 mt-0.5" />
+                            <span className="text-xs font-medium uppercase tracking-wider">Text Block</span>
                         </div>
-                    )}
-                </div>;
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                            {itemConfig.content || 'Click to edit text...'}
+                        </p>
+                    </div>
+                );
+            case 'image':
+                return (
+                    <div className="w-full h-full flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg">
+                        {itemConfig.content ? (
+                            <img src={itemConfig.content} alt="Invoice" className="w-full h-full object-contain" />
+                        ) : (
+                            <div className="text-slate-400 flex flex-col items-center gap-2">
+                                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                                    <ImageIcon size={24} className="text-purple-500" />
+                                </div>
+                                <span className="text-xs font-medium">Add Image URL</span>
+                            </div>
+                        )}
+                    </div>
+                );
             case 'order_table':
-                return <div className="p-2 h-full bg-gray-50 flex items-center justify-center border-2 border-dashed border-gray-300">
-                    <span className="text-gray-500">Order Items Table Preview</span>
-                </div>;
+                return (
+                    <div className="p-4 h-full bg-gradient-to-br from-emerald-50 to-teal-50 flex flex-col rounded-lg border border-dashed border-emerald-300">
+                        <div className="flex items-center gap-2 text-emerald-600 mb-3">
+                            <Table size={16} />
+                            <span className="text-xs font-semibold uppercase tracking-wider">Order Items Table</span>
+                        </div>
+                        <div className="flex-1 flex flex-col justify-center">
+                            <div className="space-y-2">
+                                <div className="flex gap-4 text-xs text-emerald-600 font-medium pb-2 border-b border-emerald-200">
+                                    <span className="flex-1">Product</span>
+                                    <span className="w-12 text-center">Qty</span>
+                                    <span className="w-16 text-right">Price</span>
+                                </div>
+                                <div className="flex gap-4 text-xs text-emerald-500">
+                                    <span className="flex-1 bg-emerald-100 rounded h-3"></span>
+                                    <span className="w-12 bg-emerald-100 rounded h-3"></span>
+                                    <span className="w-16 bg-emerald-100 rounded h-3"></span>
+                                </div>
+                                <div className="flex gap-4 text-xs text-emerald-500">
+                                    <span className="flex-1 bg-emerald-100 rounded h-3"></span>
+                                    <span className="w-12 bg-emerald-100 rounded h-3"></span>
+                                    <span className="w-16 bg-emerald-100 rounded h-3"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
             case 'totals':
-                return <div className="p-2 h-full bg-gray-50 flex flex-col items-end justify-center border-2 border-dashed border-gray-300">
-                    <div className="w-1/2 h-2 bg-gray-200 mb-1"></div>
-                    <div className="w-1/3 h-2 bg-gray-200"></div>
-                </div>;
+                return (
+                    <div className="p-4 h-full bg-gradient-to-br from-amber-50 to-orange-50 flex flex-col rounded-lg border border-dashed border-amber-300">
+                        <div className="flex items-center gap-2 text-amber-600 mb-3">
+                            <DollarSign size={16} />
+                            <span className="text-xs font-semibold uppercase tracking-wider">Totals</span>
+                        </div>
+                        <div className="flex-1 flex flex-col justify-center space-y-2">
+                            <div className="flex justify-between text-xs">
+                                <span className="text-amber-600">Subtotal:</span>
+                                <span className="w-20 bg-amber-100 rounded h-3"></span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                                <span className="text-amber-600">Shipping:</span>
+                                <span className="w-16 bg-amber-100 rounded h-3"></span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                                <span className="text-amber-600">Tax:</span>
+                                <span className="w-14 bg-amber-100 rounded h-3"></span>
+                            </div>
+                            <div className="flex justify-between text-xs font-bold pt-2 border-t border-amber-200">
+                                <span className="text-amber-700">Total:</span>
+                                <span className="w-24 bg-amber-200 rounded h-4"></span>
+                            </div>
+                        </div>
+                    </div>
+                );
             default:
-                return <div className="p-2">{itemConfig.type}</div>;
+                return <div className="p-3 text-slate-500 text-sm">{itemConfig.type}</div>;
         }
     };
 
     return (
-        <div className="flex-1 overflow-y-auto p-8 relative">
-            <div className="max-w-[210mm] mx-auto min-h-[297mm] bg-white shadow-xl relative scale-100 origin-top">
+        <div
+            className="flex-1 overflow-y-auto p-8 bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100"
+            onClick={() => onSelect(null)}
+        >
+            {/* Paper Container */}
+            <div className="max-w-[210mm] mx-auto min-h-[297mm] bg-white shadow-2xl rounded-lg relative origin-top ring-1 ring-slate-200/50">
+                {/* Paper Texture Overlay */}
+                <div className="absolute inset-0 opacity-[0.02] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PGZlQ29sb3JNYXRyaXggdHlwZT0ic2F0dXJhdGUiIHZhbHVlcz0iMCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNhKSIvPjwvc3ZnPg==')]" />
+
+                {/* Grid Layout */}
                 {/* @ts-ignore */}
                 <ResponsiveGridLayout
                     className="layout"
@@ -71,21 +141,46 @@ export function DesignerCanvas({ layout, items, selectedId, onLayoutChange, onSe
                         return (
                             <div
                                 key={l.i}
-                                className={`bg-white border group relative ${isSelected ? 'border-blue-600 ring-1 ring-blue-600 z-10' : 'hover:border-blue-400'}`}
+                                className={`bg-white border-2 rounded-lg group relative transition-all duration-150 ${isSelected
+                                        ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-lg z-10'
+                                        : 'border-slate-200 hover:border-indigo-300 hover:shadow-md'
+                                    }`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onSelect(l.i);
                                 }}
                             >
                                 {/* Drag Handle */}
-                                <div className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 cursor-move bg-gray-100 z-10">
-                                    <Layout size={12} />
+                                <div className={`absolute -top-px -left-px p-1.5 rounded-br-lg cursor-move z-10 transition-all ${isSelected
+                                        ? 'bg-indigo-500 opacity-100'
+                                        : 'bg-slate-300 opacity-0 group-hover:opacity-100'
+                                    }`}>
+                                    <GripVertical size={12} className={isSelected ? 'text-white' : 'text-slate-600'} />
                                 </div>
-                                {renderItemContent(itemConfig)}
+
+                                {/* Item Content */}
+                                <div className="h-full overflow-hidden">
+                                    {renderItemContent(itemConfig)}
+                                </div>
                             </div>
                         );
                     })}
                 </ResponsiveGridLayout>
+
+                {/* Empty State */}
+                {layout.length === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center p-8">
+                            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                                <Table size={32} className="text-indigo-500" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-700 mb-2">Start Building Your Invoice</h3>
+                            <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                                Click on components in the left sidebar to add them to your invoice template.
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
