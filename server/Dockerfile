@@ -1,7 +1,7 @@
 # Base stage - using slim (Debian) for better npm compatibility
-FROM node:18-slim
+FROM node:22-slim
 
-WORKDIR /app/server
+WORKDIR /app
 
 # Install system dependencies (build tools for native modules)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,17 +11,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
-COPY server/package.json ./
+# Copy root workspace files first (required for npm workspaces)
+COPY package.json package-lock.json ./
 
-# Install dependencies (generates lockfile during build)
-RUN npm install --legacy-peer-deps
+# Create placeholder for sibling workspace (client) - required for npm workspace resolution
+RUN mkdir -p client && echo '{"name":"client-stub","version":"1.0.0"}' > client/package.json
 
-# Copy server source code
-COPY server/ .
+# Copy server package.json
+COPY server/package.json server/
+
+# Install server dependencies using workspace
+RUN npm install --workspace=server --legacy-peer-deps
+
+# Copy server source
+COPY server/ server/
+
+WORKDIR /app/server
 
 # Generate Prisma Client (requires DATABASE_URL at build time)
 ARG DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ENV DATABASE_URL=${DATABASE_URL}
 RUN npx prisma generate
 
 # Build for production
