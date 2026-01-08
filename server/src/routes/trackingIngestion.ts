@@ -101,7 +101,18 @@ router.post('/e', async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
-        Logger.error('Tracking Error', { error });
+        // Enhanced error logging with full context
+        const errorDetails = error instanceof Error
+            ? { message: error.message, stack: error.stack, name: error.name }
+            : { raw: String(error) };
+        Logger.error('Tracking Error', {
+            error: errorDetails,
+            eventType: type,
+            visitorId,
+            accountId,
+            url,
+            payloadKeys: payload ? Object.keys(payload) : []
+        });
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });

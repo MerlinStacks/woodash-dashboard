@@ -336,22 +336,33 @@ export async function processEvent(data: TrackingEventPayload) {
     sessionPayload.totalVisits = (existingSession?.totalVisits || 0) + (isPageView ? 1 : 0);
 
     // Upsert
-    const session = await prisma.analyticsSession.upsert({
-        where: {
-            accountId_visitorId: {
+    // DEBUG: Log session payload to diagnose Prisma validation errors
+    console.log('DEBUG sessionPayload:', JSON.stringify(sessionPayload, null, 2));
+    console.log('DEBUG accountId:', data.accountId, 'visitorId:', data.visitorId);
+
+    let session;
+    try {
+        session = await prisma.analyticsSession.upsert({
+            where: {
+                accountId_visitorId: {
+                    accountId: data.accountId,
+                    visitorId: data.visitorId
+                }
+            },
+            create: {
                 accountId: data.accountId,
-                visitorId: data.visitorId
-            }
-        },
-        create: {
-            accountId: data.accountId,
-            visitorId: data.visitorId,
-            firstTouchSource: currentSource,
-            firstTouchAt: new Date(),
-            ...sessionPayload
-        },
-        update: sessionPayload
-    });
+                visitorId: data.visitorId,
+                firstTouchSource: currentSource,
+                firstTouchAt: new Date(),
+                ...sessionPayload
+            },
+            update: sessionPayload
+        });
+    } catch (upsertError: any) {
+        console.error('Prisma upsert error:', upsertError.message || upsertError);
+        console.error('Session payload was:', JSON.stringify(sessionPayload, null, 2));
+        throw upsertError;
+    }
 
     // 3. Log Event
     // Build payload, merging is404 flag for pageview events
@@ -360,15 +371,22 @@ export async function processEvent(data: TrackingEventPayload) {
         eventPayload = { ...(data.payload || {}), is404: true };
     }
 
-    await prisma.analyticsEvent.create({
-        data: {
-            sessionId: session.id,
-            type: data.type,
-            url: data.url,
-            pageTitle: data.pageTitle,
-            payload: eventPayload
-        }
-    });
+    try {
+        await prisma.analyticsEvent.create({
+            data: {
+                sessionId: session.id,
+                type: data.type,
+                url: data.url,
+                pageTitle: data.pageTitle,
+                payload: eventPayload
+            }
+        });
+    } catch (eventError: any) {
+        console.error('Prisma event create error:', eventError.message || eventError);
+        console.error('Event data was:', { sessionId: session.id, type: data.type, url: data.url, pageTitle: data.pageTitle });
+        throw eventError;
+    }
 
     return session;
 }
+
