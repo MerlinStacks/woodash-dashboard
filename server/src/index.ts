@@ -4,15 +4,20 @@ dotenv.config();
 import { server } from './app';
 import { SchedulerService } from './services/SchedulerService';
 import { startWorkers } from './workers';
-import { QueueFactory } from './services/queue/QueueFactory';
 import { IndexingService } from './services/search/IndexingService';
 import { Logger } from './utils/logger';
+import { validateEnvironment } from './utils/env';
+import { initGracefulShutdown } from './utils/shutdown';
+
+// Validate environment variables before proceeding
+try {
+  validateEnvironment();
+} catch (error) {
+  Logger.error('[STARTUP] Environment validation failed, exiting');
+  process.exit(1);
+}
 
 const port = process.env.PORT || 3000;
-
-if (!process.env.JWT_SECRET) {
-  Logger.error('[SECURITY] JWT_SECRET is not defined. Server will crash on auth module load.');
-}
 
 // Global Error Handlers to prevent silent crashes
 process.on('uncaughtException', (error) => {
@@ -30,8 +35,6 @@ startWorkers().then(() => {
   Logger.error('[Startup] Failed to start workers', { error });
 });
 
-// QueueFactory already inited in app.ts, but safe to access queues here if needed.
-
 // Start Scheduler (async - must handle errors)
 SchedulerService.start().catch((error: any) => {
   Logger.error('[Startup] Failed to start scheduler', { error });
@@ -44,4 +47,7 @@ IndexingService.initializeIndices().catch((error) => {
 
 server.listen(port, () => {
   Logger.info(`[Server] Listening on http://0.0.0.0:${port}`);
+
+  // Initialize graceful shutdown after server starts
+  initGracefulShutdown(server);
 });

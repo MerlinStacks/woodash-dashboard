@@ -948,9 +948,8 @@ class OverSeek_Server_Tracking
 	 * @param string $type Event type (pageview, add_to_cart, etc.)
 	 * @param array $payload Event-specific data
 	 * @param bool $is_404 Whether this is a 404 error page
-	 * @param bool $send_immediately If true, send event immediately (for AJAX requests where shutdown may not fire)
 	 */
-	private function queue_event($type, $payload = array(), $is_404 = false, $send_immediately = false)
+	private function queue_event($type, $payload = array(), $is_404 = false)
 	{
 		// Skip if no consent
 		if (!$this->has_tracking_consent()) {
@@ -1003,42 +1002,13 @@ class OverSeek_Server_Tracking
 			$data['landingReferrer'] = $landing_referrer;
 		}
 
-		// For AJAX requests, send important e-commerce events immediately
-		// because the shutdown hook may not fire before wp_die()
-		if ($send_immediately || wp_doing_ajax()) {
-			$this->send_event_immediately($data);
-		} else {
-			$this->event_queue[] = $data;
-		}
-	}
-
-	/**
-	 * Send a single event immediately (blocking request).
-	 * Used for critical events during AJAX where shutdown may not fire.
-	 *
-	 * @param array $data Event data to send
-	 */
-	private function send_event_immediately($data)
-	{
-		$visitor_ip = $data['visitorIp'] ?? '';
-		unset($data['visitorIp']);
-
-		wp_remote_post($this->api_url . '/api/t/e', array(
-			'timeout' => 5, // 5 sec blocking timeout for critical events
-			'blocking' => true,
-			'headers' => array(
-				'Content-Type' => 'application/json',
-				'X-Forwarded-For' => $visitor_ip,
-				'X-Real-IP' => $visitor_ip,
-			),
-			'body' => wp_json_encode($data),
-		));
+		$this->event_queue[] = $data;
 	}
 
 	/**
 	 * Flush all queued events at shutdown.
-	 * Uses non-blocking requests for performance on VPS,
-	 * with 500ms timeout for shared hosting compatibility.
+	 * Uses blocking requests during AJAX (where shutdown may not complete),
+	 * and non-blocking for regular page loads.
 	 */
 	public function flush_event_queue()
 	{
@@ -1052,15 +1022,27 @@ class OverSeek_Server_Tracking
 			return;
 		}
 
+		// During AJAX, use blocking with short timeout to ensure delivery
+		// before wp_die() terminates the request
+		$is_ajax = wp_doing_ajax();
+		$timeout = $is_ajax ? 1 : 0.5;
+		$blocking = $is_ajax; // Blocking for AJAX, non-blocking for regular requests
+
+		// Debug: Log queue flush attempt
+		if (defined('WP_DEBUG') && WP_DEBUG && defined('OVERSEEK_DEBUG') && OVERSEEK_DEBUG) {
+			error_log('OverSeek: Flushing ' . count($all_events) . ' events (AJAX: ' . ($is_ajax ? 'yes' : 'no') . ', Blocking: ' . ($blocking ? 'yes' : 'no') . ')');
+		}
+
 		foreach ($all_events as $data) {
 			$visitor_ip = $data['visitorIp'] ?? '';
 			$retry_count = $data['_retry_count'] ?? 0;
+			$event_type = $data['type'] ?? 'unknown';
 			unset($data['visitorIp']); // Don't send in body, use headers
 			unset($data['_retry_count']); // Don't send retry metadata
 
 			$response = wp_remote_post($this->api_url . '/api/t/e', array(
-				'timeout' => 0.5, // 500ms - fast for shared hosting
-				'blocking' => false, // Non-blocking on VPS
+				'timeout' => $timeout,
+				'blocking' => $blocking,
 				'headers' => array(
 					'Content-Type' => 'application/json',
 					'X-Forwarded-For' => $visitor_ip,
@@ -1069,15 +1051,26 @@ class OverSeek_Server_Tracking
 				'body' => wp_json_encode($data),
 			));
 
-			// On failure, store for retry
-			if (is_wp_error($response)) {
+			// Debug: Log result for blocking requests
+			if ($blocking && defined('WP_DEBUG') && WP_DEBUG && defined('OVERSEEK_DEBUG') && OVERSEEK_DEBUG) {
+				if (is_wp_error($response)) {
+					error_log('OverSeek FAILED: ' . $event_type . ' - ' . $response->get_error_message());
+				} else {
+					$code = wp_remote_retrieve_response_code($response);
+					$body = wp_remote_retrieve_body($response);
+					error_log('OverSeek OK: ' . $event_type . ' - HTTP ' . $code . ' - ' . substr($body, 0, 100));
+				}
+			}
+
+			// On failure, store for retry (only for blocking requests where we can check)
+			if ($blocking && is_wp_error($response)) {
 				$data['visitorIp'] = $visitor_ip;
 				$data['_retry_count'] = $retry_count;
 				$this->store_failed_event($data);
 				
 				// Log errors for debugging (only if WP_DEBUG is enabled)
 				if (defined('WP_DEBUG') && WP_DEBUG) {
-					error_log('OverSeek Tracking Error: ' . $response->get_error_message() . ' | Event: ' . $data['type'] . ' | Retry: ' . ($retry_count + 1));
+					error_log('OverSeek Tracking Error: ' . $response->get_error_message() . ' | Event: ' . $event_type . ' | Retry: ' . ($retry_count + 1));
 				}
 			}
 		}

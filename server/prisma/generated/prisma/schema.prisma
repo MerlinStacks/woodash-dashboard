@@ -15,27 +15,27 @@ datasource db {
 // --------------------------------------
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  fullName     String?
-  avatarUrl    String?
-  shiftStart   String? // e.g. "09:00"
-  shiftEnd     String? // e.g. "17:00"
+  id             String  @id @default(uuid())
+  email          String  @unique
+  passwordHash   String
+  fullName       String?
+  avatarUrl      String?
+  shiftStart     String? // e.g. "09:00"
+  shiftEnd       String? // e.g. "17:00"
   emailSignature String? @db.Text // Rich HTML email signature for inbox replies
-  isSuperAdmin Boolean  @default(false)
-  
+  isSuperAdmin   Boolean @default(false)
+
   // Password Reset
   resetToken       String?
   resetTokenExpiry DateTime?
 
   // Two-Factor Auth
-  twoFactorSecret    String? // Store encrypted ideally, but raw for MVP
-  isTwoFactorEnabled Boolean @default(false)
-  twoFactorBackupCodes Json? @default("[]")
+  twoFactorSecret      String? // Store encrypted ideally, but raw for MVP
+  isTwoFactorEnabled   Boolean @default(false)
+  twoFactorBackupCodes Json?   @default("[]")
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   accounts              AccountUser[]
   dashboards            DashboardLayout[]
@@ -46,12 +46,12 @@ model User {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
+  id        String    @id @default(uuid())
+  token     String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   revokedAt DateTime?
   ipAddress String?
   userAgent String?
@@ -118,8 +118,8 @@ model Account {
   AnalyticsSession     AnalyticsSession[]
   segments             CustomerSegment[]
 
-  reportTemplates ReportTemplate[]
-  reportSchedules ReportSchedule[]
+  reportTemplates  ReportTemplate[]
+  reportSchedules  ReportSchedule[]
   invoiceTemplates InvoiceTemplate[]
 
   purchaseOrders PurchaseOrder[]
@@ -127,15 +127,15 @@ model Account {
   // Advanced Operations
   auditLogs         AuditLog[]
   inventorySettings InventorySettings?
-  
+
   // Policies & SOP
-  policies          Policy[]
-  
+  policies Policy[]
+
   // Push Notifications
   pushSubscriptions PushSubscription[]
-  
+
   // Social Media Messaging
-  socialAccounts    SocialAccount[]
+  socialAccounts SocialAccount[]
 }
 
 model Notification {
@@ -601,7 +601,7 @@ model Conversation {
   accountId String
 
   // Channel type for message source
-  channel  ConversationChannel @default(CHAT)
+  channel ConversationChannel @default(CHAT)
 
   // Link to specific known customer (optional, for visitors it's null)
   wooCustomerId String?
@@ -619,8 +619,8 @@ model Conversation {
   guestName  String?
 
   // Social messaging platform identifiers
-  externalConversationId String?        // Platform-specific thread ID
-  socialAccountId        String?        // Links to SocialAccount
+  externalConversationId String? // Platform-specific thread ID
+  socialAccountId        String? // Links to SocialAccount
   socialAccount          SocialAccount? @relation(fields: [socialAccountId], references: [id])
 
   // Merging support
@@ -681,35 +681,35 @@ model CannedResponse {
 
 // Social media messaging accounts (Facebook Pages, Instagram, TikTok)
 model SocialAccount {
-  id            String   @id @default(uuid())
-  accountId     String
-  
-  platform      String   // FACEBOOK, INSTAGRAM, TIKTOK
-  externalId    String   // Page ID or Account ID from platform
-  name          String   // Page/Account display name
-  
+  id        String @id @default(uuid())
+  accountId String
+
+  platform   String // FACEBOOK, INSTAGRAM, TIKTOK
+  externalId String // Page ID or Account ID from platform
+  name       String // Page/Account display name
+
   // Authentication
-  accessToken   String   // Page access token (should be encrypted)
-  refreshToken  String?  // For platforms that use refresh tokens
-  tokenExpiry   DateTime?
-  
+  accessToken  String // Page access token (should be encrypted)
+  refreshToken String? // For platforms that use refresh tokens
+  tokenExpiry  DateTime?
+
   // Platform-specific metadata
   // Facebook: { pageId, instagramBusinessAccountId }
   // Instagram: { igUserId, username }
   // TikTok: { openId, displayName }
-  metadata      Json?    @default("{}")
-  
+  metadata Json? @default("{}")
+
   // Webhook configuration
-  webhookSecret String?  // For verifying incoming webhooks
-  
-  isActive      Boolean  @default(true)
-  
+  webhookSecret String? // For verifying incoming webhooks
+
+  isActive Boolean @default(true)
+
   account       Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
   conversations Conversation[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([accountId, platform, externalId])
   @@index([accountId])
   @@index([platform, externalId])
@@ -908,7 +908,7 @@ model AnalyticsSession {
   firstTouchAt     DateTime?
   lastTouchSource  String?
   lastTouchAt      DateTime?
-  totalVisits      Int @default(1)
+  totalVisits      Int       @default(1)
 
   // Abandoned Cart Recovery
   abandonedNotificationSentAt DateTime?
@@ -1066,18 +1066,18 @@ model InventorySettings {
 }
 
 model InvoiceTemplate {
-  id        String   @id @default(uuid())
+  id        String @id @default(uuid())
   accountId String
   name      String
-  
-  // JSON Layout for the visual designer
-  layout    Json
 
-  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  
+  // JSON Layout for the visual designer
+  layout Json
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@unique([accountId, name])
 }
 
@@ -1088,19 +1088,19 @@ model InvoiceTemplate {
 /// Stores global platform API credentials for integrations.
 /// Only Super Admins can manage these credentials.
 model PlatformCredentials {
-  id        String @id @default(uuid())
-  
+  id String @id @default(uuid())
+
   /// Platform identifier: "GOOGLE_ADS", "META_ADS", etc.
-  platform  String @unique
-  
+  platform String @unique
+
   /// Encrypted/stored credentials as JSON
   /// For Google: { clientId, clientSecret, developerToken }
   /// For Meta: { appId, appSecret }
   credentials Json
-  
+
   /// Optional notes for admin reference
   notes String?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1112,17 +1112,17 @@ model PlatformCredentials {
 /// Stores configurable AI prompt templates.
 /// Only Super Admins can manage these prompts.
 model AIPrompt {
-  id        String @id @default(uuid())
-  
+  id String @id @default(uuid())
+
   /// Unique prompt identifier: "product_description", "customer_email", etc.
-  promptId  String @unique
-  
+  promptId String @unique
+
   /// The prompt template content
-  content   String @db.Text
-  
+  content String @db.Text
+
   /// Name for display purposes
-  name      String?
-  
+  name String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1136,12 +1136,12 @@ model Policy {
   id        String @id @default(uuid())
   accountId String
 
-  title     String
-  content   String  @db.Text  // Markdown content
-  type      String  @default("POLICY")  // POLICY, SOP, TRAINING
-  category  String?  // Optional grouping (e.g. "Safety", "Operations")
+  title       String
+  content     String  @db.Text // Markdown content
+  type        String  @default("POLICY") // POLICY, SOP, TRAINING
+  category    String? // Optional grouping (e.g. "Safety", "Operations")
   isPublished Boolean @default(true)
-  
+
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
@@ -1156,27 +1156,27 @@ model Policy {
 
 /// Stores Web Push subscription data per user/device for sending notifications.
 model PushSubscription {
-  id        String   @id @default(uuid())
+  id        String @id @default(uuid())
   userId    String
   accountId String
-  
+
   /// Web Push subscription endpoint URL
-  endpoint    String   @db.Text
+  endpoint String @db.Text
   /// P-256 public key for payload encryption
-  p256dh      String
+  p256dh   String
   /// Authentication secret
-  auth        String
-  
+  auth     String
+
   /// User preferences for notification types
   notifyNewMessages Boolean @default(true)
   notifyNewOrders   Boolean @default(true)
-  
+
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@unique([userId, endpoint])
   @@index([accountId])
 }

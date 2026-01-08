@@ -93,6 +93,12 @@ router.post('/e', async (req, res) => {
             clickId, clickPlatform, landingReferrer
         });
 
+        // Log e-commerce events at info level for debugging
+        const ecommerceTypes = ['add_to_cart', 'remove_from_cart', 'cart_view', 'checkout_view', 'checkout_start', 'purchase'];
+        if (ecommerceTypes.includes(type)) {
+            Logger.info('E-commerce event received', { type, visitorId, accountId, payload });
+        }
+
         res.json({ success: true });
     } catch (error) {
         Logger.error('Tracking Error', { error });

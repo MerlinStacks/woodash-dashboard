@@ -153,8 +153,10 @@ const chatService = new ChatService(io);
 
 import adminRoutes from './routes/admin';
 import debugRoutes from './routes/debug';
+import healthRoutes from './routes/health';
 
 // Routes
+app.use('/health', healthRoutes); // Health check (no auth)
 app.use('/api/debug', debugRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);

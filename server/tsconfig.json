@@ -10,6 +10,10 @@
     },
     "include": [
         "src",
-        "scripts"
+        "prisma/generated"
+    ],
+    "exclude": [
+        "scripts",
+        "src/scripts"
     ]
 }
