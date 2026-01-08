@@ -3,14 +3,14 @@ FROM node:18-alpine
 
 WORKDIR /app/server
 
-# Install system dependencies
-RUN apk add --no-cache openssl
+# Install system dependencies (build tools for native modules)
+RUN apk add --no-cache openssl python3 make g++
 
 # Copy server package files
 COPY package.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies (legacy-peer-deps for compatibility)
+RUN npm install --legacy-peer-deps
 
 # Copy server source code
 COPY . .
