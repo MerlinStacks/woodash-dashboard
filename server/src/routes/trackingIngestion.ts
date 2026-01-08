@@ -107,11 +107,11 @@ router.post('/e', async (req, res) => {
             : { raw: String(error) };
         Logger.error('Tracking Error', {
             error: errorDetails,
-            eventType: type,
-            visitorId,
-            accountId,
-            url,
-            payloadKeys: payload ? Object.keys(payload) : []
+            eventType: req.body?.type,
+            visitorId: req.body?.visitorId,
+            accountId: req.body?.accountId,
+            url: req.body?.url,
+            payloadKeys: req.body?.payload ? Object.keys(req.body.payload) : []
         });
         res.status(500).json({ error: 'Internal Server Error' });
     }

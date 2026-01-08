@@ -93,9 +93,9 @@ export async function processEvent(data: TrackingEventPayload) {
     }
 
     // 1. Resolve GeoIP if IP is provided
-    let country = null;
-    let city = null;
-    let region = null;
+    let country: string | null = null;
+    let city: string | null = null;
+    let region: string | null = null;
 
     if (data.ipAddress) {
         const geo = geoip.lookup(data.ipAddress);
