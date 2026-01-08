@@ -33,6 +33,7 @@ import oauthRoutes from './routes/oauth'; // OAuth flows for ad platforms
 
 import segmentsRoutes from './routes/segments';
 import policiesRoutes from './routes/policies';
+import todoRoutes from './routes/todo';
 import { auditsRouter } from './routes/audits';
 import sessionsRoutes from './routes/sessions';
 
@@ -190,6 +191,7 @@ app.use('/api/policies', policiesRoutes);
 app.use('/api/orders', ordersRoutes); // Mount Orders API
 app.use('/api/audits', auditsRouter);
 app.use('/api/sessions', sessionsRoutes);
+app.use('/api/todos', todoRoutes);
 app.use('/api/oauth', oauthRoutes); // OAuth flows for Google Ads, Meta
 
 // Mount Chat Routes

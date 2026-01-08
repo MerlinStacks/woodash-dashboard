@@ -7,6 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // --------------------------------------
@@ -43,6 +44,7 @@ model User {
   refreshTokens         RefreshToken[]
   pushSubscriptions     PushSubscription[]
   blockedContacts       BlockedContact[]
+  todos                 Todo[]
 }
 
 model RefreshToken {
@@ -139,6 +141,9 @@ model Account {
   
   // Blocked Contacts
   blockedContacts   BlockedContact[]
+  
+  // AI Todos
+  todos             Todo[]
 }
 
 model Notification {
@@ -1237,4 +1242,28 @@ model PushSubscription {
   
   @@unique([userId, endpoint])
   @@index([accountId])
+}
+
+// --------------------------------------
+// AI Todo List
+// --------------------------------------
+
+model Todo {
+  id        String    @id @default(uuid())
+  accountId String
+  userId    String
+  
+  title       String
+  completed   Boolean   @default(false)
+  priority    String    @default("NORMAL") // LOW, NORMAL, HIGH
+  aiGenerated Boolean   @default(false)    // Flag for AI-suggested tasks
+  
+  dueDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([accountId, userId])
 }

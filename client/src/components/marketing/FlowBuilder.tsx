@@ -1,6 +1,6 @@
 /**
  * FlowBuilder - Visual automation flow builder using ReactFlow.
- * n8n/FunnelKit-style canvas with draggable triggers, actions, delays, and conditions.
+ * Popup-driven canvas experience with modal selectors for triggers, steps, and actions.
  */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
@@ -21,7 +21,13 @@ import {
 import '@xyflow/react/dist/style.css';
 import { TriggerNode, ActionNode, DelayNode, ConditionNode } from './FlowNodes';
 import { NodeConfigPanel } from './NodeConfigPanel';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import {
+    StartingPointCard,
+    EventSelectorModal,
+    StepTypePopup,
+    ActionSelectorModal,
+    StepType,
+} from './flow';
 
 // Define Node Types
 const nodeTypes: NodeTypes = {
@@ -60,55 +66,6 @@ const FlowControls: React.FC<ControlsProps> = ({ onSave, onCancel }) => {
     );
 };
 
-// Toolbox item component
-interface ToolboxItemProps {
-    label: string;
-    nodeType: string;
-    config?: any;
-    colorClass: string;
-    icon: string;
-}
-
-const ToolboxItem: React.FC<ToolboxItemProps> = ({ label, nodeType, config, colorClass, icon }) => (
-    <div
-        className={`p-2.5 bg-white border ${colorClass} rounded cursor-grab shadow-sm flex items-center gap-2 hover:shadow-md transition-shadow text-sm`}
-        onDragStart={(event) => {
-            event.dataTransfer.setData('application/reactflow', nodeType);
-            event.dataTransfer.setData('application/label', label);
-            event.dataTransfer.setData('application/config', JSON.stringify(config || {}));
-            event.dataTransfer.effectAllowed = 'move';
-        }}
-        draggable
-    >
-        <span>{icon}</span>
-        <span className="font-medium text-gray-700">{label}</span>
-    </div>
-);
-
-// Collapsible section component
-interface ToolboxSectionProps {
-    title: string;
-    children: React.ReactNode;
-    defaultOpen?: boolean;
-}
-
-const ToolboxSection: React.FC<ToolboxSectionProps> = ({ title, children, defaultOpen = true }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-
-    return (
-        <div className="mb-3">
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center gap-1 text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 hover:text-gray-700"
-            >
-                {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                {title}
-            </button>
-            {isOpen && <div className="space-y-2">{children}</div>}
-        </div>
-    );
-};
-
 interface Props {
     initialFlow?: { nodes: Node[], edges: Edge[] } | null;
     onSave: (flow: { nodes: Node[], edges: Edge[] }) => void;
@@ -120,7 +77,14 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-    const { screenToFlowPosition } = useReactFlow();
+    const { screenToFlowPosition, getViewport } = useReactFlow();
+
+    // Modal states
+    const [showEventSelector, setShowEventSelector] = useState(false);
+    const [showStepPopup, setShowStepPopup] = useState(false);
+    const [showActionSelector, setShowActionSelector] = useState(false);
+    const [stepPopupPosition, setStepPopupPosition] = useState({ x: 0, y: 0 });
+    const [pendingNodeParent, setPendingNodeParent] = useState<string | null>(null);
 
     // Load initial flow - start with empty canvas if no existing flow
     useEffect(() => {
@@ -128,7 +92,7 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
             setNodes(initialFlow.nodes);
             setEdges(initialFlow.edges || []);
         } else {
-            // Empty canvas - user drags trigger first
+            // Empty canvas - show starting point card
             setNodes([]);
             setEdges([]);
         }
@@ -137,43 +101,6 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
     const onConnect = useCallback(
         (params: Connection) => setEdges((eds) => addEdge(params, eds)),
         [setEdges],
-    );
-
-    const onDragOver = useCallback((event: React.DragEvent) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-    }, []);
-
-    const onDrop = useCallback(
-        (event: React.DragEvent) => {
-            event.preventDefault();
-
-            const type = event.dataTransfer.getData('application/reactflow');
-            const label = event.dataTransfer.getData('application/label');
-            const configJson = event.dataTransfer.getData('application/config');
-
-            if (typeof type === 'undefined' || !type) {
-                return;
-            }
-
-            const position = screenToFlowPosition({
-                x: event.clientX,
-                y: event.clientY,
-            });
-
-            const newNode: Node = {
-                id: getId(),
-                type,
-                position,
-                data: {
-                    label: label || `${type} node`,
-                    config: configJson ? JSON.parse(configJson) : {},
-                },
-            };
-
-            setNodes((nds) => nds.concat(newNode));
-        },
-        [screenToFlowPosition, setNodes],
     );
 
     // Handle node click to open config panel
@@ -207,217 +134,157 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
         setSelectedNode(null);
     }, [setNodes, setEdges]);
 
+    // --- Event (Trigger) Selection ---
+    const handleEventSelect = useCallback((event: { triggerType: string; label: string }) => {
+        const viewport = getViewport();
+        const newNode: Node = {
+            id: getId(),
+            type: 'trigger',
+            position: { x: 250, y: 100 },
+            data: {
+                label: event.label,
+                config: { triggerType: event.triggerType },
+                onAddStep: handleOpenStepPopup, // Pass callback for + button
+            },
+        };
+        setNodes([newNode]);
+        setEdges([]);
+    }, [setNodes, setEdges, getViewport]);
+
+    // --- Step Type Selection (+ button) ---
+    const handleOpenStepPopup = useCallback((nodeId: string, buttonPosition: { x: number; y: number }) => {
+        setPendingNodeParent(nodeId);
+        setStepPopupPosition(buttonPosition);
+        setShowStepPopup(true);
+    }, []);
+
+    const handleStepSelect = useCallback((stepType: StepType) => {
+        if (!pendingNodeParent) return;
+
+        // Find parent node to position new node below it
+        const parentNode = nodes.find(n => n.id === pendingNodeParent);
+        if (!parentNode) return;
+
+        const newPosition = {
+            x: parentNode.position.x,
+            y: parentNode.position.y + 200,
+        };
+
+        if (stepType === 'action') {
+            // Open action selector for action type
+            setShowActionSelector(true);
+        } else if (stepType === 'delay') {
+            // Add delay node directly
+            const newNode: Node = {
+                id: getId(),
+                type: 'delay',
+                position: newPosition,
+                data: {
+                    label: 'Delay',
+                    config: { duration: 1, unit: 'hours' },
+                    onAddStep: handleOpenStepPopup,
+                },
+            };
+            addNodeAndConnect(newNode, pendingNodeParent);
+        } else if (stepType === 'condition') {
+            // Add condition node
+            const newNode: Node = {
+                id: getId(),
+                type: 'condition',
+                position: newPosition,
+                data: {
+                    label: 'Condition',
+                    config: {},
+                    onAddStep: handleOpenStepPopup,
+                },
+            };
+            addNodeAndConnect(newNode, pendingNodeParent);
+        } else if (stepType === 'goal') {
+            // Goal node - track when contact reaches a goal
+            const newNode: Node = {
+                id: getId(),
+                type: 'action',
+                position: newPosition,
+                data: {
+                    label: 'Goal',
+                    config: { actionType: 'GOAL', goalName: 'Conversion' },
+                    onAddStep: handleOpenStepPopup,
+                },
+            };
+            addNodeAndConnect(newNode, pendingNodeParent);
+        } else if (stepType === 'jump') {
+            // Jump to another step
+            const newNode: Node = {
+                id: getId(),
+                type: 'action',
+                position: newPosition,
+                data: {
+                    label: 'Jump',
+                    config: { actionType: 'JUMP', targetNodeId: '' },
+                    onAddStep: handleOpenStepPopup,
+                },
+            };
+            addNodeAndConnect(newNode, pendingNodeParent);
+        } else if (stepType === 'exit') {
+            // Exit automation
+            const newNode: Node = {
+                id: getId(),
+                type: 'action',
+                position: newPosition,
+                data: {
+                    label: 'Exit',
+                    config: { actionType: 'EXIT' },
+                },
+            };
+            addNodeAndConnect(newNode, pendingNodeParent);
+        }
+    }, [pendingNodeParent, nodes]);
+
+    // --- Action Selection ---
+    const handleActionSelect = useCallback((action: { actionType: string; label: string }) => {
+        if (!pendingNodeParent) return;
+
+        const parentNode = nodes.find(n => n.id === pendingNodeParent);
+        if (!parentNode) return;
+
+        const newNode: Node = {
+            id: getId(),
+            type: 'action',
+            position: {
+                x: parentNode.position.x,
+                y: parentNode.position.y + 200,
+            },
+            data: {
+                label: action.label,
+                config: { actionType: action.actionType },
+                onAddStep: handleOpenStepPopup,
+            },
+        };
+        addNodeAndConnect(newNode, pendingNodeParent);
+        setShowActionSelector(false);
+    }, [pendingNodeParent, nodes]);
+
+    // Helper to add a node and connect it to parent
+    const addNodeAndConnect = useCallback((newNode: Node, parentId: string) => {
+        setNodes((nds) => [...nds, newNode]);
+        setEdges((eds) => [
+            ...eds,
+            {
+                id: `e_${parentId}_${newNode.id}`,
+                source: parentId,
+                target: newNode.id,
+                type: 'smoothstep',
+                animated: true,
+            },
+        ]);
+        setPendingNodeParent(null);
+    }, [setNodes, setEdges]);
+
+    // Check if canvas is empty
+    const isEmptyCanvas = nodes.length === 0;
+
     return (
-        <div className="flex h-full w-full">
-            {/* Sidebar Toolbox */}
-            <aside className="w-56 bg-gray-50 border-r p-3 flex flex-col overflow-y-auto z-10">
-                <div className="font-bold text-sm border-b pb-2 mb-3 text-gray-800">Toolbox</div>
-                <p className="text-xs text-gray-500 mb-4">Drag nodes to the canvas to build your flow</p>
-
-                <ToolboxSection title="WooCommerce Triggers" defaultOpen={true}>
-                    <ToolboxItem
-                        label="Order Created"
-                        nodeType="trigger"
-                        config={{ triggerType: 'ORDER_CREATED' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="🛒"
-                    />
-                    <ToolboxItem
-                        label="Order Completed"
-                        nodeType="trigger"
-                        config={{ triggerType: 'ORDER_COMPLETED' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="✅"
-                    />
-                    <ToolboxItem
-                        label="Cart Abandoned"
-                        nodeType="trigger"
-                        config={{ triggerType: 'ABANDONED_CART' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="🛒"
-                    />
-                    <ToolboxItem
-                        label="Cart Viewed"
-                        nodeType="trigger"
-                        config={{ triggerType: 'CART_VIEWED' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="👁️"
-                    />
-                    <ToolboxItem
-                        label="Review Left"
-                        nodeType="trigger"
-                        config={{ triggerType: 'REVIEW_LEFT' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="⭐"
-                    />
-                </ToolboxSection>
-
-                <ToolboxSection title="Customer Triggers" defaultOpen={false}>
-                    <ToolboxItem
-                        label="Customer Signup"
-                        nodeType="trigger"
-                        config={{ triggerType: 'CUSTOMER_SIGNUP' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="👤"
-                    />
-                    <ToolboxItem
-                        label="Tag Added"
-                        nodeType="trigger"
-                        config={{ triggerType: 'TAG_ADDED' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="🏷️"
-                    />
-                    <ToolboxItem
-                        label="Tag Removed"
-                        nodeType="trigger"
-                        config={{ triggerType: 'TAG_REMOVED' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="🏷️"
-                    />
-                    <ToolboxItem
-                        label="Manual Entry"
-                        nodeType="trigger"
-                        config={{ triggerType: 'MANUAL' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="✋"
-                    />
-                </ToolboxSection>
-
-                <ToolboxSection title="Subscription Triggers" defaultOpen={false}>
-                    <ToolboxItem
-                        label="Subscription Created"
-                        nodeType="trigger"
-                        config={{ triggerType: 'SUBSCRIPTION_CREATED' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="💳"
-                    />
-                    <ToolboxItem
-                        label="Subscription Cancelled"
-                        nodeType="trigger"
-                        config={{ triggerType: 'SUBSCRIPTION_CANCELLED' }}
-                        colorClass="border-blue-300 hover:border-blue-400"
-                        icon="❌"
-                    />
-                </ToolboxSection>
-
-                <ToolboxSection title="Email Engagement" defaultOpen={false}>
-                    <ToolboxItem
-                        label="Email Opened"
-                        nodeType="trigger"
-                        config={{ triggerType: 'EMAIL_OPENED' }}
-                        colorClass="border-purple-300 hover:border-purple-400"
-                        icon="📧"
-                    />
-                    <ToolboxItem
-                        label="Link Clicked"
-                        nodeType="trigger"
-                        config={{ triggerType: 'LINK_CLICKED' }}
-                        colorClass="border-purple-300 hover:border-purple-400"
-                        icon="🔗"
-                    />
-                </ToolboxSection>
-
-                <ToolboxSection title="Actions" defaultOpen={true}>
-                    <ToolboxItem
-                        label="Send Email"
-                        nodeType="action"
-                        config={{ actionType: 'SEND_EMAIL' }}
-                        colorClass="border-green-300 hover:border-green-400"
-                        icon="✉️"
-                    />
-                    <ToolboxItem
-                        label="Send SMS"
-                        nodeType="action"
-                        config={{ actionType: 'SEND_SMS' }}
-                        colorClass="border-green-300 hover:border-green-400"
-                        icon="📱"
-                    />
-                    <ToolboxItem
-                        label="Add Tag"
-                        nodeType="action"
-                        config={{ actionType: 'ADD_TAG' }}
-                        colorClass="border-green-300 hover:border-green-400"
-                        icon="🏷️"
-                    />
-                    <ToolboxItem
-                        label="Remove Tag"
-                        nodeType="action"
-                        config={{ actionType: 'REMOVE_TAG' }}
-                        colorClass="border-green-300 hover:border-green-400"
-                        icon="🏷️"
-                    />
-                    <ToolboxItem
-                        label="Webhook"
-                        nodeType="action"
-                        config={{ actionType: 'WEBHOOK' }}
-                        colorClass="border-green-300 hover:border-green-400"
-                        icon="🔗"
-                    />
-                </ToolboxSection>
-
-                <ToolboxSection title="Timing" defaultOpen={true}>
-                    <ToolboxItem
-                        label="Wait 15 Minutes"
-                        nodeType="delay"
-                        config={{ duration: 15, unit: 'minutes' }}
-                        colorClass="border-yellow-300 hover:border-yellow-400"
-                        icon="⏱️"
-                    />
-                    <ToolboxItem
-                        label="Wait 30 Minutes"
-                        nodeType="delay"
-                        config={{ duration: 30, unit: 'minutes' }}
-                        colorClass="border-yellow-300 hover:border-yellow-400"
-                        icon="⏱️"
-                    />
-                    <ToolboxItem
-                        label="Wait 1 Hour"
-                        nodeType="delay"
-                        config={{ duration: 1, unit: 'hours' }}
-                        colorClass="border-yellow-300 hover:border-yellow-400"
-                        icon="⏱️"
-                    />
-                    <ToolboxItem
-                        label="Wait 1 Day"
-                        nodeType="delay"
-                        config={{ duration: 1, unit: 'days' }}
-                        colorClass="border-yellow-300 hover:border-yellow-400"
-                        icon="📅"
-                    />
-                    <ToolboxItem
-                        label="Wait 3 Days"
-                        nodeType="delay"
-                        config={{ duration: 3, unit: 'days' }}
-                        colorClass="border-yellow-300 hover:border-yellow-400"
-                        icon="📅"
-                    />
-                    <ToolboxItem
-                        label="Wait 1 Week"
-                        nodeType="delay"
-                        config={{ duration: 1, unit: 'weeks' }}
-                        colorClass="border-yellow-300 hover:border-yellow-400"
-                        icon="📆"
-                    />
-                    <ToolboxItem
-                        label="Custom Delay"
-                        nodeType="delay"
-                        config={{ duration: 1, unit: 'hours', isCustom: true }}
-                        colorClass="border-orange-300 hover:border-orange-400"
-                        icon="⚙️"
-                    />
-                </ToolboxSection>
-
-                <ToolboxSection title="Logic" defaultOpen={false}>
-                    <ToolboxItem
-                        label="Condition"
-                        nodeType="condition"
-                        config={{}}
-                        colorClass="border-orange-300 hover:border-orange-400"
-                        icon="❓"
-                    />
-                </ToolboxSection>
-            </aside>
-
+        <div className="flex h-full w-full relative">
             {/* Canvas */}
             <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
                 <ReactFlow
@@ -426,8 +293,6 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
                     onConnect={onConnect}
-                    onDrop={onDrop}
-                    onDragOver={onDragOver}
                     onNodeClick={onNodeClick}
                     onPaneClick={onPaneClick}
                     nodeTypes={nodeTypes}
@@ -443,16 +308,12 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
                             onCancel={onCancel}
                         />
                     </Panel>
-
-                    {/* Empty state hint */}
-                    {nodes.length === 0 && (
-                        <Panel position="top-center">
-                            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm mt-4 shadow-sm">
-                                👈 Drag a <strong>Trigger</strong> from the toolbox to start building your flow
-                            </div>
-                        </Panel>
-                    )}
                 </ReactFlow>
+
+                {/* Starting Point Card (empty canvas) */}
+                {isEmptyCanvas && (
+                    <StartingPointCard onClick={() => setShowEventSelector(true)} />
+                )}
             </div>
 
             {/* Node Configuration Panel */}
@@ -464,6 +325,34 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
                     onDelete={deleteNode}
                 />
             )}
+
+            {/* Event Selector Modal */}
+            <EventSelectorModal
+                isOpen={showEventSelector}
+                onClose={() => setShowEventSelector(false)}
+                onSelect={handleEventSelect}
+            />
+
+            {/* Step Type Popup */}
+            <StepTypePopup
+                isOpen={showStepPopup}
+                position={stepPopupPosition}
+                onClose={() => {
+                    setShowStepPopup(false);
+                    setPendingNodeParent(null);
+                }}
+                onSelect={handleStepSelect}
+            />
+
+            {/* Action Selector Modal */}
+            <ActionSelectorModal
+                isOpen={showActionSelector}
+                onClose={() => {
+                    setShowActionSelector(false);
+                    setPendingNodeParent(null);
+                }}
+                onSelect={handleActionSelect}
+            />
         </div>
     );
 };

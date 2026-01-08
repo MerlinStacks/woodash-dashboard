@@ -5,14 +5,15 @@
  * Enhanced with:
  * - Step number badges for visual ordering
  * - Real-time enrollment statistics display
+ * - Interactive "+" buttons for adding steps (popup-driven workflow)
  * - Improved styling matching FluentCRM aesthetics
  */
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import {
     Mail, Clock, Split, Zap, MessageSquare, Tag, Link, ShoppingCart,
     CheckCircle, Star, User, Eye, UserPlus, CreditCard, XCircle,
-    MousePointer, Settings
+    MousePointer, Settings, Plus, Target, ArrowUpDown, LogOut
 } from 'lucide-react';
 
 // Node statistics interface for enrollment counts
@@ -23,6 +24,45 @@ interface NodeStats {
     skipped?: number;
     failed?: number;
 }
+
+// Add step button callback type
+type OnAddStepCallback = (nodeId: string, position: { x: number; y: number }) => void;
+
+// Add Step Button component - appears below nodes
+interface AddStepButtonProps {
+    nodeId: string;
+    onAddStep?: OnAddStepCallback;
+}
+
+const AddStepButton: React.FC<AddStepButtonProps> = ({ nodeId, onAddStep }) => {
+    const handleClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onAddStep) {
+            // Get button position for popup placement
+            const rect = (e.target as HTMLElement).getBoundingClientRect();
+            onAddStep(nodeId, {
+                x: rect.left + rect.width / 2,
+                y: rect.bottom,
+            });
+        }
+    }, [nodeId, onAddStep]);
+
+    if (!onAddStep) return null;
+
+    return (
+        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center">
+            {/* Connection line */}
+            <div className="w-0.5 h-4 bg-gray-300" />
+            {/* Plus button */}
+            <button
+                onClick={handleClick}
+                className="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center shadow-md transition-all hover:scale-110"
+            >
+                <Plus size={14} />
+            </button>
+        </div>
+    );
+};
 
 // Base wrapper for consistent node styling with stats support
 interface NodeWrapperProps {
@@ -36,6 +76,9 @@ interface NodeWrapperProps {
     stepNumber?: number;
     stats?: NodeStats;
     onSettingsClick?: () => void;
+    nodeId?: string;
+    onAddStep?: OnAddStepCallback;
+    showAddButton?: boolean;
 }
 
 const NodeWrapper: React.FC<NodeWrapperProps> = ({
@@ -48,77 +91,87 @@ const NodeWrapper: React.FC<NodeWrapperProps> = ({
     bgColor = 'bg-white',
     stepNumber,
     stats,
-    onSettingsClick
+    onSettingsClick,
+    nodeId,
+    onAddStep,
+    showAddButton = true,
 }) => (
-    <div className={`shadow-lg rounded-xl border-2 ${borderColor} ${bgColor} min-w-[200px] max-w-[260px] overflow-hidden`}>
-        {/* Header with icon, step number, and title */}
-        <div className="flex items-center gap-3 px-3 py-2.5 border-b border-gray-100">
-            {/* Colored icon background circle */}
-            <div className={`w-8 h-8 rounded-lg ${iconBgColor} flex items-center justify-center flex-shrink-0`}>
-                {icon}
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                    {stepNumber !== undefined && (
-                        <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                            Step {stepNumber}
-                        </span>
-                    )}
-                    <span className="text-xs font-bold uppercase text-gray-500 tracking-wide truncate">
-                        {title}
-                    </span>
+    <div className="relative pb-8">
+        <div className={`shadow-lg rounded-xl border-2 ${borderColor} ${bgColor} min-w-[200px] max-w-[260px] overflow-hidden`}>
+            {/* Header with icon, step number, and title */}
+            <div className="flex items-center gap-3 px-3 py-2.5 border-b border-gray-100">
+                {/* Colored icon background circle */}
+                <div className={`w-8 h-8 rounded-lg ${iconBgColor} flex items-center justify-center flex-shrink-0`}>
+                    {icon}
                 </div>
-                {subtitle && (
-                    <div className="text-[11px] text-gray-400 truncate mt-0.5">{subtitle}</div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                        {stepNumber !== undefined && (
+                            <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                Step {stepNumber}
+                            </span>
+                        )}
+                        <span className="text-xs font-bold uppercase text-gray-500 tracking-wide truncate">
+                            {title}
+                        </span>
+                    </div>
+                    {subtitle && (
+                        <div className="text-[11px] text-gray-400 truncate mt-0.5">{subtitle}</div>
+                    )}
+                </div>
+                {/* Settings button for trigger nodes */}
+                {onSettingsClick && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onSettingsClick(); }}
+                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    >
+                        <Settings size={14} className="text-gray-400" />
+                    </button>
                 )}
             </div>
-            {/* Settings button for trigger nodes */}
-            {onSettingsClick && (
-                <button
-                    onClick={(e) => { e.stopPropagation(); onSettingsClick(); }}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors"
-                >
-                    <Settings size={14} className="text-gray-400" />
-                </button>
+
+            {/* Content area */}
+            <div className="p-3 text-sm text-gray-800">
+                {children}
+            </div>
+
+            {/* Statistics bar */}
+            {stats && (stats.active > 0 || stats.completed > 0 || stats.queued > 0) && (
+                <div className="flex items-center gap-3 px-3 py-2 bg-gray-50 border-t border-gray-100 text-[11px]">
+                    {stats.active > 0 && (
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                            <span className="text-purple-600 font-medium">Active</span>
+                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">
+                                {stats.active.toLocaleString()}
+                            </span>
+                        </div>
+                    )}
+                    {stats.queued > 0 && (
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+                            <span className="text-yellow-600 font-medium">Queued</span>
+                            <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">
+                                {stats.queued.toLocaleString()}
+                            </span>
+                        </div>
+                    )}
+                    {stats.completed > 0 && (
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                            <span className="text-green-600 font-medium">Completed</span>
+                            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">
+                                {stats.completed.toLocaleString()}
+                            </span>
+                        </div>
+                    )}
+                </div>
             )}
         </div>
 
-        {/* Content area */}
-        <div className="p-3 text-sm text-gray-800">
-            {children}
-        </div>
-
-        {/* Statistics bar */}
-        {stats && (stats.active > 0 || stats.completed > 0 || stats.queued > 0) && (
-            <div className="flex items-center gap-3 px-3 py-2 bg-gray-50 border-t border-gray-100 text-[11px]">
-                {stats.active > 0 && (
-                    <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-                        <span className="text-purple-600 font-medium">Active</span>
-                        <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">
-                            {stats.active.toLocaleString()}
-                        </span>
-                    </div>
-                )}
-                {stats.queued > 0 && (
-                    <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                        <span className="text-yellow-600 font-medium">Queued</span>
-                        <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">
-                            {stats.queued.toLocaleString()}
-                        </span>
-                    </div>
-                )}
-                {stats.completed > 0 && (
-                    <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                        <span className="text-green-600 font-medium">Completed</span>
-                        <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">
-                            {stats.completed.toLocaleString()}
-                        </span>
-                    </div>
-                )}
-            </div>
+        {/* Add Step Button - below the node */}
+        {showAddButton && nodeId && onAddStep && (
+            <AddStepButton nodeId={nodeId} onAddStep={onAddStep} />
         )}
     </div>
 );
@@ -191,6 +244,12 @@ const getActionIcon = (config: any) => {
             return <Tag size={16} className="text-white" />;
         case 'WEBHOOK':
             return <Link size={16} className="text-white" />;
+        case 'GOAL':
+            return <Target size={16} className="text-white" />;
+        case 'JUMP':
+            return <ArrowUpDown size={16} className="text-white" />;
+        case 'EXIT':
+            return <LogOut size={16} className="text-white" />;
         default:
             return <Mail size={16} className="text-white" />;
     }
@@ -205,8 +264,26 @@ const getActionLabel = (config: any): string => {
         'ADD_TAG': 'Add Tag',
         'REMOVE_TAG': 'Remove Tag',
         'WEBHOOK': 'Webhook',
+        'GOAL': 'Goal',
+        'JUMP': 'Jump',
+        'EXIT': 'Exit',
     };
     return labels[actionType] || 'Action';
+};
+
+// Get gradient color for action type
+const getActionGradient = (config: any): string => {
+    const actionType = config?.actionType;
+    switch (actionType) {
+        case 'GOAL':
+            return 'bg-gradient-to-br from-emerald-500 to-emerald-600';
+        case 'JUMP':
+            return 'bg-gradient-to-br from-red-500 to-red-600';
+        case 'EXIT':
+            return 'bg-gradient-to-br from-gray-500 to-gray-600';
+        default:
+            return 'bg-gradient-to-br from-green-500 to-green-600';
+    }
 };
 
 /**
@@ -214,10 +291,11 @@ const getActionLabel = (config: any): string => {
  * Only has output handle (bottom) as it starts the flow.
  * Includes settings button for automation-level configuration.
  */
-export const TriggerNode = memo(({ data }: NodeProps) => {
+export const TriggerNode = memo(({ data, id }: NodeProps) => {
     const config = data.config as any;
     const stats = data.stats as NodeStats | undefined;
     const stepNumber = data.stepNumber as number | undefined;
+    const onAddStep = data.onAddStep as OnAddStepCallback | undefined;
 
     return (
         <NodeWrapper
@@ -230,6 +308,8 @@ export const TriggerNode = memo(({ data }: NodeProps) => {
             stepNumber={stepNumber}
             stats={stats}
             onSettingsClick={data.onSettingsClick as (() => void) | undefined}
+            nodeId={id}
+            onAddStep={onAddStep}
         >
             <div className="font-semibold text-gray-900">{data.label as string}</div>
             <div className="text-xs text-gray-500 mt-1">Starts the automation</div>
@@ -246,21 +326,28 @@ export const TriggerNode = memo(({ data }: NodeProps) => {
  * ActionNode - Performs an action in the flow (send email, SMS, etc).
  * Has both input (top) and output (bottom) handles.
  */
-export const ActionNode = memo(({ data }: NodeProps) => {
+export const ActionNode = memo(({ data, id }: NodeProps) => {
     const config = data.config as any;
     const stats = data.stats as NodeStats | undefined;
     const stepNumber = data.stepNumber as number | undefined;
+    const onAddStep = data.onAddStep as OnAddStepCallback | undefined;
+
+    // Exit nodes shouldn't have add button
+    const isExitNode = config?.actionType === 'EXIT';
 
     return (
         <NodeWrapper
             title={getActionLabel(config)}
-            subtitle="Email"
+            subtitle={config?.actionType === 'SEND_EMAIL' ? 'Email' : undefined}
             icon={getActionIcon(config)}
-            iconBgColor="bg-gradient-to-br from-green-500 to-green-600"
+            iconBgColor={getActionGradient(config)}
             borderColor="border-green-300"
             bgColor="bg-white"
             stepNumber={stepNumber}
             stats={stats}
+            nodeId={id}
+            onAddStep={onAddStep}
+            showAddButton={!isExitNode}
         >
             <Handle
                 type="target"
@@ -278,11 +365,13 @@ export const ActionNode = memo(({ data }: NodeProps) => {
                     <Eye size={12} /> View Analytics
                 </button>
             )}
-            <Handle
-                type="source"
-                position={Position.Bottom}
-                className="!w-3 !h-3 !bg-green-500 !border-2 !border-white"
-            />
+            {!isExitNode && (
+                <Handle
+                    type="source"
+                    position={Position.Bottom}
+                    className="!w-3 !h-3 !bg-green-500 !border-2 !border-white"
+                />
+            )}
         </NodeWrapper>
     );
 });
@@ -291,10 +380,11 @@ export const ActionNode = memo(({ data }: NodeProps) => {
  * DelayNode - Adds a time delay before the next step.
  * Has both input (top) and output (bottom) handles.
  */
-export const DelayNode = memo(({ data }: NodeProps) => {
+export const DelayNode = memo(({ data, id }: NodeProps) => {
     const config = data.config as any;
     const stats = data.stats as NodeStats | undefined;
     const stepNumber = data.stepNumber as number | undefined;
+    const onAddStep = data.onAddStep as OnAddStepCallback | undefined;
 
     const duration = config?.duration || 1;
     const unit = config?.unit || 'hours';
@@ -318,6 +408,8 @@ export const DelayNode = memo(({ data }: NodeProps) => {
             bgColor="bg-white"
             stepNumber={stepNumber}
             stats={stats}
+            nodeId={id}
+            onAddStep={onAddStep}
         >
             <Handle
                 type="target"
@@ -344,10 +436,11 @@ export const DelayNode = memo(({ data }: NodeProps) => {
  * ConditionNode - Splits the flow based on a condition.
  * Has input (top) and two outputs (YES/NO at bottom).
  */
-export const ConditionNode = memo(({ data }: NodeProps) => {
+export const ConditionNode = memo(({ data, id }: NodeProps) => {
     const config = data.config as any;
     const stats = data.stats as NodeStats | undefined;
     const stepNumber = data.stepNumber as number | undefined;
+    const onAddStep = data.onAddStep as OnAddStepCallback | undefined;
 
     // Build condition preview
     const conditionPreview = config?.field && config?.operator && config?.value
@@ -364,6 +457,9 @@ export const ConditionNode = memo(({ data }: NodeProps) => {
             bgColor="bg-white"
             stepNumber={stepNumber}
             stats={stats}
+            nodeId={id}
+            onAddStep={onAddStep}
+            showAddButton={false} // Condition nodes have special branch handling
         >
             <Handle
                 type="target"

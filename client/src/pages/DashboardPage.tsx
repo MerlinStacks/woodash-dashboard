@@ -242,20 +242,18 @@ export function DashboardPage() {
 
                     {isSaving && <span className="text-xs text-gray-400 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> Saving...</span>}
 
-                    {/* Mobile Lock Toggle */}
-                    {isMobile && (
-                        <button
-                            onClick={() => setIsLayoutLocked(!isLayoutLocked)}
-                            className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors border ${isLayoutLocked
-                                ? 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                                }`}
-                            title={isLayoutLocked ? 'Unlock to edit layout' : 'Lock layout'}
-                        >
-                            {isLayoutLocked ? <Lock size={16} /> : <Unlock size={16} />}
-                            {isLayoutLocked ? 'Locked' : 'Editing'}
-                        </button>
-                    )}
+                    {/* Layout Lock Toggle */}
+                    <button
+                        onClick={() => setIsLayoutLocked(!isLayoutLocked)}
+                        className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors border ${isLayoutLocked
+                            ? 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                            }`}
+                        title={isLayoutLocked ? 'Unlock to edit layout' : 'Lock layout'}
+                    >
+                        {isLayoutLocked ? <Lock size={16} /> : <Unlock size={16} />}
+                        {isLayoutLocked ? 'Locked' : 'Editing'}
+                    </button>
 
                     <div className="relative">
                         <button
@@ -290,16 +288,16 @@ export function DashboardPage() {
                 cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
                 rowHeight={100}
                 onLayoutChange={(l: any, all: any) => onLayoutChange(l, all)}
-                isDraggable={!isMobile || !isLayoutLocked}
-                isResizable={!isMobile || !isLayoutLocked}
+                isDraggable={!isLayoutLocked}
+                isResizable={!isLayoutLocked}
                 draggableHandle=".drag-handle"
                 compactType={null}
                 preventCollision={true}
             >
                 {widgets.map(w => (
                     <div key={w.id} className="bg-transparent h-full relative group">
-                        {/* Widget Controls - hidden when locked on mobile */}
-                        {(!isMobile || !isLayoutLocked) && (
+                        {/* Widget Controls - hidden when locked */}
+                        {!isLayoutLocked && (
                             <div className="absolute top-2 right-2 z-20 flex items-center gap-1 pointer-events-none">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); removeWidget(w.id); }}

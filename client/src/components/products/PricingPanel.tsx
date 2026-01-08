@@ -59,7 +59,47 @@ export const PricingPanel: React.FC<PricingPanelProps> = ({ formData, onChange }
                 </div>
             </div>
 
-            {/* Profit Margin Info could go here if we had COGS */}
+            {/* Profit Margin Calculator */}
+            {(() => {
+                const sellingPrice = parseFloat(formData.salePrice) || parseFloat(formData.price) || 0;
+                const cogs = parseFloat(formData.cogs) || 0;
+                const profitDollar = sellingPrice - cogs;
+                const profitPercent = sellingPrice > 0 ? ((profitDollar / sellingPrice) * 100) : 0;
+                const hasCogs = formData.cogs && parseFloat(formData.cogs) > 0;
+                const hasPrice = sellingPrice > 0;
+
+                if (!hasPrice && !hasCogs) return null;
+
+                return (
+                    <div className="mt-6 pt-6 border-t border-gray-100/50">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Profit Margin</span>
+                            {hasCogs && hasPrice ? (
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-lg font-bold ${profitDollar >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        ${profitDollar.toFixed(2)}
+                                    </span>
+                                    <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${profitPercent >= 0
+                                            ? 'bg-green-50 text-green-700 border border-green-200'
+                                            : 'bg-red-50 text-red-700 border border-red-200'
+                                        }`}>
+                                        {profitPercent >= 0 ? '+' : ''}{profitPercent.toFixed(1)}%
+                                    </span>
+                                </div>
+                            ) : (
+                                <span className="text-sm text-gray-400 italic">
+                                    {!hasCogs ? 'Enter COGS to calculate' : 'Enter price to calculate'}
+                                </span>
+                            )}
+                        </div>
+                        {hasCogs && hasPrice && (
+                            <p className="text-xs text-gray-500 mt-1">
+                                Based on {formData.salePrice && parseFloat(formData.salePrice) > 0 ? 'sale' : 'regular'} price of ${sellingPrice.toFixed(2)}
+                            </p>
+                        )}
+                    </div>
+                );
+            })()}
         </div>
     );
 };
