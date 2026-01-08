@@ -540,25 +540,38 @@ class OverSeek_Server_Tracking
 	}
 	
 	/**
-	 * Persist UTM parameters from URL into a session cookie.
+	 * Persist UTM/MTM parameters from URL into a session cookie.
+	 * MTM (Matomo Tracking Manager) parameters are treated as aliases for UTM.
 	 */
 	private function persist_utm_parameters()
 	{
 		$utm_cookie = '_os_utm';
 		
+		// Check for UTM or MTM parameters (MTM is Matomo's rename of UTM)
 		$has_new_utm = isset($_GET['utm_source']) || isset($_GET['utm_medium']) || 
-					   isset($_GET['utm_campaign']);
+					   isset($_GET['utm_campaign']) ||
+					   isset($_GET['mtm_source']) || isset($_GET['mtm_medium']) || 
+					   isset($_GET['mtm_campaign']);
 		
 		if ($has_new_utm) {
 			$utm_params = array();
+			// Source (UTM takes precedence over MTM)
 			if (isset($_GET['utm_source'])) {
 				$utm_params['source'] = sanitize_text_field($_GET['utm_source']);
+			} elseif (isset($_GET['mtm_source'])) {
+				$utm_params['source'] = sanitize_text_field($_GET['mtm_source']);
 			}
+			// Medium
 			if (isset($_GET['utm_medium'])) {
 				$utm_params['medium'] = sanitize_text_field($_GET['utm_medium']);
+			} elseif (isset($_GET['mtm_medium'])) {
+				$utm_params['medium'] = sanitize_text_field($_GET['mtm_medium']);
 			}
+			// Campaign
 			if (isset($_GET['utm_campaign'])) {
 				$utm_params['campaign'] = sanitize_text_field($_GET['utm_campaign']);
+			} elseif (isset($_GET['mtm_campaign'])) {
+				$utm_params['campaign'] = sanitize_text_field($_GET['mtm_campaign']);
 			}
 			
 			$utm_json = wp_json_encode($utm_params);
@@ -662,18 +675,25 @@ class OverSeek_Server_Tracking
 	}
 	
 	/**
-	 * Get persisted UTM parameters from cookie or URL.
+	 * Get persisted UTM/MTM parameters from cookie or URL.
+	 * MTM (Matomo Tracking Manager) parameters are treated as aliases for UTM.
 	 */
 	private function get_utm_parameters()
 	{
 		$utm_cookie = '_os_utm';
 		
-		// URL takes precedence
-		if (isset($_GET['utm_source']) || isset($_GET['utm_campaign'])) {
+		// URL takes precedence - check both UTM and MTM
+		$has_url_params = isset($_GET['utm_source']) || isset($_GET['utm_campaign']) ||
+						  isset($_GET['mtm_source']) || isset($_GET['mtm_campaign']);
+		
+		if ($has_url_params) {
 			return array(
-				'source' => isset($_GET['utm_source']) ? sanitize_text_field($_GET['utm_source']) : null,
-				'medium' => isset($_GET['utm_medium']) ? sanitize_text_field($_GET['utm_medium']) : null,
-				'campaign' => isset($_GET['utm_campaign']) ? sanitize_text_field($_GET['utm_campaign']) : null,
+				'source' => isset($_GET['utm_source']) ? sanitize_text_field($_GET['utm_source']) 
+						  : (isset($_GET['mtm_source']) ? sanitize_text_field($_GET['mtm_source']) : null),
+				'medium' => isset($_GET['utm_medium']) ? sanitize_text_field($_GET['utm_medium']) 
+						  : (isset($_GET['mtm_medium']) ? sanitize_text_field($_GET['mtm_medium']) : null),
+				'campaign' => isset($_GET['utm_campaign']) ? sanitize_text_field($_GET['utm_campaign']) 
+							: (isset($_GET['mtm_campaign']) ? sanitize_text_field($_GET['mtm_campaign']) : null),
 			);
 		}
 		

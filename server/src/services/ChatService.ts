@@ -9,6 +9,7 @@ import { prisma } from '../utils/prisma';
 import { Server } from 'socket.io';
 import { Logger } from '../utils/logger';
 import { EmailIngestion, IncomingEmailData } from './EmailIngestion';
+import { BlockedContactService } from './BlockedContactService';
 
 export class ChatService {
     private io: Server;
@@ -86,11 +87,42 @@ export class ChatService {
             data: { conversationId, content, senderType, senderId, isInternal }
         });
 
-        const conversation = await prisma.conversation.update({
+        // Get conversation with customer info to check blocked status
+        const conversation = await prisma.conversation.findUnique({
             where: { id: conversationId },
-            data: { updatedAt: new Date(), status: 'OPEN' }
+            include: { wooCustomer: true }
         });
 
+        if (!conversation) {
+            Logger.error('[ChatService] Conversation not found', { conversationId });
+            return message;
+        }
+
+        // Get the email to check for blocked status
+        const contactEmail = conversation.wooCustomer?.email || conversation.guestEmail;
+
+        // Check if sender is blocked (only for customer messages)
+        let isBlocked = false;
+        if (senderType === 'CUSTOMER' && contactEmail) {
+            isBlocked = await BlockedContactService.isBlocked(conversation.accountId, contactEmail);
+        }
+
+        if (isBlocked) {
+            // Auto-close without autoreplies or push notifications
+            await prisma.conversation.update({
+                where: { id: conversationId },
+                data: { status: 'CLOSED', updatedAt: new Date() }
+            });
+            Logger.info('[ChatService] Blocked contact, auto-resolved', { contactEmail, conversationId });
+        } else {
+            // Normal flow: update status to OPEN
+            await prisma.conversation.update({
+                where: { id: conversationId },
+                data: { updatedAt: new Date(), status: 'OPEN' }
+            });
+        }
+
+        // Emit socket events (always, so UI stays in sync)
         this.io.to(`conversation:${conversationId}`).emit('message:new', message);
         this.io.to(`account:${conversation.accountId}`).emit('conversation:updated', {
             id: conversationId,
@@ -98,7 +130,8 @@ export class ChatService {
             updatedAt: new Date()
         });
 
-        if (senderType === 'CUSTOMER') {
+        // Only handle autoreplies and push notifications for non-blocked customers
+        if (senderType === 'CUSTOMER' && !isBlocked) {
             await this.handleAutoReply(conversation);
             const { PushNotificationService } = require('./PushNotificationService');
             await PushNotificationService.sendToAccount(conversation.accountId, {

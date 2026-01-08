@@ -353,7 +353,72 @@ export async function processEvent(data: TrackingEventPayload) {
         update: sessionPayload
     });
 
-    // 3. Log Event
+    // 3. Visit Management
+    // Check if we need to create a new visit (30 min inactivity gap)
+    const VISIT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+    const now = new Date();
+    
+    // Get the most recent visit for this session
+    let currentVisit = await prisma.analyticsVisit.findFirst({
+        where: { sessionId: session.id },
+        orderBy: { startedAt: 'desc' },
+        select: {
+            id: true,
+            visitNumber: true,
+            endedAt: true,
+            pageviews: true,
+            actions: true
+        }
+    });
+
+    const isPageView = ['pageview', 'product_view', 'cart_view', 'checkout_view'].includes(data.type);
+    const timeSinceLastActivity = currentVisit 
+        ? now.getTime() - new Date(currentVisit.endedAt).getTime()
+        : Infinity;
+
+    // Create new visit if: no existing visit OR 30+ min gap
+    if (!currentVisit || timeSinceLastActivity > VISIT_TIMEOUT_MS) {
+        const visitNumber = currentVisit ? currentVisit.visitNumber + 1 : 1;
+        
+        currentVisit = await prisma.analyticsVisit.create({
+            data: {
+                sessionId: session.id,
+                visitNumber,
+                startedAt: now,
+                endedAt: now,
+                referrer: sessionPayload.referrer || data.referrer,
+                utmSource: sessionPayload.utmSource || data.utmSource,
+                utmMedium: sessionPayload.utmMedium || data.utmMedium,
+                utmCampaign: sessionPayload.utmCampaign || data.utmCampaign,
+                deviceType: sessionPayload.deviceType,
+                browser: sessionPayload.browser,
+                os: sessionPayload.os,
+                country: sessionPayload.country || country,
+                city: sessionPayload.city || city,
+                pageviews: isPageView ? 1 : 0,
+                actions: 1
+            },
+            select: {
+                id: true,
+                visitNumber: true,
+                endedAt: true,
+                pageviews: true,
+                actions: true
+            }
+        });
+    } else {
+        // Update existing visit stats
+        await prisma.analyticsVisit.update({
+            where: { id: currentVisit.id },
+            data: {
+                endedAt: now,
+                pageviews: { increment: isPageView ? 1 : 0 },
+                actions: { increment: 1 }
+            }
+        });
+    }
+
+    // 4. Log Event with visit link
     // Build payload, merging is404 flag for pageview events
     let eventPayload = data.payload || undefined;
     if (data.type === 'pageview' && data.is404) {
@@ -364,6 +429,7 @@ export async function processEvent(data: TrackingEventPayload) {
         await prisma.analyticsEvent.create({
             data: {
                 sessionId: session.id,
+                visitId: currentVisit.id,
                 type: data.type,
                 url: data.url,
                 pageTitle: data.pageTitle,
@@ -372,7 +438,7 @@ export async function processEvent(data: TrackingEventPayload) {
         });
     } catch (eventError: any) {
         console.error('Prisma event create error:', eventError.message || eventError);
-        console.error('Event data was:', { sessionId: session.id, type: data.type, url: data.url, pageTitle: data.pageTitle });
+        console.error('Event data was:', { sessionId: session.id, visitId: currentVisit.id, type: data.type, url: data.url, pageTitle: data.pageTitle });
         throw eventError;
     }
 

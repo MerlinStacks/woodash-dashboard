@@ -24,10 +24,7 @@ export function InventoryRiskWidget() {
 
         const fetchRisk = async () => {
             try {
-                // We need an endpoint for this. InventoryController?
-                // Or just use the inventory health check logic via specific endpoint.
-                // Assuming we added 'GET /api/inventory/health' or similar.
-                const res = await fetch('/api/inventory/health', {
+                const res = await fetch('/api/analytics/health', {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'X-Account-ID': currentAccount.id

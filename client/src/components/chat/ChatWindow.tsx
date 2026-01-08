@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, Zap, Paperclip, MoreHorizontal, ChevronDown, Clock, CheckCircle, RotateCcw, MoreVertical, Settings, FileSignature, Sparkles, Users, Merge } from 'lucide-react';
+import { Send, Loader2, Zap, Paperclip, MoreHorizontal, ChevronDown, Clock, CheckCircle, RotateCcw, MoreVertical, Settings, FileSignature, Sparkles, Users, Merge, Ban } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -37,10 +37,11 @@ interface ChatWindowProps {
     onStatusChange?: (newStatus: string, snoozeUntil?: Date) => Promise<void>;
     onAssign?: (userId: string) => Promise<void>;
     onMerge?: (targetConversationId: string) => Promise<void>;
+    onBlock?: () => Promise<void>;
     assigneeId?: string;
 }
 
-export function ChatWindow({ conversationId, messages, onSendMessage, recipientEmail, recipientName, status, onStatusChange, onAssign, onMerge, assigneeId }: ChatWindowProps) {
+export function ChatWindow({ conversationId, messages, onSendMessage, recipientEmail, recipientName, status, onStatusChange, onAssign, onMerge, onBlock, assigneeId }: ChatWindowProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [input, setInput] = useState('');
@@ -363,11 +364,25 @@ export function ChatWindow({ conversationId, messages, onSendMessage, recipientE
                                         setShowMoreMenu(false);
                                         setShowMergeModal(true);
                                     }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors rounded-b-lg"
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
                                     <Merge size={14} />
                                     Merge with another conversation
                                 </button>
+                                {recipientEmail && onBlock && (
+                                    <button
+                                        onClick={async () => {
+                                            setShowMoreMenu(false);
+                                            if (confirm(`Block ${recipientEmail}? Their future messages will be auto-resolved without notifications.`)) {
+                                                await onBlock();
+                                            }
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded-b-lg border-t border-gray-100"
+                                    >
+                                        <Ban size={14} />
+                                        Block customer
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>

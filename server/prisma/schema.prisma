@@ -42,6 +42,7 @@ model User {
   auditLogs             AuditLog[]
   refreshTokens         RefreshToken[]
   pushSubscriptions     PushSubscription[]
+  blockedContacts       BlockedContact[]
 }
 
 model RefreshToken {
@@ -135,6 +136,9 @@ model Account {
   
   // Social Media Messaging
   socialAccounts    SocialAccount[]
+  
+  // Blocked Contacts
+  blockedContacts   BlockedContact[]
 }
 
 model Notification {
@@ -714,6 +718,22 @@ model SocialAccount {
   @@index([platform, externalId])
 }
 
+// Blocked contacts for inbox filtering
+model BlockedContact {
+  id        String   @id @default(uuid())
+  accountId String
+  email     String   // The blocked email address
+  reason    String?  // Optional reason for blocking
+  blockedAt DateTime @default(now())
+  blockedBy String?  // User ID who blocked
+  
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  blocker   User?    @relation(fields: [blockedBy], references: [id])
+  
+  @@unique([accountId, email])
+  @@index([accountId])
+}
+
 // --------------------------------------
 // Help Center
 // --------------------------------------
@@ -914,6 +934,7 @@ model AnalyticsSession {
 
   account Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
   events  AnalyticsEvent[]
+  visits  AnalyticsVisit[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -926,6 +947,7 @@ model AnalyticsSession {
 model AnalyticsEvent {
   id        String @id @default(uuid())
   sessionId String
+  visitId   String? // Links to specific browsing visit
 
   type      String // "pageview", "add_to_cart", "search", "purchase"
   url       String
@@ -935,8 +957,44 @@ model AnalyticsEvent {
   createdAt DateTime @default(now())
 
   session AnalyticsSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  visit   AnalyticsVisit?  @relation(fields: [visitId], references: [id], onDelete: SetNull)
 
   @@index([sessionId])
+  @@index([visitId])
+}
+
+// Individual browsing visit (session gap detection: 30 min inactivity = new visit)
+model AnalyticsVisit {
+  id        String @id @default(uuid())
+  sessionId String
+
+  visitNumber Int      // Sequential number for this visitor (1, 2, 3...)
+  startedAt   DateTime
+  endedAt     DateTime @default(now())
+
+  // Attribution snapshot for this specific visit
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
+  // Device/location snapshot (can change between visits)
+  deviceType String?
+  browser    String?
+  os         String?
+  country    String?
+  city       String?
+
+  // Aggregate stats for quick display
+  pageviews Int @default(0)
+  actions   Int @default(0)
+
+  session AnalyticsSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  events  AnalyticsEvent[]
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId, startedAt])
 }
 
 // --------------------------------------

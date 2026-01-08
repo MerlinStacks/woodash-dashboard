@@ -5,11 +5,12 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.1.0-brightgreen" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.2.0-brightgreen" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   <img src="https://img.shields.io/badge/stack-PERN-blueviolet" alt="Stack">
   <img src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker Ready">
   <img src="https://img.shields.io/badge/AI-powered-ff6b6b?logo=openai&logoColor=white" alt="AI Powered">
+  <img src="https://img.shields.io/badge/PWA-ready-5A0FC8?logo=pwa&logoColor=white" alt="PWA Ready">
 </p>
 
 ---
@@ -32,17 +33,19 @@ OverSeek is your **open-source command center**—a self-hosted, privacy-first p
 
 ## ✨ Feature Highlights
 
-### 🤖 AI-Powered Intelligence (NEW)
+### 🤖 AI-Powered Intelligence
 - **Data-Aware AI Assistant**: Chat with your store data—ask questions about sales, customers, and ads.
+- **AI Draft Replies (NEW)**: Generative AI suggestions in the inbox with full conversation context.
 - **AI Product Rewriting**: One-click AI-powered product description generation.
 - **Configurable AI Prompts**: Customize AI behavior via the Super Admin panel.
 - **Multi-Model Support**: Connect to any OpenRouter-compatible model (GPT-4, Claude, etc.).
 
 ### 📊 Analytics & Visitor Intelligence
 - **Live Visitor Tracking**: See who's on your site right now with geographic mapping.
-- **E-Commerce Stream**: Real-time feed of add-to-cart, checkout, and purchase events.
+- **E-Commerce Stream**: Real-time feed of add-to-cart, checkout, and purchase events with purchase values.
+- **Visitor Journey History (NEW)**: Sessionized browsing history with 30-minute inactivity detection.
 - **Search Term Analysis**: Understand what customers are searching for.
-- **UTM Attribution**: First-click and last-click attribution modeling.
+- **UTM/MTM Attribution**: First-click and last-click attribution with Matomo Marketing parity.
 - **Abandoned Cart Detection**: Automatic identification and recovery flows.
 
 
@@ -87,17 +90,31 @@ OverSeek is your **open-source command center**—a self-hosted, privacy-first p
 
 
 ### ⚡ Marketing Automation
-- **Visual Flow Builder**: Drag-and-drop node editor powered by React Flow.
+- **Visual Flow Builder**: Drag-and-drop node canvas powered by React Flow.
 - **Smart Triggers**: Abandoned cart, post-purchase, welcome series, and more.
 - **Condition Logic**: If/else branching based on order value, segments, etc.
-- **Email Templates**: MJML-powered responsive designs.
+- **Email Templates**: MJML-powered responsive designs with rich HTML support.
 - **Customer Segmentation**: Target groups by spend, order count, behavior.
 
 ### 💬 Unified Inbox & Chat
 - **Live Chat Widget**: Embeddable widget with business hours detection.
 - **IMAP Integration**: Pull emails directly into the dashboard.
+- **Email Threading (NEW)**: Bi-directional threading with `In-Reply-To` and `References` headers.
 - **Canned Responses**: Quick templates for common queries.
 - **Presence Indicators**: See who else is viewing a conversation.
+- **AI Draft Suggestions**: Context-aware reply drafts powered by LLMs.
+
+### 📱 Social Messaging (NEW)
+- **Facebook & Instagram DMs**: Respond to Messenger and Instagram Direct via Meta Graph API.
+- **TikTok Business Messaging**: Native 48-hour response window support.
+- **Unified OAuth**: Connect multi-platform accounts with a single OAuth flow.
+- **Channel Management**: Dedicated UI to manage, connect, and disconnect messaging streams.
+
+### 📲 Mobile PWA & Push Notifications (NEW)
+- **Web Push Notifications**: Real-time alerts for new messages and orders on mobile.
+- **Notification Preferences**: Granular control over mobile vs. desktop alerts.
+- **Mobile Deep-Linking**: Notifications navigate directly to relevant conversations.
+- **Dashboard Widget Lock**: Prevent accidental drag on touch devices.
 
 ### 📈 Advanced Reporting
 - **Report Builder**: Custom metrics with drag-and-drop dimensions.
@@ -128,10 +145,10 @@ Built with modern, battle-tested technologies:
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | React 18, Vite, TypeScript, Tailwind CSS |
-| **State** | React Query, React Context |
-| **Backend** | Node.js, Express, TypeScript |
-| **Database** | PostgreSQL 16 + Prisma ORM |
+| **Frontend** | React 18, Vite, TypeScript 5.7+, Tailwind CSS |
+| **State** | React Query, Zustand |
+| **Backend** | Node.js 22+, Express 5, TypeScript (ESM) |
+| **Database** | PostgreSQL 16 + Prisma 7 (Driver Adapter) |
 | **Search** | Elasticsearch 7.17 |
 | **Cache/Queue** | Redis 7 + BullMQ |
 | **Real-Time** | Socket.io |
@@ -144,7 +161,7 @@ Built with modern, battle-tested technologies:
 
 ### Prerequisites
 - Docker & Docker Compose
-- Node.js 18+
+- Node.js 22+ (required for Prisma 7)
 
 ### Installation
 
@@ -223,13 +240,14 @@ Connect via WooCommerce REST API keys for bi-directional sync:
 
 ## 🔒 Security
 
-- **JWT Authentication** with refresh token rotation
-- **HMAC-SHA256** webhook verification
+- **JWT Authentication** with SHA-256 hashed refresh token rotation
+- **Timing-Safe HMAC-SHA256** webhook verification
 - **AES-256-GCM** encryption for credentials at rest
 - **Rate Limiting** (5 login attempts/hour, 2000 API requests/15min)
 - **Content Security Policy** via Helmet
 - **Two-Factor Authentication** (TOTP)
 - **Session Management** with revocation
+- **GDPR Consent Integration**: WP Consent API support for visitor privacy
 
 ---
 

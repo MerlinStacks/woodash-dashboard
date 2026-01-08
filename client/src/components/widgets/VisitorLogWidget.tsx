@@ -3,12 +3,21 @@
  * Shows visitors with their recent actions as clickable icons
  */
 import React, { useEffect, useState } from 'react';
-import { Users, Clock, MapPin, FileText, Search, ShoppingCart, Eye, ExternalLink, User, RefreshCw, Globe, Link2 } from 'lucide-react';
+import { Users, Clock, MapPin, FileText, Search, ShoppingCart, Eye, ExternalLink, User, RefreshCw, Globe, Link2, Flag, DollarSign } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import VisitorProfileModal from '../analytics/VisitorProfileModal';
 import { DeviceBrowserBadge } from '../analytics/DeviceBrowserIcons';
+
+interface EventPayload {
+    total?: number;
+    currency?: string;
+    itemCount?: number;
+    name?: string;
+    is404?: boolean;
+    [key: string]: unknown;
+}
 
 interface VisitorEvent {
     id: string;
@@ -16,6 +25,7 @@ interface VisitorEvent {
     url?: string;
     pageTitle?: string;
     createdAt: string;
+    payload?: EventPayload;
 }
 
 interface VisitorSession {
@@ -51,8 +61,16 @@ interface VisitorSession {
     } | null;
 }
 
-/** Returns an icon component based on event type */
-function getEventIcon(type: string) {
+/** Returns an icon component based on event type and payload */
+function getEventIcon(type: string, payload?: EventPayload) {
+    // 404 pages get a flag icon
+    if (type === 'pageview' && payload?.is404) {
+        return Flag;
+    }
+    // Purchases show a dollar sign
+    if (type === 'purchase') {
+        return DollarSign;
+    }
     switch (type) {
         case 'pageview':
             return FileText;
@@ -67,15 +85,17 @@ function getEventIcon(type: string) {
         case 'checkout_start':
         case 'checkout_success':
             return ShoppingCart;
-        case 'purchase':
-            return ShoppingCart;
         default:
             return Eye;
     }
 }
 
-/** Returns tailwind classes for event icon based on type */
-function getEventIconClasses(type: string) {
+/** Returns tailwind classes for event icon based on type and payload */
+function getEventIconClasses(type: string, payload?: EventPayload) {
+    // 404 pages get red styling
+    if (type === 'pageview' && payload?.is404) {
+        return 'bg-red-50 text-red-600 hover:bg-red-100';
+    }
     switch (type) {
         case 'pageview':
             return 'bg-blue-50 text-blue-500 hover:bg-blue-100';
@@ -265,9 +285,29 @@ const VisitorLogWidget: React.FC = () => {
                                     return (
                                         <div className="flex items-center gap-1 pl-10 flex-wrap">
                                             {dedupedEvents.slice(0, 8).map((event, idx) => {
-                                                const IconComponent = getEventIcon(event.type);
-                                                const iconClasses = getEventIconClasses(event.type);
-                                                const tooltip = event.pageTitle || event.url || event.type;
+                                                const IconComponent = getEventIcon(event.type, event.payload);
+                                                const iconClasses = getEventIconClasses(event.type, event.payload);
+
+                                                // Build enhanced tooltip based on event type
+                                                let tooltip = event.pageTitle || event.url || event.type;
+                                                const payload = event.payload;
+
+                                                if (event.type === 'purchase' && payload?.total) {
+                                                    const currency = payload.currency || 'USD';
+                                                    const itemCount = payload.itemCount || 0;
+                                                    tooltip = `💰 Purchase: ${currency} ${payload.total.toFixed(2)} (${itemCount} items)`;
+                                                } else if (event.type === 'add_to_cart' && payload) {
+                                                    const productName = payload.name || 'Product';
+                                                    const cartTotal = payload.total;
+                                                    const cartItems = payload.itemCount;
+                                                    tooltip = `🛒 Added: ${productName}`;
+                                                    if (cartTotal !== undefined && cartItems !== undefined) {
+                                                        const currency = payload.currency || 'USD';
+                                                        tooltip += `\nCart: ${currency} ${cartTotal.toFixed(2)} (${cartItems} items)`;
+                                                    }
+                                                } else if (event.type === 'pageview' && payload?.is404) {
+                                                    tooltip = `⚠️ 404 Not Found: ${event.url || 'Unknown page'}`;
+                                                }
 
                                                 return (
                                                     <a

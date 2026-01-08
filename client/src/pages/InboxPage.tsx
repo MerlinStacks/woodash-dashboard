@@ -233,6 +233,35 @@ export function InboxPage() {
                                 }
                             }
                         }}
+                        onBlock={recipientEmail ? async () => {
+                            const res = await fetch('/api/chat/block', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`,
+                                    'x-account-id': currentAccount?.id || ''
+                                },
+                                body: JSON.stringify({ email: recipientEmail })
+                            });
+                            if (res.ok) {
+                                // Update conversation to CLOSED
+                                await fetch(`/api/chat/${selectedId}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`,
+                                        'x-account-id': currentAccount?.id || ''
+                                    },
+                                    body: JSON.stringify({ status: 'CLOSED' })
+                                });
+                                setConversations(prev => prev.map(c =>
+                                    c.id === selectedId ? { ...c, status: 'CLOSED' } : c
+                                ));
+                                alert('Contact blocked. Their future messages will be auto-resolved.');
+                            } else {
+                                alert('Failed to block contact');
+                            }
+                        } : undefined}
                     />
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400">

@@ -60,7 +60,8 @@ export class AnalyticsService {
                             type: true,
                             url: true,
                             pageTitle: true,
-                            createdAt: true
+                            createdAt: true,
+                            payload: true
                         }
                     }
                 }
@@ -147,14 +148,26 @@ export class AnalyticsService {
 
     /**
      * Get Visitor Profile
+     * Includes visit history with grouped events per visit
      */
     static async getVisitorProfile(visitorId: string, accountId: string) {
         const session = await prisma.analyticsSession.findUnique({
             where: { accountId_visitorId: { accountId, visitorId } },
             include: {
+                visits: {
+                    orderBy: { startedAt: 'desc' },
+                    take: 20, // Last 20 visits
+                    include: {
+                        events: {
+                            orderBy: { createdAt: 'asc' }, // Chronological within visit
+                            take: 100
+                        }
+                    }
+                },
+                // Fallback for legacy data: include events directly on session
                 events: {
                     orderBy: { createdAt: 'desc' },
-                    take: 100 // Last 100 events
+                    take: 100
                 }
             }
         });
@@ -162,8 +175,6 @@ export class AnalyticsService {
         if (!session) return null;
 
         // Calculate stats
-        // Total Spent? We don't strictly track historical order sum in AnalyticsSession yet, 
-        // unless we link to WooCustomer.
         let customerData = null;
         if (session.wooCustomerId) {
             customerData = await prisma.wooCustomer.findUnique({
@@ -171,11 +182,18 @@ export class AnalyticsService {
             });
         }
 
+        // Get total visit count
+        const visitCount = await prisma.analyticsVisit.count({
+            where: { sessionId: session.id }
+        });
+
         return {
             session,
             customer: customerData,
+            visits: session.visits,
             stats: {
                 totalEvents: await prisma.analyticsEvent.count({ where: { sessionId: session.id } }),
+                totalVisits: visitCount,
                 firstSeen: await prisma.analyticsEvent.findFirst({
                     where: { sessionId: session.id },
                     orderBy: { createdAt: 'asc' },

@@ -8,6 +8,7 @@
 import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
 import { Server } from 'socket.io';
+import { BlockedContactService } from './BlockedContactService';
 
 export interface IncomingEmailData {
     emailAccountId: string;
@@ -47,18 +48,13 @@ export class EmailIngestion {
         }
 
         const accountId = emailVars.accountId;
+
+        // Check if sender is blocked
+        const isBlocked = await BlockedContactService.isBlocked(accountId, fromEmail);
+
         let conversation = await this.resolveConversation(accountId, fromEmail, fromName, inReplyTo, references);
 
-        // Reopen if closed
-        if (conversation.status !== 'OPEN') {
-            await prisma.conversation.update({
-                where: { id: conversation.id },
-                data: { status: 'OPEN', updatedAt: new Date() }
-            });
-            Logger.info('[EmailIngestion] Reopened conversation', { conversationId: conversation.id });
-        }
-
-        // Add message with emailMessageId
+        // Add message with emailMessageId (even for blocked contacts, for audit trail)
         const message = await prisma.message.create({
             data: {
                 conversationId: conversation.id,
@@ -68,10 +64,37 @@ export class EmailIngestion {
             }
         });
 
-        await prisma.conversation.update({
-            where: { id: conversation.id },
-            data: { updatedAt: new Date() }
-        });
+        if (isBlocked) {
+            // Auto-resolve without autoreplies or push notifications
+            await prisma.conversation.update({
+                where: { id: conversation.id },
+                data: { status: 'CLOSED', updatedAt: new Date() }
+            });
+            Logger.info('[EmailIngestion] Blocked sender, auto-resolved', { fromEmail, conversationId: conversation.id });
+
+            // Still emit socket events so UI updates
+            this.io.to(`conversation:${conversation.id}`).emit('message:new', message);
+            this.io.to(`account:${accountId}`).emit('conversation:updated', {
+                id: conversation.id,
+                lastMessage: message,
+                updatedAt: new Date()
+            });
+            return;
+        }
+
+        // Reopen if closed (only for non-blocked contacts)
+        if (conversation.status !== 'OPEN') {
+            await prisma.conversation.update({
+                where: { id: conversation.id },
+                data: { status: 'OPEN', updatedAt: new Date() }
+            });
+            Logger.info('[EmailIngestion] Reopened conversation', { conversationId: conversation.id });
+        } else {
+            await prisma.conversation.update({
+                where: { id: conversation.id },
+                data: { updatedAt: new Date() }
+            });
+        }
 
         // Socket events
         this.io.to(`conversation:${conversation.id}`).emit('message:new', message);
@@ -81,7 +104,7 @@ export class EmailIngestion {
             updatedAt: new Date()
         });
 
-        // Auto-reply and push
+        // Auto-reply and push (only for non-blocked contacts)
         await this.handleAutoReply(conversation);
         await this.sendPushNotification(accountId, fromName, fromEmail, subject);
 

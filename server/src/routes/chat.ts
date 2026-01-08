@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { prisma } from '../utils/prisma';
 import { ChatService } from '../services/ChatService';
 import { InboxAIService } from '../services/InboxAIService';
+import { BlockedContactService } from '../services/BlockedContactService';
 import { requireAuth } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 import multer from 'multer';
@@ -246,7 +247,97 @@ export const createChatRouter = (chatService: ChatService) => {
         }
     });
 
+    // --- Blocked Contacts ---
 
+    // POST /api/chat/block - Block a contact
+    router.post('/block', async (req: any, res) => {
+        try {
+            const accountId = req.headers['x-account-id'];
+            if (!accountId) {
+                return res.status(400).json({ error: 'Account ID required' });
+            }
+
+            const { email, reason } = req.body;
+            if (!email) {
+                return res.status(400).json({ error: 'Email is required' });
+            }
+
+            const result = await BlockedContactService.blockContact(
+                String(accountId),
+                email,
+                req.user?.id,
+                reason
+            );
+
+            if (!result.success) {
+                return res.status(500).json({ error: result.error });
+            }
+
+            res.json({ success: true });
+        } catch (error) {
+            Logger.error('Failed to block contact', { error });
+            res.status(500).json({ error: 'Failed to block contact' });
+        }
+    });
+
+    // DELETE /api/chat/block/:email - Unblock a contact
+    router.delete('/block/:email', async (req: any, res) => {
+        try {
+            const accountId = req.headers['x-account-id'];
+            if (!accountId) {
+                return res.status(400).json({ error: 'Account ID required' });
+            }
+
+            const result = await BlockedContactService.unblockContact(
+                String(accountId),
+                decodeURIComponent(req.params.email)
+            );
+
+            if (!result.success) {
+                return res.status(500).json({ error: result.error });
+            }
+
+            res.json({ success: true });
+        } catch (error) {
+            Logger.error('Failed to unblock contact', { error });
+            res.status(500).json({ error: 'Failed to unblock contact' });
+        }
+    });
+
+    // GET /api/chat/blocked - List all blocked contacts
+    router.get('/blocked', async (req: any, res) => {
+        try {
+            const accountId = req.headers['x-account-id'];
+            if (!accountId) {
+                return res.status(400).json({ error: 'Account ID required' });
+            }
+
+            const blocked = await BlockedContactService.listBlocked(String(accountId));
+            res.json(blocked);
+        } catch (error) {
+            Logger.error('Failed to list blocked contacts', { error });
+            res.status(500).json({ error: 'Failed to list blocked contacts' });
+        }
+    });
+
+    // GET /api/chat/block/check/:email - Check if email is blocked
+    router.get('/block/check/:email', async (req: any, res) => {
+        try {
+            const accountId = req.headers['x-account-id'];
+            if (!accountId) {
+                return res.status(400).json({ error: 'Account ID required' });
+            }
+
+            const isBlocked = await BlockedContactService.isBlocked(
+                String(accountId),
+                decodeURIComponent(req.params.email)
+            );
+            res.json({ isBlocked });
+        } catch (error) {
+            Logger.error('Failed to check blocked status', { error });
+            res.status(500).json({ error: 'Failed to check blocked status' });
+        }
+    });
 
     return router;
 };

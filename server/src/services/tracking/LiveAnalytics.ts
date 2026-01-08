@@ -7,6 +7,43 @@
 
 import { prisma } from '../../utils/prisma';
 import { isBot } from './TrafficAnalyzer';
+import { calculatePurchaseIntent } from './CohortLTVService';
+
+/**
+ * Cart item structure from the cartItems JSON field.
+ */
+export interface LiveCartItem {
+    productId: number;
+    variationId?: number;
+    name: string;
+    sku?: string;
+    thumbnail?: string;
+    quantity: number;
+    price: number;
+    total: number;
+}
+
+/**
+ * Enhanced live cart session with product details and customer info.
+ */
+export interface LiveCartSession {
+    id: string;
+    visitorId: string;
+    email?: string | null;
+    cartValue: number;
+    cartItems: LiveCartItem[];
+    itemCount: number;
+    currency: string;
+    lastActiveAt: Date;
+    country?: string | null;
+    city?: string | null;
+    // Customer info if known
+    customerName?: string | null;
+    customerId?: number | null;
+    // Calculated metrics
+    purchaseIntentScore: number;
+    minutesSinceActivity: number;
+}
 
 /**
  * Get Live Visitors (Active in last 3 mins).
@@ -47,15 +84,17 @@ export async function getLiveVisitors(accountId: string) {
 
 /**
  * Get Active Carts (Live sessions with cart items).
- * Returns carts from sessions active within the last hour.
+ * Returns enhanced cart data with product details and customer info.
  *
  * @param accountId - The account ID to query
- * @returns Array of sessions with cart value > 0
+ * @returns Array of LiveCartSession with enriched data
  */
-export async function getLiveCarts(accountId: string) {
+export async function getLiveCarts(accountId: string): Promise<LiveCartSession[]> {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const now = Date.now();
 
-    return prisma.analyticsSession.findMany({
+    // Fetch sessions with carts
+    const sessions = await prisma.analyticsSession.findMany({
         where: {
             accountId,
             cartValue: {
@@ -67,7 +106,84 @@ export async function getLiveCarts(accountId: string) {
         },
         orderBy: {
             cartValue: 'desc'
+        },
+        take: 50
+    });
+
+    // Collect customer IDs for batch lookup
+    const customerIds = sessions
+        .filter(s => s.wooCustomerId)
+        .map(s => s.wooCustomerId as number);
+
+    // Batch fetch customer names
+    const customers = customerIds.length > 0
+        ? await prisma.wooCustomer.findMany({
+            where: {
+                accountId,
+                wooId: { in: customerIds }
+            },
+            select: {
+                wooId: true,
+                firstName: true,
+                lastName: true
+            }
+        })
+        : [];
+
+    // Create lookup map
+    const customerMap = new Map(
+        customers.map(c => [c.wooId, `${c.firstName || ''} ${c.lastName || ''}`.trim()])
+    );
+
+    // Transform sessions to enhanced format
+    return sessions.map(session => {
+        // Parse cart items from JSON field
+        let cartItems: LiveCartItem[] = [];
+        let itemCount = 0;
+
+        if (session.cartItems && Array.isArray(session.cartItems)) {
+            cartItems = (session.cartItems as any[]).map(item => ({
+                productId: item.productId || item.product_id || 0,
+                variationId: item.variationId || item.variation_id,
+                name: item.name || item.product_name || 'Unknown Product',
+                sku: item.sku,
+                thumbnail: item.thumbnail || item.image,
+                quantity: item.quantity || 1,
+                price: parseFloat(item.price) || 0,
+                total: parseFloat(item.total || item.line_total) || (parseFloat(item.price) * (item.quantity || 1))
+            }));
+            itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
         }
+
+        // Calculate minutes since last activity
+        const minutesSinceActivity = Math.floor(
+            (now - new Date(session.lastActiveAt).getTime()) / 60000
+        );
+
+        // Get customer name if available
+        const customerName = session.wooCustomerId
+            ? customerMap.get(session.wooCustomerId) || null
+            : null;
+
+        // Calculate purchase intent score (0-100)
+        const purchaseIntentScore = calculatePurchaseIntent(session);
+
+        return {
+            id: session.id,
+            visitorId: session.visitorId,
+            email: session.email,
+            cartValue: Number(session.cartValue),
+            cartItems,
+            itemCount,
+            currency: session.currency,
+            lastActiveAt: session.lastActiveAt,
+            country: session.country,
+            city: session.city,
+            customerName,
+            customerId: session.wooCustomerId,
+            purchaseIntentScore,
+            minutesSinceActivity
+        };
     });
 }
 

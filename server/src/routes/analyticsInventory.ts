@@ -9,8 +9,25 @@ import { AuthenticatedRequest } from '../types/express';
 import { prisma } from '../utils/prisma';
 import { esClient } from '../utils/elastic';
 import { Logger } from '../utils/logger';
+import { InventoryService } from '../services/InventoryService';
 
 const router = Router();
+
+/**
+ * GET /health
+ * Returns products at risk based on sales velocity and inventory settings.
+ * Used by the InventoryRiskWidget on the dashboard.
+ */
+router.get('/health', async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const accountId = (req as any).accountId;
+        const atRisk = await InventoryService.checkInventoryHealth(accountId);
+        res.json(atRisk);
+    } catch (e: any) {
+        Logger.error('Inventory Health Check Error', { error: e });
+        res.status(500).json({ error: e.message });
+    }
+});
 
 /**
  * GET /stock-velocity
