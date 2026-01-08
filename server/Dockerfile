@@ -11,11 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files (standalone, not using workspaces)
-COPY server/package.json server/package-lock.json ./
+# Copy package files
+COPY server/package.json ./
 
-# Install dependencies using lockfile
-RUN npm ci --legacy-peer-deps
+# Install dependencies (generates lockfile during build)
+RUN npm install --legacy-peer-deps
 
 # Copy server source code
 COPY server/ .
