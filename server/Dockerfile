@@ -9,8 +9,11 @@ RUN apk add --no-cache openssl python3 make g++
 # Copy server package files
 COPY package.json ./
 
-# Install dependencies (legacy-peer-deps for compatibility)
-RUN npm install --legacy-peer-deps
+# Debug: Show what we're installing
+RUN cat package.json
+
+# Install dependencies with verbose logging
+RUN npm install --legacy-peer-deps --loglevel verbose 2>&1 || (cat /root/.npm/_logs/*.log 2>/dev/null; exit 1)
 
 # Copy server source code
 COPY . .
