@@ -67,6 +67,8 @@ export function DashboardPage() {
     const [showAddWidget, setShowAddWidget] = useState(false);
     // Mobile lock state: locked by default on mobile to prevent accidental drag
     const [isLayoutLocked, setIsLayoutLocked] = useState(true);
+    // Track current breakpoint to maintain layout stability during resize
+    const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('lg');
 
     // Date State
     const [dateOption, setDateOption] = useState<DateRangeOption>('today');
@@ -100,9 +102,19 @@ export function DashboardPage() {
         }
     }
 
+    /**
+     * Handle breakpoint changes to maintain layout stability.
+     * This prevents react-grid-layout from recalculating layouts during resize.
+     */
+    const onBreakpointChange = (newBreakpoint: string) => {
+        setCurrentBreakpoint(newBreakpoint);
+    };
+
     const onLayoutChange = (_layout: any, allLayouts: any) => {
         // Don't persist layout changes on mobile to protect desktop layout
         if (isMobile) return;
+        // Only persist when layout is unlocked to prevent accidental saves
+        if (isLayoutLocked) return;
 
         // Always use the lg layout for persistence (our source of truth)
         const lgLayout = allLayouts?.lg;
@@ -282,12 +294,14 @@ export function DashboardPage() {
             </div>
 
             <ResponsiveGridLayoutWithWidth
+                key={`grid-${isLayoutLocked ? 'locked' : 'unlocked'}-${currentBreakpoint}`}
                 className="layout"
                 layouts={responsiveLayouts}
                 breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
                 cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
                 rowHeight={100}
                 onLayoutChange={(l: any, all: any) => onLayoutChange(l, all)}
+                onBreakpointChange={onBreakpointChange}
                 isDraggable={!isLayoutLocked}
                 isResizable={!isLayoutLocked}
                 draggableHandle=".drag-handle"

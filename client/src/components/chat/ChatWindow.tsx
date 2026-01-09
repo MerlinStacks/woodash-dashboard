@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, Zap, Paperclip, MoreHorizontal, ChevronDown, Clock, CheckCircle, RotateCcw, MoreVertical, Settings, FileSignature, Sparkles, Users, Merge, Ban } from 'lucide-react';
+import { Send, Loader2, Zap, Paperclip, MoreHorizontal, ChevronDown, Clock, CheckCircle, RotateCcw, MoreVertical, Settings, FileSignature, Sparkles, Users, Merge, Ban, Check, AlertCircle } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -19,6 +19,8 @@ interface Message {
     createdAt: string;
     isInternal: boolean;
     senderId?: string;
+    readAt?: string | null;
+    status?: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
 }
 
 interface CannedResponse {
@@ -454,12 +456,22 @@ export function ChatWindow({ conversationId, messages, onSendMessage, recipientE
                                     dangerouslySetInnerHTML={{ __html: body }}
                                 />
 
-                                {/* Timestamp */}
+                                {/* Timestamp and Status */}
                                 <div className={cn(
-                                    "text-[10px] mt-1",
-                                    isMe ? "text-blue-200" : "text-gray-400"
+                                    "text-[10px] mt-1 flex items-center gap-1",
+                                    isMe ? "text-blue-200 justify-end" : "text-gray-400"
                                 )}>
-                                    {format(new Date(msg.createdAt), 'h:mm a')}
+                                    <span>{format(new Date(msg.createdAt), 'h:mm a')}</span>
+                                    {/* Message status icons for agent messages */}
+                                    {isMe && !msg.isInternal && (
+                                        <span className="flex items-center" title={msg.status === 'FAILED' ? 'Failed to send' : 'Sent'}>
+                                            {msg.status === 'FAILED' ? (
+                                                <AlertCircle size={12} className="text-red-400" />
+                                            ) : (
+                                                <Check size={12} className="text-blue-300" />
+                                            )}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
