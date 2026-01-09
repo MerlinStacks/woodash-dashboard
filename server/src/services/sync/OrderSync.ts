@@ -139,9 +139,7 @@ export class OrderSync extends BaseSync {
                     await esClient.update({
                         index: 'customers',
                         id: `${accountId}_${wooId}`,
-                        body: {
-                            doc: { ordersCount: count }
-                        },
+                        doc: { ordersCount: count },
                         refresh: true
                     }).catch(() => {
                         // Document may not exist, that's OK

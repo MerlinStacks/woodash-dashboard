@@ -17,17 +17,15 @@ export class SearchQueryService {
                 esClient.search({
                     index: 'products',
                     size: 5,
-                    body: {
-                        query: {
-                            bool: {
-                                must: commonMust,
-                                should: [
-                                    { match: { name: { query, boost: 2 } } },
-                                    { match: { sku: query } },
-                                    { match: { description: query } }
-                                ],
-                                minimum_should_match: 1
-                            }
+                    query: {
+                        bool: {
+                            must: commonMust,
+                            should: [
+                                { match: { name: { query, boost: 2 } } },
+                                { match: { sku: query } },
+                                { match: { description: query } }
+                            ],
+                            minimum_should_match: 1
                         }
                     }
                 }),
@@ -36,17 +34,15 @@ export class SearchQueryService {
                 esClient.search({
                     index: 'customers',
                     size: 5,
-                    body: {
-                        query: {
-                            bool: {
-                                must: commonMust,
-                                should: [
-                                    { match: { firstName: query } },
-                                    { match: { lastName: query } },
-                                    { term: { email: query } }
-                                ],
-                                minimum_should_match: 1
-                            }
+                    query: {
+                        bool: {
+                            must: commonMust,
+                            should: [
+                                { match: { firstName: query } },
+                                { match: { lastName: query } },
+                                { term: { email: query } }
+                            ],
+                            minimum_should_match: 1
                         }
                     }
                 }),
@@ -55,16 +51,14 @@ export class SearchQueryService {
                 esClient.search({
                     index: 'orders',
                     size: 5,
-                    body: {
-                        query: {
-                            bool: {
-                                must: commonMust,
-                                should: [
-                                    { term: { id: query } },
-                                    { term: { number: query } }
-                                ],
-                                minimum_should_match: 1
-                            }
+                    query: {
+                        bool: {
+                            must: commonMust,
+                            should: [
+                                { term: { id: query } },
+                                { term: { number: query } }
+                            ],
+                            minimum_should_match: 1
                         }
                     }
                 })
@@ -141,13 +135,11 @@ export class SearchQueryService {
 
             const result = await esClient.search({
                 index: 'orders',
-                body: {
-                    query: { bool: { must } },
-                    sort: [{ date_created: 'desc' }],
-                    from,
-                    size: limit,
-                    track_total_hits: true
-                }
+                query: { bool: { must } },
+                sort: [{ date_created: 'desc' } as any],
+                from,
+                size: limit,
+                track_total_hits: true
             });
 
             const hits = result.hits.hits || [];
@@ -174,12 +166,10 @@ export class SearchQueryService {
             const result = await esClient.search({
                 index: 'orders',
                 size: 0,
-                body: {
-                    query: { term: { accountId } },
-                    aggs: {
-                        unique_tags: {
-                            terms: { field: 'tags', size: 500 }
-                        }
+                query: { term: { accountId } },
+                aggs: {
+                    unique_tags: {
+                        terms: { field: 'tags', size: 500 }
                     }
                 }
             });

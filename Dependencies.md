@@ -75,20 +75,20 @@
 | `@prisma/client` | ^7.2.0 | Database client |
 | `@prisma/adapter-pg` | ^7.2.0 | PostgreSQL adapter |
 | `pg` | ^8.11.3 | PostgreSQL driver |
-| `@elastic/elasticsearch` | ^8.11.0 | Elasticsearch client |
+| `@elastic/elasticsearch` | ^9.2.0 | Elasticsearch client |
 
 ### Queue & Caching
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `bullmq` | ^5.1.0 | Job queue |
-| `@bull-board/api` | ^5.10.2 | Queue dashboard API |
+| `@bull-board/api` | ^6.16.2 | Queue dashboard API |
 | `@bull-board/fastify` | ^6.16.2 | Queue dashboard UI (Fastify adapter) |
 | `ioredis` | ^5.3.2 | Redis client |
 
 ### Authentication & Security
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `argon2` | ^0.41.1 | Argon2id password hashing (OWASP 2025+ recommended) |
+| `argon2` | ^0.44.0 | Argon2id password hashing (OWASP 2025+ recommended) |
 | `jsonwebtoken` | ^9.0.3 | JWT tokens |
 | `otplib` | ^12.0.1 | 2FA/OTP support |
 | `qrcode` | ^1.5.4 | QR code generation |
@@ -110,11 +110,11 @@
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `zod` | ^4.3.5 | Schema validation |
-| `pino` | ^9.6.0 | Logging (native Fastify integration) |
+| `pino` | ^10.1.1 | Logging (native Fastify integration) |
 | `marked` | ^17.0.1 | Markdown parsing |
 | `ua-parser-js` | ^2.0.7 | User agent parsing |
-| `maxmind` | ^4.3.22 | IP geolocation (GeoLite2/GeoIP2 MMDB) |
-| `dotenv` | ^16.3.1 | Environment variables |
+| `maxmind` | ^5.0.3 | IP geolocation (GeoLite2/GeoIP2 MMDB) |
+| `dotenv` | ^17.2.3 | Environment variables |
 | `socket.io` | ^4.8.3 | WebSocket server |
 
 ---

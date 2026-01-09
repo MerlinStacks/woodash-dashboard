@@ -85,14 +85,12 @@ export class ProductsService {
         try {
             const response = await esClient.search({
                 index: 'products',
-                body: {
-                    query: {
-                        bool: { must }
-                    },
-                    from,
-                    size: limit,
-                    sort: [{ date_created: { order: 'desc' } }]
-                }
+                query: {
+                    bool: { must }
+                },
+                from,
+                size: limit,
+                sort: [{ date_created: { order: 'desc' } } as any]
             });
 
             const hits = response.hits.hits.map(hit => ({

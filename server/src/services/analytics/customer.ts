@@ -11,24 +11,22 @@ export class CustomerAnalytics {
             const response = await esClient.search({
                 index: 'customers',
                 size: 0,
-                body: {
-                    query: {
-                        bool: {
-                            must: [
-                                { term: { accountId } },
-                                { range: { dateCreated: { gte: startDate, lte: endDate } } }
-                            ]
-                        }
-                    },
-                    aggs: {
-                        growth_over_time: {
-                            date_histogram: {
-                                field: 'dateCreated',
-                                calendar_interval: 'month',
-                                format: 'yyyy-MM-dd'
-                            },
-                            aggs: { count: { value_count: { field: 'id' } } }
-                        }
+                query: {
+                    bool: {
+                        must: [
+                            { term: { accountId } },
+                            { range: { dateCreated: { gte: startDate, lte: endDate } } }
+                        ]
+                    }
+                },
+                aggs: {
+                    growth_over_time: {
+                        date_histogram: {
+                            field: 'dateCreated',
+                            calendar_interval: 'month',
+                            format: 'yyyy-MM-dd'
+                        },
+                        aggs: { count: { value_count: { field: 'id' } } }
                     }
                 }
             });

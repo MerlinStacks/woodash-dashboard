@@ -40,10 +40,8 @@ export class SalesAnalytics {
             const response = await esClient.search({
                 index: 'orders',
                 size: 0,
-                body: {
-                    query: { bool: { must } },
-                    aggs: { total_sales: { sum: { field: 'total' } } }
-                }
+                query: { bool: { must } },
+                aggs: { total_sales: { sum: { field: 'total' } } }
             });
             return (response.aggregations as any)?.total_sales?.value || 0;
         } catch (error) {
@@ -60,10 +58,8 @@ export class SalesAnalytics {
             const response = await esClient.search({
                 index: 'orders',
                 size: limit,
-                sort: [{ date_created: { order: 'desc' } }],
-                body: {
-                    query: { bool: { must: [{ term: { accountId } }] } }
-                }
+                sort: [{ date_created: { order: 'desc' } } as any],
+                query: { bool: { must: [{ term: { accountId } }] } }
             });
             return response.hits.hits.map(hit => hit._source);
         } catch (error) {
@@ -101,19 +97,17 @@ export class SalesAnalytics {
             const response = await esClient.search({
                 index: 'orders',
                 size: 0,
-                body: {
-                    query: { bool: { must } },
-                    aggs: {
-                        sales_over_time: {
-                            date_histogram: {
-                                field: 'date_created',
-                                calendar_interval: interval,
-                                format: 'yyyy-MM-dd'
-                            },
-                            aggs: {
-                                total_sales: { sum: { field: 'total' } },
-                                order_count: { value_count: { field: 'id' } }
-                            }
+                query: { bool: { must } },
+                aggs: {
+                    sales_over_time: {
+                        date_histogram: {
+                            field: 'date_created',
+                            calendar_interval: interval,
+                            format: 'yyyy-MM-dd'
+                        },
+                        aggs: {
+                            total_sales: { sum: { field: 'total' } },
+                            order_count: { value_count: { field: 'id' } }
                         }
                     }
                 }
@@ -161,20 +155,18 @@ export class SalesAnalytics {
             const response = await esClient.search({
                 index: 'orders',
                 size: 0,
-                body: {
-                    query: { bool: { must } },
-                    aggs: {
-                        top_products: {
-                            nested: { path: 'line_items' },
-                            aggs: {
-                                product_names: {
-                                    terms: {
-                                        field: 'line_items.name.keyword',
-                                        size: limit
-                                    },
-                                    aggs: {
-                                        total_quantity: { sum: { field: 'line_items.quantity' } }
-                                    }
+                query: { bool: { must } },
+                aggs: {
+                    top_products: {
+                        nested: { path: 'line_items' },
+                        aggs: {
+                            product_names: {
+                                terms: {
+                                    field: 'line_items.name.keyword',
+                                    size: limit
+                                },
+                                aggs: {
+                                    total_quantity: { sum: { field: 'line_items.quantity' } }
                                 }
                             }
                         }
@@ -213,4 +205,3 @@ export class SalesAnalytics {
         return CustomReportService.getCustomReport(accountId, config);
     }
 }
-

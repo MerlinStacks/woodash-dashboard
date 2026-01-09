@@ -95,10 +95,8 @@ export class CustomReportService {
         const response = await esClient.search({
             index: 'orders',
             size: 0,
-            body: {
-                query: { bool: { must } },
-                aggs
-            }
+            query: { bool: { must } },
+            aggs
         });
 
         return this.processOrderResults(response.aggregations, config);
@@ -250,22 +248,20 @@ export class CustomReportService {
             const response = await esClient.search({
                 index: 'orders',
                 size: 0,
-                body: {
-                    query: {
-                        bool: {
-                            must: [
-                                { term: { accountId } },
-                                { range: { date_created: { gte: startDate, lte: endDate } } }
-                            ]
-                        }
-                    },
-                    aggs: {
-                        by_dimension: {
-                            terms: { field: esField, size: 50, missing: '(direct)' },
-                            aggs: {
-                                total_sales: { sum: { field: 'total' } },
-                                order_count: { value_count: { field: 'id' } }
-                            }
+                query: {
+                    bool: {
+                        must: [
+                            { term: { accountId } },
+                            { range: { date_created: { gte: startDate, lte: endDate } } }
+                        ]
+                    }
+                },
+                aggs: {
+                    by_dimension: {
+                        terms: { field: esField, size: 50, missing: '(direct)' },
+                        aggs: {
+                            total_sales: { sum: { field: 'total' } },
+                            order_count: { value_count: { field: 'id' } }
                         }
                     }
                 }

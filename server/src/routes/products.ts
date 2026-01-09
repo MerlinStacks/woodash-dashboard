@@ -173,26 +173,24 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
                 index: 'orders',
                 size: limit,
                 from,
-                body: {
-                    query: {
-                        bool: {
-                            must: [
-                                { term: { accountId } },
-                                {
-                                    nested: {
-                                        path: 'line_items',
-                                        query: { term: { 'line_items.productId': wooId } },
-                                        inner_hits: { name: 'matched_items', size: 10 }
-                                    }
+                query: {
+                    bool: {
+                        must: [
+                            { term: { accountId } },
+                            {
+                                nested: {
+                                    path: 'line_items',
+                                    query: { term: { 'line_items.productId': wooId } },
+                                    inner_hits: { name: 'matched_items', size: 10 }
                                 }
-                            ],
-                            filter: [
-                                { terms: { status: ['completed', 'processing', 'on-hold', 'pending'] } }
-                            ]
-                        }
-                    },
-                    sort: [{ date_created: { order: 'desc' } }]
-                }
+                            }
+                        ],
+                        filter: [
+                            { terms: { status: ['completed', 'processing', 'on-hold', 'pending'] } }
+                        ]
+                    }
+                },
+                sort: [{ date_created: { order: 'desc' } } as any]
             });
 
             const hits = response.hits.hits;

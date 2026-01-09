@@ -9,10 +9,8 @@ export class IndexingService {
             if (!exists) {
                 await esClient.indices.create({
                     index: indexName,
-                    body: {
-                        settings: (mapping as any).settings || {},
-                        mappings: { properties: (mapping as any).properties || mapping }
-                    }
+                    settings: (mapping as any).settings || {},
+                    mappings: { properties: (mapping as any).properties || mapping }
                 });
                 Logger.info(`Elasticsearch index '${indexName}' created.`);
             } else {
@@ -20,13 +18,13 @@ export class IndexingService {
                 if ((mapping as any).settings) {
                     await esClient.indices.putSettings({
                         index: indexName,
-                        body: (mapping as any).settings
+                        settings: (mapping as any).settings
                     });
                 }
                 // Update mapping for existing index (merge new fields)
                 await esClient.indices.putMapping({
                     index: indexName,
-                    body: { properties: (mapping as any).properties || mapping }
+                    properties: (mapping as any).properties || mapping
                 });
                 Logger.info(`Updated mapping for existing index '${indexName}'`);
             }
@@ -162,7 +160,7 @@ export class IndexingService {
         await esClient.index({
             index: 'customers',
             id: `${accountId}_${customer.id}`,
-            body: {
+            document: {
                 accountId,
                 id: customer.id,
                 email: customer.email,
@@ -172,7 +170,7 @@ export class IndexingService {
                 ordersCount: customer.orders_count || 0,
                 dateCreated: customer.date_created
             },
-            refresh: true // Careful with performance on bulk
+            refresh: true
         });
     }
 
@@ -197,7 +195,7 @@ export class IndexingService {
         await esClient.index({
             index: 'products',
             id: `${accountId}_${product.id}`,
-            body: {
+            document: {
                 accountId,
                 id: product.id,
                 name: product.name,
@@ -249,7 +247,7 @@ export class IndexingService {
         await esClient.index({
             index: 'orders',
             id: `${accountId}_${order.id}`,
-            body: {
+            document: {
                 accountId,
                 id: order.id,
                 status: order.status,
@@ -295,14 +293,14 @@ export class IndexingService {
         await esClient.index({
             index: 'reviews',
             id: `${accountId}_${review.id}`,
-            body: {
+            document: {
                 accountId,
                 id: review.id,
                 productId: review.product_id,
                 productName: review.product_name,
                 reviewer: review.reviewer,
                 rating: review.rating,
-                content: review.review, // Map 'review' to 'content'
+                content: review.review,
                 status: review.status,
                 dateCreated: review.date_created
             },
@@ -320,10 +318,8 @@ export class IndexingService {
                 if (exists) {
                     await esClient.deleteByQuery({
                         index,
-                        body: {
-                            query: {
-                                term: { accountId: accountId }
-                            }
+                        query: {
+                            term: { accountId: accountId }
                         },
                         refresh: true
                     });
@@ -341,10 +337,8 @@ export class IndexingService {
                 if (exists) {
                     const { count } = await esClient.count({
                         index,
-                        body: {
-                            query: {
-                                term: { accountId: accountId }
-                            }
+                        query: {
+                            term: { accountId: accountId }
                         }
                     });
                     if (count > 0) {

@@ -51,21 +51,19 @@ const analyticsInventoryRoutes: FastifyPluginAsync = async (fastify) => {
             const response = await esClient.search({
                 index: 'orders',
                 size: 0,
-                body: {
-                    query: {
-                        bool: {
-                            must: [
-                                { term: { accountId } },
-                                { range: { date_created: { gte: startDate.toISOString(), lte: endDate.toISOString() } } },
-                                { terms: { status: ['completed', 'processing', 'on-hold'] } }
-                            ]
-                        }
-                    },
-                    aggs: {
-                        products: {
-                            nested: { path: 'line_items' },
-                            aggs: { by_product: { terms: { field: 'line_items.productId', size: 10000 }, aggs: { total_qty: { sum: { field: 'line_items.quantity' } } } } }
-                        }
+                query: {
+                    bool: {
+                        must: [
+                            { term: { accountId } },
+                            { range: { date_created: { gte: startDate.toISOString(), lte: endDate.toISOString() } } },
+                            { terms: { status: ['completed', 'processing', 'on-hold'] } }
+                        ]
+                    }
+                },
+                aggs: {
+                    products: {
+                        nested: { path: 'line_items' },
+                        aggs: { by_product: { terms: { field: 'line_items.productId', size: 10000 }, aggs: { total_qty: { sum: { field: 'line_items.quantity' } } } } }
                     }
                 }
             });

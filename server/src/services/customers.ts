@@ -93,14 +93,12 @@ export class CustomersService {
 
                 const esRes = await esClient.search({
                     index: 'customers',
-                    body: {
-                        query: {
-                            bool: {
-                                must: [
-                                    { term: { accountId } },
-                                    esQuery
-                                ]
-                            }
+                    query: {
+                        bool: {
+                            must: [
+                                { term: { accountId } },
+                                esQuery
+                            ]
                         }
                     }
                 });
