@@ -21,7 +21,7 @@ import { TrackingService } from './services/TrackingService';
 import { QueueFactory, QUEUES } from './services/queue/QueueFactory';
 import { EventBus, EVENTS } from './services/events';
 import { AutomationEngine } from './services/AutomationEngine';
-import { Logger, pinoLogger } from './utils/logger';
+import { Logger, fastifyLoggerConfig } from './utils/logger';
 
 // Init Queues for Bull Board
 QueueFactory.init();
@@ -34,7 +34,7 @@ InventoryService.setupListeners();
 
 // Create Fastify instance
 const fastify = Fastify({
-    logger: pinoLogger, // Native Pino integration (migrated from Winston)
+    logger: fastifyLoggerConfig, // Fastify 5.x requires config object, not a Pino instance
     trustProxy: true, // Trust Docker/Nginx proxy for Rate Limiting
 });
 

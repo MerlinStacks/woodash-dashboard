@@ -45,7 +45,10 @@ export default defineConfig(({ mode }) => {
             }
         },
         optimizeDeps: {
-            include: ['react-grid-layout', 'cookie', 'react-router', 'react-router-dom']
+            include: ['react-grid-layout', 'cookie', 'react-router', 'react-router-dom'],
+            // Exclude React from optimization - the alias handles resolution,
+            // and including them causes path issues in Docker
+            exclude: ['react', 'react-dom']
         },
         build: {
             commonjsOptions: {
@@ -55,4 +58,3 @@ export default defineConfig(({ mode }) => {
         }
     }
 })
-

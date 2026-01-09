@@ -20,7 +20,7 @@ async function verifyOrders() {
         const response = await esClient.search({
             index: 'orders',
             size: 10,
-            body: { query }
+            query
         });
 
         const getTotal = (res: any) => res.hits.total.value || res.hits.total;
@@ -34,7 +34,7 @@ async function verifyOrders() {
         const keywordCheck = await esClient.search({
             index: 'orders',
             size: 1,
-            body: { query: { term: { 'status.keyword': 'processing' } } }
+            query: { term: { 'status.keyword': 'processing' } }
         });
         console.log(`Status.keyword 'processing' check matches: ${getTotal(keywordCheck)}`);
 
@@ -42,7 +42,7 @@ async function verifyOrders() {
         const textCheck = await esClient.search({
             index: 'orders',
             size: 1,
-            body: { query: { match: { 'status': 'processing' } } }
+            query: { match: { 'status': 'processing' } }
         });
         console.log(`Status (text) 'processing' check matches: ${getTotal(textCheck)}`);
 

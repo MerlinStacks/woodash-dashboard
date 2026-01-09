@@ -7,13 +7,10 @@ async function inspectData() {
         const response: any = await esClient.search({
             index: 'orders',
             size: 1,
-            body: {
-                query: { match_all: {} }
-            }
+            query: { match_all: {} }
         });
 
-        // v8 response structure handling
-        const hits = response.hits ? response.hits.hits : (response.body ? response.body.hits.hits : []);
+        const hits = response.hits?.hits || [];
 
         if (hits.length > 0) {
             const source = hits[0]._source;

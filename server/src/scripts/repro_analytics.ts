@@ -41,10 +41,8 @@ async function runRepro() {
         const response: any = await esClient.search({
             index: 'orders',
             size: 0,
-            body: {
-                query: { bool: { must } },
-                aggs
-            }
+            query: { bool: { must } },
+            aggs
         });
 
         const buckets = response.aggregations.group_by_dimension.buckets;

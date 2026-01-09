@@ -16,7 +16,7 @@
 ### Rich Text Editors
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `@lexical/react` | ^0.27.0 | Unified rich text editor (migrated from Quill) |
+| `@lexical/react` | ^0.39.0 | Unified rich text editor (migrated from Quill) |
 | `react-email-editor` | ^1.7.11 | Unlayer-based email designer |
 
 ### Data Visualization & UI
@@ -26,7 +26,7 @@
 | `echarts-for-react` | ^3.0.5 | React wrapper for ECharts |
 | `react-grid-layout` | ^2.2.2 | Dashboard grid system |
 | `@xyflow/react` | ^12.10.0 | Flow builder (node-based diagrams) |
-| `lucide-react` | ^0.294.0 | Icon library |
+| `lucide-react` | ^0.562.0 | Icon library |
 
 ### Utilities
 | Package | Version | Purpose |
@@ -43,7 +43,7 @@
 ### Document Generation
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `jspdf` | ^3.0.4 | PDF generation |
+| `jspdf` | ^4.0.0 | PDF generation |
 | `jspdf-autotable` | ^5.0.2 | PDF tables |
 | `react-markdown` | ^10.1.0 | Markdown rendering |
 | `remark-gfm` | ^4.0.1 | GitHub-flavored markdown |

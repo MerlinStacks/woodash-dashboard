@@ -70,8 +70,29 @@ const createPinoLogger = () => {
 
 const pinoInstance = createPinoLogger();
 
-// Export for Fastify native integration
+// Export the pino instance for direct usage (Logger wrapper)
 export const pinoLogger = pinoInstance;
+
+// Export Fastify-compatible logger config (Fastify 5.x requires a config object, not an instance)
+export const fastifyLoggerConfig = {
+    level,
+    customLevels,
+    useOnlyCustomLevels: false,
+    ...(process.env.NODE_ENV === 'development'
+        ? {
+            transport: {
+                target: 'pino-pretty',
+                options: {
+                    colorize: true,
+                    translateTime: 'yyyy-mm-dd HH:MM:ss:l',
+                    ignore: 'pid,hostname',
+                },
+            },
+        }
+        : {
+            timestamp: pino.stdTimeFunctions.isoTime,
+        }),
+};
 
 /**
  * Winston-compatible Logger wrapper.
