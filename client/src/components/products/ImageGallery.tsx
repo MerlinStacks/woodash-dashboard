@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Image as ImageIcon } from 'lucide-react';
+import { X, Plus, Image as ImageIcon, ImageOff } from 'lucide-react';
 
 interface Image {
     id: number | string;
@@ -14,6 +14,7 @@ interface ImageGalleryProps {
 
 export function ImageGallery({ images, onChange }: ImageGalleryProps) {
     const [newUrl, setNewUrl] = useState('');
+    const [failedImages, setFailedImages] = useState<Set<string | number>>(new Set());
 
     const handleAdd = () => {
         if (!newUrl) return;
@@ -32,6 +33,16 @@ export function ImageGallery({ images, onChange }: ImageGalleryProps) {
         onChange(newImages);
     };
 
+    /**
+     * Handles image load errors by tracking the failed image ID
+     */
+    const handleImageError = (imageId: string | number) => {
+        setFailedImages(prev => new Set(prev).add(imageId));
+    };
+
+    // Filter out images with empty/invalid src values
+    const validImages = (images || []).filter(img => img?.src && typeof img.src === 'string' && img.src.trim() !== '');
+
     return (
         <div className="space-y-4">
             <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
@@ -39,9 +50,22 @@ export function ImageGallery({ images, onChange }: ImageGalleryProps) {
             </h3>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {(images || []).map((img, idx) => (
+                {validImages.map((img, idx) => (
                     <div key={img.id} className="group relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                        <img src={img.src} alt={img.alt} className="w-full h-full object-cover" />
+                        {failedImages.has(img.id) ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                                <ImageOff size={24} />
+                                <span className="text-xs mt-1">Failed</span>
+                            </div>
+                        ) : (
+                            <img
+                                src={img.src}
+                                alt={img.alt || ''}
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                                onError={() => handleImageError(img.id)}
+                            />
+                        )}
                         <button
                             onClick={() => handleRemove(idx)}
                             className="absolute top-2 right-2 p-1 bg-white/90 text-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm"
@@ -70,3 +94,4 @@ export function ImageGallery({ images, onChange }: ImageGalleryProps) {
         </div>
     );
 }
+

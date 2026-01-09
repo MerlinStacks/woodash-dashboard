@@ -91,7 +91,7 @@ export function ProductEditor({ productId, onClose }: ProductEditorProps) {
                             <div className="flex gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                                 <div className="w-16 h-16 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden">
                                     {product?.mainImage ? (
-                                        <img src={product.mainImage} alt="" className="w-full h-full object-cover" />
+                                        <img src={product.mainImage} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                     ) : (
                                         <Box className="text-gray-300" />
                                     )}

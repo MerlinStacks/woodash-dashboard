@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, ExternalLink, RefreshCw, Box, Tag, Package, DollarSign, Layers, Search, FileText, Clock, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, ExternalLink, RefreshCw, Box, Tag, Package, DollarSign, Layers, Search, FileText, Clock, ShoppingCart, ImageOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { SeoScoreBadge } from '../components/Seo/SeoScoreBadge';
@@ -121,6 +121,7 @@ export function ProductEditPage() {
     const [variants, setVariants] = useState<ProductVariant[]>([]);
     const [suppliers, setSuppliers] = useState<any[]>([]);
     const [isLoadingVariants, setIsLoadingVariants] = useState(false);
+    const [mainImageFailed, setMainImageFailed] = useState(false);
 
     // Derived SEO Search - Real-time!
     const seoResult = calculateSeoScore({
@@ -148,6 +149,7 @@ export function ProductEditPage() {
             const data = await ProductService.getProduct(id, token, currentAccount.id);
             console.log('Product Data Loaded:', data);
             setProduct(data);
+            setMainImageFailed(false); // Reset image error state for new product
             setFormData({
                 name: data.name || '',
                 sku: data.sku || '',
@@ -291,8 +293,19 @@ export function ProductEditPage() {
 
                     <div className="space-y-6">
                         <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 p-4">
-                            {product.mainImage ? (
-                                <img src={product.mainImage} alt="" className="w-full h-auto rounded-lg border border-gray-100 shadow-sm" />
+                            {mainImageFailed ? (
+                                <div className="w-full h-64 bg-gray-50 rounded-lg flex flex-col items-center justify-center text-gray-400">
+                                    <ImageOff size={48} />
+                                    <span className="text-sm mt-2">Image unavailable</span>
+                                </div>
+                            ) : (product.mainImage || formData.images?.[0]?.src) ? (
+                                <img
+                                    src={product.mainImage || formData.images?.[0]?.src}
+                                    alt=""
+                                    className="w-full h-auto rounded-lg border border-gray-100 shadow-sm"
+                                    referrerPolicy="no-referrer"
+                                    onError={() => setMainImageFailed(true)}
+                                />
                             ) : (
                                 <div className="w-full h-64 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
                                     <Box size={48} />
