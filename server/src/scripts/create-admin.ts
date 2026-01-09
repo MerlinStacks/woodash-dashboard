@@ -1,9 +1,17 @@
 
 import { createPrismaClient } from '../utils/prisma';
-import { hash, genSalt } from 'bcryptjs';
+import * as argon2 from 'argon2';
 import crypto from 'crypto';
 
 const prisma = createPrismaClient();
+
+// Argon2id with OWASP recommended settings
+const ARGON2_OPTIONS: argon2.Options = {
+    type: argon2.argon2id,
+    memoryCost: 19456, // 19 MiB
+    timeCost: 2,
+    parallelism: 1
+};
 
 async function main() {
     const email = process.env.ADMIN_EMAIL || 'admin@overseek.com';
@@ -13,9 +21,8 @@ async function main() {
 
     console.log(`Creating user: ${email}`);
 
-    // 1. Hash Password
-    const salt = await genSalt(10);
-    const passwordHash = await hash(password, salt);
+    // 1. Hash Password with Argon2id
+    const passwordHash = await argon2.hash(password, ARGON2_OPTIONS);
 
     // 2. Create User
     try {

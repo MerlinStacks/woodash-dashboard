@@ -1,7 +1,7 @@
 
 import { PrismaClient, EmailAccount } from '@prisma/client';
 import nodemailer from 'nodemailer';
-import * as imaps from 'imap-simple';
+import { ImapFlow } from 'imapflow';
 import { prisma } from '../utils/prisma';
 import { EventBus, EVENTS } from './events';
 import { Logger } from '../utils/logger';
@@ -73,23 +73,22 @@ export class EmailService {
                 // Port 143 uses STARTTLS (connection starts plain, then upgrades)
                 const useImplicitTLS = account.port === 993;
 
-                const config = {
-                    imap: {
+                const client = new ImapFlow({
+                    host: account.host,
+                    port: account.port,
+                    secure: useImplicitTLS,
+                    auth: {
                         user: account.username,
-                        password: account.password,
-                        host: account.host,
-                        port: account.port,
-                        tls: useImplicitTLS, // Only true for port 993
-                        autotls: useImplicitTLS ? 'never' : 'required', // STARTTLS for other ports
-                        authTimeout: 10000,
-                        tlsOptions: {
-                            rejectUnauthorized: false, // Allow self-signed certs
-                            servername: account.host // Required for SNI
-                        }
-                    }
-                };
-                const connection = await imaps.connect(config);
-                await connection.end();
+                        pass: account.password
+                    },
+                    logger: false,
+                    tls: {
+                        rejectUnauthorized: false,
+                    } as any
+                });
+
+                await client.connect();
+                await client.logout();
                 return true;
             } catch (error) {
                 Logger.error('IMAP Verify Error', { error });
@@ -104,7 +103,6 @@ export class EmailService {
     // -------------------
 
     async checkEmails(emailAccountId: string) {
-        // Basic implementation to fetch unseen emails
         const account = await prisma.emailAccount.findUnique({ where: { id: emailAccountId } });
         if (!account) {
             Logger.warn('[checkEmails] Email account not found', { emailAccountId });
@@ -127,93 +125,85 @@ export class EmailService {
             return;
         }
 
-        const config = {
-            imap: {
+        const client = new ImapFlow({
+            host: account.host,
+            port: account.port,
+            secure: useImplicitTLS,
+            auth: {
                 user: account.username,
-                password: decryptedPassword,
-                host: account.host,
-                port: account.port,
-                tls: useImplicitTLS,
-                autotls: useImplicitTLS ? 'never' : 'required',
-                authTimeout: 10000,
-                tlsOptions: {
-                    rejectUnauthorized: false,
-                    servername: account.host
-                }
-            }
-        };
+                pass: decryptedPassword
+            },
+            logger: false,
+            tls: {
+                rejectUnauthorized: false,
+            } as any
+        });
 
         try {
             Logger.info('[checkEmails] Connecting to IMAP server', { host: account.host, port: account.port });
-            const connection = await imaps.connect(config);
-            await connection.openBox('INBOX');
-            Logger.info('[checkEmails] Connected and opened INBOX');
+            await client.connect();
 
-            // Fetch unseen emails
-            const searchCriteria = ['UNSEEN'];
-            const fetchOptions = {
-                bodies: ['HEADER', 'TEXT'],
-                markSeen: true
-            };
+            // Get mailbox lock for safe concurrent access
+            const lock = await client.getMailboxLock('INBOX');
+            Logger.info('[checkEmails] Connected and locked INBOX');
 
-            const messages = await connection.search(searchCriteria, fetchOptions);
-            Logger.info(`[checkEmails] Found ${messages.length} unseen email(s)`, { email: account.email });
+            let messageCount = 0;
 
-            for (const message of messages) {
-                try {
-                    // Safely access message parts
-                    if (!message.parts || message.parts.length === 0) {
-                        Logger.warn('[checkEmails] Message has no parts, skipping', { messageUid: message.attributes?.uid });
-                        continue;
+            try {
+                // Fetch unseen messages using async iterator
+                for await (const message of client.fetch({ seen: false }, {
+                    envelope: true,
+                    bodyStructure: true,
+                    source: true
+                })) {
+                    messageCount++;
+                    try {
+                        const envelope = message.envelope;
+                        const subject = envelope.subject || '(No Subject)';
+                        const fromAddress = envelope.from?.[0];
+                        const fromEmail = fromAddress?.address || '';
+                        const fromName = fromAddress?.name || '';
+                        const messageId = envelope.messageId || `local-${Date.now()}`;
+                        const inReplyTo = envelope.inReplyTo || null;
+
+                        // References not directly on envelope, parse from source if needed
+                        const references = null; // Can be extracted from source if required
+
+                        // Get body from source (raw email)
+                        const body = message.source?.toString() || '[Content cannot be displayed]';
+
+                        Logger.info(`[checkEmails] Processing email`, { fromEmail, subject, inReplyTo: !!inReplyTo });
+
+                        // Mark as seen
+                        await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
+
+                        EventBus.emit(EVENTS.EMAIL.RECEIVED, {
+                            emailAccountId,
+                            fromEmail,
+                            fromName,
+                            subject,
+                            body,
+                            messageId,
+                            inReplyTo,
+                            references
+                        });
+
+                        Logger.info(`[checkEmails] Emitted EMAIL.RECEIVED event`, { fromEmail, subject });
+                    } catch (msgError: any) {
+                        Logger.error('[checkEmails] Error processing individual message', {
+                            messageUid: message.uid,
+                            error: msgError?.message || String(msgError)
+                        });
                     }
-
-                    const headerPart = message.parts.find(p => p.which === 'HEADER');
-                    const subject = headerPart?.body?.subject?.[0] || '(No Subject)';
-                    const fromLine = headerPart?.body?.from?.[0] || '';
-                    const messageId = headerPart?.body?.['message-id']?.[0] || `local-${Date.now()}`;
-
-                    // Extract threading headers for reply matching
-                    const inReplyTo = headerPart?.body?.['in-reply-to']?.[0] || null;
-                    const references = headerPart?.body?.references?.[0] || null;
-
-                    // Parse "Name <email@domain.com>"
-                    let fromEmail = fromLine;
-                    let fromName = '';
-                    if (fromLine.includes('<')) {
-                        const match = fromLine.match(/(.*)<(.*)>/);
-                        if (match) {
-                            fromName = match[1].trim().replace(/^"|"$/g, '');
-                            fromEmail = match[2].trim();
-                        }
-                    }
-
-                    // Get Body (Text or HTML)
-                    const bodyPart = message.parts.find(p => p.which === 'TEXT');
-                    const body = bodyPart ? bodyPart.body : '[Content cannot be displayed]';
-
-                    Logger.info(`[checkEmails] Processing email`, { fromEmail, subject, inReplyTo: !!inReplyTo });
-
-                    EventBus.emit(EVENTS.EMAIL.RECEIVED, {
-                        emailAccountId,
-                        fromEmail,
-                        fromName,
-                        subject,
-                        body,
-                        messageId,
-                        inReplyTo,
-                        references
-                    });
-
-                    Logger.info(`[checkEmails] Emitted EMAIL.RECEIVED event`, { fromEmail, subject });
-                } catch (msgError: any) {
-                    Logger.error('[checkEmails] Error processing individual message', {
-                        messageUid: message.attributes?.uid,
-                        error: msgError?.message || String(msgError)
-                    });
                 }
+
+                Logger.info(`[checkEmails] Found ${messageCount} unseen email(s)`, { email: account.email });
+            } finally {
+                // Always release the lock
+                lock.release();
             }
 
-            connection.end();
+            await client.logout();
             Logger.info('[checkEmails] Disconnected from IMAP server');
         } catch (error: any) {
             Logger.error(`[checkEmails] Error checking emails`, {
@@ -221,6 +211,10 @@ export class EmailService {
                 error: error?.message || String(error),
                 stack: error?.stack
             });
+            // Ensure we try to close the connection on error
+            try {
+                await client.logout();
+            } catch { /* ignore logout errors */ }
         }
     }
 }

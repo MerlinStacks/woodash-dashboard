@@ -281,7 +281,7 @@ function CommandItem({ children, onSelect }: { children: React.ReactNode, onSele
             onSelect={onSelect}
             className="flex items-center px-4 py-3 rounded-lg text-sm text-gray-700 cursor-pointer select-none aria-selected:bg-blue-50 aria-selected:text-blue-700 hover:bg-gray-100 transition-colors data-[selected=true]:bg-blue-50 data-[selected=true]:text-blue-700"
         >
-            {children}
+            <>{children}</>
         </Command.Item>
     );
 }

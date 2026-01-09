@@ -3,7 +3,8 @@ import { Users, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import ReactECharts from 'echarts-for-react';
+import * as echarts from 'echarts';
 
 export function CustomerGrowthWidget({ className, dateRange }: WidgetProps) {
     const { token } = useAuth();
@@ -23,6 +24,53 @@ export function CustomerGrowthWidget({ className, dateRange }: WidgetProps) {
             .finally(() => setLoading(false));
     }, [currentAccount, token, dateRange]);
 
+    const getChartOptions = (): echarts.EChartsOption => {
+        const dates = data.map(d => {
+            const date = new Date(String(d.date));
+            return isNaN(date.getTime()) ? String(d.date) : date.toLocaleDateString('en-US', { month: 'short' });
+        });
+        const values = data.map(d => d.newCustomers || 0);
+
+        return {
+            grid: { top: 10, right: 10, left: 10, bottom: 30 },
+            xAxis: {
+                type: 'category',
+                data: dates,
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: { fontSize: 12, color: '#6b7280' }
+            },
+            yAxis: {
+                type: 'value',
+                show: false
+            },
+            tooltip: {
+                trigger: 'axis',
+                formatter: (params: any) => {
+                    if (!Array.isArray(params) || params.length === 0) return '';
+                    const date = new Date(String(data[params[0].dataIndex]?.date));
+                    const label = isNaN(date.getTime()) ? params[0].axisValue : date.toLocaleDateString();
+                    return `<div style="font-weight:600;margin-bottom:4px">${label}</div><div>New Customers: ${params[0].value}</div>`;
+                }
+            },
+            series: [{
+                name: 'New Customers',
+                type: 'line',
+                smooth: true,
+                data: values,
+                lineStyle: { color: '#3b82f6', width: 2 },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(59, 130, 246, 0.1)' },
+                        { offset: 1, color: 'rgba(59, 130, 246, 0)' }
+                    ])
+                },
+                itemStyle: { color: '#3b82f6' },
+                symbol: 'none'
+            }]
+        };
+    };
+
     return (
         <div className={`bg-white h-full w-full p-4 flex flex-col rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[200px] ${className}`} style={{ minHeight: '200px' }}>
             <div className="flex justify-between items-center mb-2">
@@ -36,42 +84,11 @@ export function CustomerGrowthWidget({ className, dateRange }: WidgetProps) {
                 ) : data.length === 0 ? (
                     <div className="absolute inset-0 flex justify-center items-center text-gray-400 text-sm">No data available</div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                        <AreaChart data={data}>
-                            <defs>
-                                <linearGradient id="colorCustomers" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
-                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <XAxis
-                                dataKey="date"
-                                tickFormatter={(value: any) => {
-                                    const d = new Date(String(value));
-                                    return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('en-US', { month: 'short' });
-                                }}
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                            />
-                            <YAxis hide />
-                            <Tooltip
-                                labelFormatter={(label: any) => {
-                                    const d = new Date(String(label));
-                                    return isNaN(d.getTime()) ? String(label) : d.toLocaleDateString();
-                                }}
-                                formatter={(value: any) => [value, 'New Customers']}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="newCustomers"
-                                stroke="#3b82f6"
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill="url(#colorCustomers)"
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    <ReactECharts
+                        option={getChartOptions()}
+                        style={{ height: '100%', width: '100%' }}
+                        opts={{ renderer: 'svg' }}
+                    />
                 )}
             </div>
         </div>

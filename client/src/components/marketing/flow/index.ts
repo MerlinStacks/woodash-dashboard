@@ -6,3 +6,5 @@ export { EventSelectorModal } from './EventSelectorModal';
 export { StepTypePopup } from './StepTypePopup';
 export type { StepType } from './StepTypePopup';
 export { ActionSelectorModal } from './ActionSelectorModal';
+export { RecipeSelectorModal } from './RecipeSelectorModal';
+export type { AutomationRecipe } from './RecipeSelectorModal';

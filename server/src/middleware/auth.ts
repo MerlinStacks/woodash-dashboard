@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyToken } from '../utils/auth';
 import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
@@ -9,6 +10,7 @@ interface JwtPayload {
     exp: number;
 }
 
+// Express-style interface (for bridge compatibility)
 export interface AuthRequest extends Request {
     user?: {
         id: string;
@@ -18,6 +20,36 @@ export interface AuthRequest extends Request {
     accountId?: string; // Legacy support
 }
 
+// Fastify-style interface
+declare module 'fastify' {
+    interface FastifyRequest {
+        user?: {
+            id: string;
+            accountId?: string;
+            isSuperAdmin?: boolean;
+        };
+        accountId?: string;
+    }
+}
+
+// Strict account routes that require accountId
+const STRICT_ACCOUNT_ROUTES = [
+    '/customers',
+    '/products',
+    '/marketing',
+    '/orders',
+    '/analytics',
+    '/woo/configure',
+    '/inventory',
+    '/invoices',
+    '/email',
+    '/segments',
+    '/audits'
+];
+
+/**
+ * Express middleware for authentication (legacy - via bridge)
+ */
 export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
     // Support query param token for Bull Board (opened in new tab)
@@ -48,22 +80,6 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
         // Backwards compatibility
         req.accountId = accountId;
 
-        // Strict enforcement for specific routes
-        // Strict enforcement for specific routes (Business Logic)
-        const STRICT_ACCOUNT_ROUTES = [
-            '/customers',
-            '/products',
-            '/marketing',
-            '/orders',
-            '/analytics',
-            '/woo/configure',
-            '/inventory',
-            '/invoices',
-            '/email',
-            '/segments',
-            '/audits'
-        ];
-
         const isStrictRoute = STRICT_ACCOUNT_ROUTES.some(route => req.originalUrl.includes(route));
 
         if (!accountId && isStrictRoute) {
@@ -76,6 +92,48 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
     }
 };
 
+/**
+ * Fastify preHandler for authentication (native)
+ */
+export const requireAuthFastify = async (request: FastifyRequest, reply: FastifyReply) => {
+    const authHeader = request.headers.authorization;
+    const queryToken = (request.query as any)?.token as string | undefined;
+
+    let token: string | undefined;
+
+    if (authHeader) {
+        token = authHeader.split(' ')[1];
+    } else if (queryToken && request.url.startsWith('/admin/queues')) {
+        token = queryToken;
+    }
+
+    if (!token) {
+        return reply.code(401).send({ error: 'No token provided' });
+    }
+
+    try {
+        const decoded = verifyToken(token) as JwtPayload;
+        const accountId = request.headers['x-account-id'] as string;
+
+        request.user = {
+            id: decoded.userId,
+            accountId: accountId
+        };
+        request.accountId = accountId;
+
+        const isStrictRoute = STRICT_ACCOUNT_ROUTES.some(route => request.url.includes(route));
+
+        if (!accountId && isStrictRoute) {
+            return reply.code(400).send({ error: 'No account selected' });
+        }
+    } catch (error) {
+        return reply.code(401).send({ error: 'Invalid token' });
+    }
+};
+
+/**
+ * Express middleware for super admin check (legacy - via bridge)
+ */
 export const requireSuperAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         if (!req.user?.id) {
@@ -97,5 +155,29 @@ export const requireSuperAdmin = async (req: AuthRequest, res: Response, next: N
     } catch (error) {
         Logger.error('SuperAdmin check failed', { error });
         res.status(500).json({ error: 'Internal server error during authorization' });
+    }
+};
+
+/**
+ * Fastify preHandler for super admin check (native)
+ */
+export const requireSuperAdminFastify = async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+        if (!request.user?.id) {
+            return reply.code(401).send({ error: 'Authentication required for admin access' });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: request.user.id }
+        });
+
+        if (!user || !user.isSuperAdmin) {
+            return reply.code(403).send({ error: 'Access denied: Super Admin only' });
+        }
+
+        request.user.isSuperAdmin = true;
+    } catch (error) {
+        Logger.error('SuperAdmin check failed', { error });
+        return reply.code(500).send({ error: 'Internal server error during authorization' });
     }
 };

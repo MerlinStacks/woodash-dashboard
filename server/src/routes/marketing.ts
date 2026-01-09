@@ -1,114 +1,140 @@
+/**
+ * Marketing Route - Fastify Plugin
+ */
 
-import { Router } from 'express';
+import { FastifyPluginAsync } from 'fastify';
 import { MarketingService } from '../services/MarketingService';
-import { requireAuth } from '../middleware/auth';
+import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 
-const router = Router();
 const service = new MarketingService();
 
+const marketingRoutes: FastifyPluginAsync = async (fastify) => {
+    fastify.addHook('preHandler', requireAuthFastify);
 
-router.use(requireAuth);
+    // Campaigns
+    fastify.get('/campaigns', async (request, reply) => {
+        try {
+            const campaigns = await service.listCampaigns(request.user!.accountId!);
+            return campaigns;
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-// Campaigns
-router.get('/campaigns', async (req: any, res: any) => {
-    try {
-        const campaigns = await service.listCampaigns(req.user!.accountId);
-        res.json(campaigns);
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    fastify.post('/campaigns', async (request, reply) => {
+        try {
+            const campaign = await service.createCampaign(request.user!.accountId!, request.body as any);
+            return campaign;
+        } catch (e) {
+            Logger.error('Error creating campaign', { error: e });
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-router.post('/campaigns', async (req: any, res: any) => {
-    try {
-        const campaign = await service.createCampaign(req.user!.accountId, req.body);
-        res.json(campaign);
-    } catch (e) {
-        Logger.error('Error creating campaign', { error: e });
-        res.status(500).json({ error: e });
-    }
-});
+    fastify.get<{ Params: { id: string } }>('/campaigns/:id', async (request, reply) => {
+        try {
+            const campaign = await service.getCampaign(request.params.id, request.user!.accountId!);
+            if (!campaign) return reply.code(404).send({ error: 'Not found' });
+            return campaign;
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-router.get('/campaigns/:id', async (req: any, res: any) => {
-    try {
-        const campaign = await service.getCampaign(req.params.id, req.user!.accountId);
-        if (!campaign) return res.status(404).json({ error: 'Not found' });
-        res.json(campaign);
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    fastify.put<{ Params: { id: string } }>('/campaigns/:id', async (request, reply) => {
+        try {
+            await service.updateCampaign(request.params.id, request.user!.accountId!, request.body as any);
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-router.put('/campaigns/:id', async (req: any, res: any) => {
-    try {
-        await service.updateCampaign(req.params.id, req.user!.accountId, req.body);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    fastify.delete<{ Params: { id: string } }>('/campaigns/:id', async (request, reply) => {
+        try {
+            await service.deleteCampaign(request.params.id, request.user!.accountId!);
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-router.delete('/campaigns/:id', async (req: any, res: any) => {
-    try {
-        await service.deleteCampaign(req.params.id, req.user!.accountId);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    fastify.post<{ Params: { id: string }; Body: { email: string } }>('/campaigns/:id/test', async (request, reply) => {
+        try {
+            const { email } = request.body;
+            await service.sendTestEmail(request.params.id, email);
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-router.post('/campaigns/:id/test', async (req: any, res: any) => {
-    try {
-        const { email } = req.body;
-        await service.sendTestEmail(req.params.id, email);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    // Automations
+    fastify.get('/automations', async (request, reply) => {
+        try {
+            const automations = await service.listAutomations(request.user!.accountId!);
+            return automations;
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-// Automations
-router.get('/automations', async (req: any, res: any) => {
-    try {
-        const automations = await service.listAutomations(req.user!.accountId);
-        res.json(automations);
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    fastify.post('/automations', async (request, reply) => {
+        try {
+            const automation = await service.upsertAutomation(request.user!.accountId!, request.body as any);
+            return automation;
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-router.post('/automations', async (req: any, res: any) => {
-    // Upsert
-    try {
-        const automation = await service.upsertAutomation(req.user!.accountId, req.body);
-        res.json(automation);
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    fastify.get<{ Params: { id: string } }>('/automations/:id', async (request, reply) => {
+        try {
+            const automation = await service.getAutomation(request.params.id, request.user!.accountId!);
+            if (!automation) return reply.code(404).send({ error: 'Not found' });
+            return automation;
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-router.get('/automations/:id', async (req: any, res: any) => {
-    try {
-        const automation = await service.getAutomation(req.params.id, req.user!.accountId);
-        if (!automation) return res.status(404).json({ error: 'Not found' });
-        res.json(automation);
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    fastify.delete<{ Params: { id: string } }>('/automations/:id', async (request, reply) => {
+        try {
+            await service.deleteAutomation(request.params.id, request.user!.accountId!);
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-router.delete('/automations/:id', async (req: any, res: any) => {
-    try {
-        await service.deleteAutomation(req.params.id, req.user!.accountId);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    // Templates
+    fastify.get('/templates', async (request, reply) => {
+        try {
+            const templates = await service.listTemplates(request.user!.accountId!);
+            return templates;
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-// Templates
-router.get('/templates', async (req: any, res: any) => {
-    try {
-        const templates = await service.listTemplates(req.user!.accountId);
-        res.json(templates);
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    fastify.post('/templates', async (request, reply) => {
+        try {
+            const template = await service.upsertTemplate(request.user!.accountId!, request.body as any);
+            return template;
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
 
-router.post('/templates', async (req: any, res: any) => {
-    try {
-        const template = await service.upsertTemplate(req.user!.accountId, req.body);
-        res.json(template);
-    } catch (e) { res.status(500).json({ error: e }); }
-});
+    fastify.delete<{ Params: { id: string } }>('/templates/:id', async (request, reply) => {
+        try {
+            await service.deleteTemplate(request.params.id, request.user!.accountId!);
+            return { success: true };
+        } catch (e) {
+            return reply.code(500).send({ error: e });
+        }
+    });
+};
 
-router.delete('/templates/:id', async (req: any, res: any) => {
-    try {
-        await service.deleteTemplate(req.params.id, req.user!.accountId);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e }); }
-});
-
-export default router;
+export default marketingRoutes;

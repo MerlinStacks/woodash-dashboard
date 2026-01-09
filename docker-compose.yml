@@ -55,6 +55,8 @@ services:
       PORT: 3000
       REDIS_HOST: redis
       API_URL: ${API_URL}
+    volumes:
+      - uploads_data:/app/server/uploads
     depends_on:
       - postgres
       - elasticsearch
@@ -82,3 +84,4 @@ volumes:
   elasticsearch_data:
   redis_data:
   server_node_modules:
+  uploads_data:

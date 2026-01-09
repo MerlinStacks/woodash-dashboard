@@ -1,91 +1,89 @@
 /**
- * Google OAuth Routes
- * 
+ * Google OAuth Routes - Fastify Plugin
  * Google Ads OAuth authorization and callback.
  */
 
-import { Router, Response, Request } from 'express';
-import { AuthenticatedRequest } from '../types/express';
+import { FastifyPluginAsync } from 'fastify';
 import { AdsService } from '../services/ads';
-import { requireAuth } from '../middleware/auth';
+import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 
-const router = Router();
-
-/**
- * GET /google/authorize - Initiate Google OAuth
- */
-router.get('/google/authorize', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = (req as any).accountId;
-        const frontendRedirect = req.query.redirect as string || '/settings/integrations';
-
-        if (!accountId) {
-            return res.status(400).json({ error: 'No account selected' });
-        }
-
-        const state = Buffer.from(JSON.stringify({ accountId, frontendRedirect })).toString('base64');
-
-        const apiUrl = process.env.API_URL?.replace(/\/+$/, '');
-        const callbackUrl = apiUrl
-            ? `${apiUrl}/api/oauth/google/callback`
-            : `${req.protocol}://${req.get('host')}/api/oauth/google/callback`;
-
-        const authUrl = await AdsService.getGoogleAuthUrl(callbackUrl, state);
-        res.json({ authUrl });
-    } catch (error: any) {
-        Logger.error('Failed to generate Google OAuth URL', { error });
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * GET /google/callback - Handle Google OAuth callback
- */
-router.get('/google/callback', async (req: Request, res: Response) => {
-    let frontendRedirect = '/marketing?tab=ads';
-
-    try {
-        const { code, state, error } = req.query;
-
-        if (error) {
-            Logger.warn('Google OAuth denied', { error });
-            return res.redirect(`${frontendRedirect}?error=oauth_denied`);
-        }
-
-        if (!code || !state) {
-            return res.redirect(`${frontendRedirect}?error=missing_params`);
-        }
-
-        let stateData: { accountId: string; frontendRedirect: string };
+const oauthGoogleRoutes: FastifyPluginAsync = async (fastify) => {
+    /**
+     * GET /google/authorize - Initiate Google OAuth
+     */
+    fastify.get('/google/authorize', { preHandler: requireAuthFastify }, async (request, reply) => {
         try {
-            stateData = JSON.parse(Buffer.from(state as string, 'base64').toString('utf-8'));
-            frontendRedirect = stateData.frontendRedirect || frontendRedirect;
-        } catch {
-            return res.redirect(`${frontendRedirect}?error=invalid_state`);
+            const accountId = request.accountId;
+            const query = request.query as { redirect?: string };
+            const frontendRedirect = query.redirect || '/settings/integrations';
+
+            if (!accountId) return reply.code(400).send({ error: 'No account selected' });
+
+            const state = Buffer.from(JSON.stringify({ accountId, frontendRedirect })).toString('base64');
+
+            const apiUrl = process.env.API_URL?.replace(/\/+$/, '');
+            const callbackUrl = apiUrl
+                ? `${apiUrl}/api/oauth/google/callback`
+                : `${request.protocol}://${request.hostname}/api/oauth/google/callback`;
+
+            const authUrl = await AdsService.getGoogleAuthUrl(callbackUrl, state);
+            return { authUrl };
+        } catch (error: any) {
+            Logger.error('Failed to generate Google OAuth URL', { error });
+            return reply.code(500).send({ error: error.message });
         }
+    });
 
-        const apiUrl = process.env.API_URL?.replace(/\/+$/, '');
-        const redirectUri = apiUrl
-            ? `${apiUrl}/api/oauth/google/callback`
-            : `${req.protocol}://${req.get('host')}/api/oauth/google/callback`;
+    /**
+     * GET /google/callback - Handle Google OAuth callback
+     */
+    fastify.get('/google/callback', async (request, reply) => {
+        let frontendRedirect = '/marketing?tab=ads';
 
-        const tokens = await AdsService.exchangeGoogleCode(code as string, redirectUri);
+        try {
+            const query = request.query as { code?: string; state?: string; error?: string };
+            const { code, state, error } = query;
 
-        const pendingAccount = await AdsService.connectAccount(stateData.accountId, {
-            platform: 'GOOGLE',
-            externalId: 'PENDING_SETUP',
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken || '',
-            name: 'Google Ads (Pending Setup)'
-        });
+            if (error) {
+                Logger.warn('Google OAuth denied', { error });
+                return reply.redirect(`${frontendRedirect}?error=oauth_denied`);
+            }
 
-        return res.redirect(`${frontendRedirect}?success=google_pending&pendingId=${pendingAccount.id}`);
+            if (!code || !state) {
+                return reply.redirect(`${frontendRedirect}?error=missing_params`);
+            }
 
-    } catch (error: any) {
-        Logger.error('Google OAuth callback failed', { error: error.message });
-        res.redirect(`${frontendRedirect}?error=oauth_failed&message=${encodeURIComponent(error.message)}`);
-    }
-});
+            let stateData: { accountId: string; frontendRedirect: string };
+            try {
+                stateData = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+                frontendRedirect = stateData.frontendRedirect || frontendRedirect;
+            } catch {
+                return reply.redirect(`${frontendRedirect}?error=invalid_state`);
+            }
 
-export default router;
+            const apiUrl = process.env.API_URL?.replace(/\/+$/, '');
+            const redirectUri = apiUrl
+                ? `${apiUrl}/api/oauth/google/callback`
+                : `${request.protocol}://${request.hostname}/api/oauth/google/callback`;
+
+            const tokens = await AdsService.exchangeGoogleCode(code, redirectUri);
+
+            const pendingAccount = await AdsService.connectAccount(stateData.accountId, {
+                platform: 'GOOGLE',
+                externalId: 'PENDING_SETUP',
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken || '',
+                name: 'Google Ads (Pending Setup)'
+            });
+
+            return reply.redirect(`${frontendRedirect}?success=google_pending&pendingId=${pendingAccount.id}`);
+
+        } catch (error: any) {
+            Logger.error('Google OAuth callback failed', { error: error.message });
+            return reply.redirect(`${frontendRedirect}?error=oauth_failed&message=${encodeURIComponent(error.message)}`);
+        }
+    });
+};
+
+export default oauthGoogleRoutes;

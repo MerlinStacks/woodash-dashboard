@@ -80,14 +80,21 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
 
     const getPreview = (conv: Conversation) => {
         const lastMsg = conv.messages[0];
-        if (!lastMsg) return 'No messages';
-        // Strip "Subject:" prefix for cleaner preview
+        if (!lastMsg) return { subject: null, preview: 'No messages' };
+
         let content = lastMsg.content;
+        let subject: string | null = null;
+
+        // Extract subject if present
         if (content.startsWith('Subject:')) {
             const lines = content.split('\n');
-            content = lines.length > 2 ? lines.slice(2).join(' ') : lines[0];
+            subject = lines[0].replace('Subject:', '').trim();
+            content = lines.length > 2 ? lines.slice(2).join(' ') : '';
         }
-        return content.slice(0, 100);
+
+        // Strip HTML tags for preview
+        const preview = content.replace(/<[^>]*>/g, '').trim().slice(0, 80);
+        return { subject, preview };
     };
 
     return (
@@ -161,7 +168,7 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                 ) : (
                     filteredConversations.map(conv => {
                         const name = getDisplayName(conv);
-                        const preview = getPreview(conv);
+                        const { subject, preview } = getPreview(conv);
                         const initials = getInitials(name);
                         const isSelected = selectedId === conv.id;
                         const isEmail = conv.guestEmail || conv.wooCustomer?.email;
@@ -173,24 +180,25 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                                 key={conv.id}
                                 onClick={() => onSelect(conv.id)}
                                 className={cn(
-                                    "flex gap-3 p-3 cursor-pointer border-b border-gray-50 transition-colors",
+                                    "flex gap-3 p-3 cursor-pointer border-b border-gray-100 transition-colors",
                                     isSelected
                                         ? "bg-blue-50 border-l-2 border-l-blue-600"
                                         : "hover:bg-gray-50 border-l-2 border-l-transparent",
-                                    isUnread && !isSelected && "bg-blue-50/30"
+                                    isUnread && !isSelected && "bg-blue-50/50"
                                 )}
                             >
                                 {/* Avatar */}
                                 <div className={cn(
                                     "w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0",
-                                    isSelected ? "bg-blue-600" : "bg-gray-400"
+                                    isSelected ? "bg-blue-600" : "bg-gray-500"
                                 )}>
                                     {initials}
                                 </div>
 
                                 {/* Content */}
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
+                                    {/* Sender row */}
+                                    <div className="flex items-center justify-between gap-2">
                                         <div className="flex items-center gap-1.5 min-w-0">
                                             {isUnread && (
                                                 <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
@@ -198,14 +206,28 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                                             {isEmail && <Mail size={12} className="text-gray-400 flex-shrink-0" />}
                                             <span className={cn(
                                                 "truncate text-sm",
-                                                isUnread ? "font-semibold text-gray-900" : "font-medium text-gray-900"
+                                                isUnread ? "font-bold text-gray-900" : "font-medium text-gray-700"
                                             )}>{name}</span>
                                         </div>
                                         <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
                                             {formatDistanceToNow(new Date(conv.updatedAt), { addSuffix: false })}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{preview}</p>
+
+                                    {/* Subject line (prominent like email clients) */}
+                                    {subject && (
+                                        <p className={cn(
+                                            "text-sm truncate mt-0.5",
+                                            isUnread ? "font-semibold text-gray-900" : "font-medium text-gray-800"
+                                        )}>
+                                            {subject}
+                                        </p>
+                                    )}
+
+                                    {/* Body preview */}
+                                    <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">
+                                        {preview || (subject ? '' : 'No content')}
+                                    </p>
 
                                     {/* Status Badge */}
                                     <div className="flex items-center gap-2 mt-1.5">

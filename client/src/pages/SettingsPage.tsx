@@ -15,12 +15,13 @@ import { NotificationSettings } from '../components/settings/NotificationSetting
 import { SocialChannelsSettings } from '../components/settings/SocialChannelsSettings';
 import { TeamSettings } from '../components/settings/TeamSettings';
 import { WebhookSettings } from '../components/settings/WebhookSettings';
+import { AdAccountSettings } from '../components/settings/AdAccountSettings';
 import {
     LayoutGrid, Palette, MessageSquare, Bot, Activity, RefreshCw,
-    Mail, Package, Tags, Coins, Bell, Share2, Users, ChevronRight, Webhook
+    Mail, Package, Tags, Coins, Bell, Share2, Users, ChevronRight, Webhook, Megaphone
 } from 'lucide-react';
 
-type TabId = 'general' | 'appearance' | 'team' | 'chat' | 'channels' | 'intelligence' | 'analytics' | 'sync' | 'email' | 'inventory' | 'orderTags' | 'goldPrice' | 'notifications' | 'webhooks';
+type TabId = 'general' | 'appearance' | 'team' | 'chat' | 'channels' | 'intelligence' | 'analytics' | 'sync' | 'email' | 'inventory' | 'orderTags' | 'goldPrice' | 'notifications' | 'webhooks' | 'ads';
 
 interface TabDef {
     id: TabId;
@@ -41,13 +42,14 @@ interface Category {
 export function SettingsPage() {
     const { currentAccount } = useAccount();
     const isGoldPriceEnabled = useAccountFeature('GOLD_PRICE_CALCULATOR');
+    const isAdTrackingEnabled = useAccountFeature('AD_TRACKING');
     const [activeTab, setActiveTab] = useState<TabId>('general');
 
     // Handle URL-based tab selection (for OAuth callbacks)
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const tab = params.get('tab') as TabId | null;
-        const validTabs: TabId[] = ['general', 'appearance', 'team', 'chat', 'channels', 'intelligence', 'analytics', 'sync', 'email', 'inventory', 'orderTags', 'goldPrice', 'notifications', 'webhooks'];
+        const validTabs: TabId[] = ['general', 'appearance', 'team', 'chat', 'channels', 'intelligence', 'analytics', 'sync', 'email', 'inventory', 'orderTags', 'goldPrice', 'notifications', 'webhooks', 'ads'];
         if (tab && validTabs.includes(tab)) {
             setActiveTab(tab);
         }
@@ -78,6 +80,7 @@ export function SettingsPage() {
             tabs: [
                 { id: 'email', label: 'Email', icon: Mail },
                 { id: 'channels', label: 'Channels', icon: Share2 },
+                { id: 'ads', label: 'Ad Accounts', icon: Megaphone, hidden: !isAdTrackingEnabled },
                 { id: 'webhooks', label: 'Webhooks', icon: Webhook },
                 { id: 'sync', label: 'Sync Status', icon: RefreshCw },
             ]
@@ -152,6 +155,12 @@ export function SettingsPage() {
                 return (
                     <SettingsCard title="Webhook Configuration" description="Configure WooCommerce webhooks for instant order sync and notifications.">
                         <WebhookSettings />
+                    </SettingsCard>
+                );
+            case 'ads':
+                return (
+                    <SettingsCard title="Ad Accounts" description="Connect and manage your Meta and Google Ads accounts.">
+                        <AdAccountSettings />
                     </SettingsCard>
                 );
             default:

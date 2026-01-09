@@ -11,6 +11,7 @@ import { EmailDesignEditor } from '../components/marketing/EmailDesignEditor';
 import { Mail, Megaphone, BarChart2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
+import { useAccountFeature } from '../hooks/useAccountFeature';
 
 type EditorMode = 'email' | null;
 
@@ -23,6 +24,7 @@ interface EditingItem {
 export function MarketingPage() {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
+    const isAdTrackingEnabled = useAccountFeature('AD_TRACKING');
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Initialize activeTab from URL query param or default to 'campaigns'
@@ -47,8 +49,10 @@ export function MarketingPage() {
 
     const tabs = [
         { id: 'campaigns', label: 'Campaigns', icon: Mail },
-        { id: 'performance', label: 'Ad Performance', icon: BarChart2 },
-        { id: 'ads', label: 'Ad Accounts', icon: Megaphone },
+        ...(isAdTrackingEnabled ? [
+            { id: 'performance', label: 'Ad Performance', icon: BarChart2 },
+            { id: 'ads', label: 'Ad Accounts', icon: Megaphone },
+        ] : []),
     ];
 
     const handleEditCampaign = (id: string, name: string) => {

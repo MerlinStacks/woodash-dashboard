@@ -1,57 +1,131 @@
-import winston from 'winston';
+import pino from 'pino';
+import fs from 'fs';
+import path from 'path';
 
-const levels = {
-    error: 0,
-    warn: 1,
-    info: 2,
-    http: 3,
-    debug: 4,
+// Ensure logs directory exists
+const logsDir = path.join(process.cwd(), 'logs');
+if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+}
+
+// Custom levels matching Winston's original config
+const customLevels = {
+    error: 50,
+    warn: 40,
+    info: 30,
+    http: 25,
+    debug: 20,
 };
 
-const level = () => {
-    const env = process.env.NODE_ENV || 'development';
-    const isDevelopment = env === 'development';
-    return isDevelopment ? 'debug' : 'warn';
-};
+const level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn';
 
-const colors = {
-    error: 'red',
-    warn: 'yellow',
-    info: 'green',
-    http: 'magenta',
-    debug: 'white',
-};
-
-winston.addColors(colors);
-
-const format = winston.format.combine(
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
-    // winston.format.colorize({ all: true }), // Colorize for console, but JSON usually preferred for logs
-    winston.format.json() // Production grade JSON logs
-);
-
-// Add custom format for console dev feeling
-const consoleFormat = winston.format.combine(
-    winston.format.colorize({ all: true }),
-    winston.format.printf(
-        (info) => `${info.timestamp} ${info.level}: ${info.message} ${info.accountId ? `[Account: ${info.accountId}]` : ''} ${info.jobId ? `[Job: ${info.jobId}]` : ''}`
-    )
-);
-
-const transports = [
-    new winston.transports.Console({
-        format: process.env.NODE_ENV === 'development' ? consoleFormat : format,
-    }),
-    new winston.transports.File({
-        filename: 'logs/error.log',
-        level: 'error',
-        format: winston.format.json(),
-    }),
-    new winston.transports.File({ filename: 'logs/all.log', format: winston.format.json() }),
+// Multi-stream destination for file logging
+const streams: pino.StreamEntry[] = [
+    // Console (stdout) - always
+    { stream: process.stdout },
 ];
 
-export const Logger = winston.createLogger({
-    level: level(),
-    levels,
-    transports,
-});
+// Add file streams
+if (process.env.NODE_ENV !== 'development') {
+    streams.push(
+        // Error log
+        { level: 'error', stream: fs.createWriteStream(path.join(logsDir, 'error.log'), { flags: 'a' }) },
+        // All logs
+        { stream: fs.createWriteStream(path.join(logsDir, 'all.log'), { flags: 'a' }) }
+    );
+}
+
+// Create the raw pino logger
+const createPinoLogger = () => {
+    const isDev = process.env.NODE_ENV === 'development';
+
+    if (isDev) {
+        // Development: Use pino-pretty for colored console output
+        return pino({
+            level,
+            customLevels,
+            useOnlyCustomLevels: false,
+            transport: {
+                target: 'pino-pretty',
+                options: {
+                    colorize: true,
+                    translateTime: 'yyyy-mm-dd HH:MM:ss:l',
+                    ignore: 'pid,hostname',
+                },
+            },
+        });
+    }
+
+    // Production: JSON output to multiple streams
+    return pino(
+        {
+            level,
+            customLevels,
+            useOnlyCustomLevels: false,
+            timestamp: pino.stdTimeFunctions.isoTime,
+        },
+        pino.multistream(streams)
+    );
+};
+
+const pinoInstance = createPinoLogger();
+
+// Export for Fastify native integration
+export const pinoLogger = pinoInstance;
+
+/**
+ * Winston-compatible Logger wrapper.
+ * 
+ * Winston API: Logger.info('message', { meta })
+ * Pino API:    Logger.info({ meta }, 'message')
+ * 
+ * This wrapper adapts Winston-style calls to Pino's API.
+ */
+export const Logger = {
+    error: (message: string, meta?: Record<string, any>) => {
+        if (meta) {
+            pinoInstance.error(meta, message);
+        } else {
+            pinoInstance.error(message);
+        }
+    },
+    warn: (message: string, meta?: Record<string, any>) => {
+        if (meta) {
+            pinoInstance.warn(meta, message);
+        } else {
+            pinoInstance.warn(message);
+        }
+    },
+    info: (message: string, meta?: Record<string, any>) => {
+        if (meta) {
+            pinoInstance.info(meta, message);
+        } else {
+            pinoInstance.info(message);
+        }
+    },
+    http: (message: string, meta?: Record<string, any>) => {
+        if (meta) {
+            (pinoInstance as any).http(meta, message);
+        } else {
+            (pinoInstance as any).http(message);
+        }
+    },
+    debug: (message: string, meta?: Record<string, any>) => {
+        if (meta) {
+            pinoInstance.debug(meta, message);
+        } else {
+            pinoInstance.debug(message);
+        }
+    },
+    // Child logger support for contextual logging
+    child: (bindings: Record<string, any>) => {
+        const childPino = pinoInstance.child(bindings);
+        return {
+            error: (message: string, meta?: Record<string, any>) => meta ? childPino.error(meta, message) : childPino.error(message),
+            warn: (message: string, meta?: Record<string, any>) => meta ? childPino.warn(meta, message) : childPino.warn(message),
+            info: (message: string, meta?: Record<string, any>) => meta ? childPino.info(meta, message) : childPino.info(message),
+            http: (message: string, meta?: Record<string, any>) => meta ? (childPino as any).http(meta, message) : (childPino as any).http(message),
+            debug: (message: string, meta?: Record<string, any>) => meta ? childPino.debug(meta, message) : childPino.debug(message),
+        };
+    },
+};

@@ -39,6 +39,13 @@ const ACTIONS_BY_CATEGORY: Record<string, { subcategory?: string; actions: Actio
             ]
         },
         {
+            subcategory: 'Lists',
+            actions: [
+                { id: 'ADD_TO_LIST', label: 'Add to List', icon: '📋' },
+                { id: 'REMOVE_FROM_LIST', label: 'Remove from List', icon: '📋' },
+            ]
+        },
+        {
             subcategory: 'Flow Control',
             actions: [
                 { id: 'MOVE_TO_AUTOMATION', label: 'Move to Automation', icon: '➡️' },
@@ -66,6 +73,7 @@ const ACTIONS_BY_CATEGORY: Record<string, { subcategory?: string; actions: Actio
             actions: [
                 { id: 'UPDATE_CUSTOMER', label: 'Update Customer', icon: '👤' },
                 { id: 'CREATE_TASK', label: 'Create Task', icon: '✅' },
+                { id: 'CREATE_NOTE', label: 'Create Internal Note', icon: '📝' },
             ]
         },
     ],
@@ -161,8 +169,8 @@ export const ActionSelectorModal: React.FC<ActionSelectorModalProps> = ({
                                         setSelectedAction(null);
                                     }}
                                     className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors ${activeCategory === cat.id
-                                            ? 'bg-white text-blue-600 font-medium border-r-2 border-blue-600'
-                                            : 'text-gray-600 hover:bg-gray-100'
+                                        ? 'bg-white text-blue-600 font-medium border-r-2 border-blue-600'
+                                        : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
                                     <Icon size={16} />
@@ -187,8 +195,8 @@ export const ActionSelectorModal: React.FC<ActionSelectorModalProps> = ({
                                             key={action.id}
                                             onClick={() => setSelectedAction(action)}
                                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-full transition-all ${selectedAction?.id === action.id
-                                                    ? 'bg-blue-50 border-blue-400 text-blue-700 ring-2 ring-blue-200'
-                                                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                                                ? 'bg-blue-50 border-blue-400 text-blue-700 ring-2 ring-blue-200'
+                                                : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
                                                 }`}
                                         >
                                             <span>{action.icon}</span>

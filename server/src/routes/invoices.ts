@@ -1,73 +1,74 @@
+/**
+ * Invoices Route - Fastify Plugin
+ */
 
-import { Router, Response } from 'express';
-import { AuthenticatedRequest } from '../types/express';
+import { FastifyPluginAsync } from 'fastify';
 import { InvoiceService } from '../services/InvoiceService';
-import { requireAuth } from '../middleware/auth';
+import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 
-const router = Router();
 const invoiceService = new InvoiceService();
 
-router.use(requireAuth);
+const invoicesRoutes: FastifyPluginAsync = async (fastify) => {
+    fastify.addHook('preHandler', requireAuthFastify);
 
-// Get all templates for account
-router.get('/templates', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = req.user?.accountId;
-    if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+    // Get all templates for account
+    fastify.get('/templates', async (request, reply) => {
+        const accountId = request.user?.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
 
-    try {
-        const templates = await invoiceService.getTemplates(accountId);
-        res.json(templates);
-    } catch (error) {
-        Logger.error('Failed to fetch templates', { error });
-        res.status(500).json({ error: 'Failed to fetch templates' });
-    }
-});
-
-// Get specific template
-router.get('/templates/:id', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = req.user?.accountId;
-    if (!accountId) return res.status(400).json({ error: 'Account ID required' });
-
-    try {
-        const template = await invoiceService.getTemplate(req.params.id, accountId);
-        if (!template) return res.status(404).json({ error: 'Template not found' });
-        res.json(template);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch template' });
-    }
-});
-
-// Create template
-router.post('/templates', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = req.user?.accountId;
-    if (!accountId) return res.status(400).json({ error: 'Account ID required' });
-
-    try {
-        const template = await invoiceService.createTemplate(accountId, req.body);
-        res.json(template);
-    } catch (error: any) {
-        Logger.error('Failed to create invoice template', { error, accountId, body: req.body });
-        // Handle unique constraint violation (Prisma P2002)
-        if (error?.code === 'P2002') {
-            return res.status(409).json({ error: 'A template with this name already exists' });
+        try {
+            const templates = await invoiceService.getTemplates(accountId);
+            return templates;
+        } catch (error) {
+            Logger.error('Failed to fetch templates', { error });
+            return reply.code(500).send({ error: 'Failed to fetch templates' });
         }
-        res.status(500).json({ error: 'Failed to create template' });
-    }
-});
+    });
 
-// Update template
-router.put('/templates/:id', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = req.user?.accountId;
-    if (!accountId) return res.status(400).json({ error: 'Account ID required' });
-    if (!accountId) return res.status(400).json({ error: 'Account ID required' });
+    // Get specific template
+    fastify.get<{ Params: { id: string } }>('/templates/:id', async (request, reply) => {
+        const accountId = request.user?.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
 
-    try {
-        const template = await invoiceService.updateTemplate(req.params.id, accountId, req.body);
-        res.json(template);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update template' });
-    }
-});
+        try {
+            const template = await invoiceService.getTemplate(request.params.id, accountId);
+            if (!template) return reply.code(404).send({ error: 'Template not found' });
+            return template;
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to fetch template' });
+        }
+    });
 
-export default router;
+    // Create template
+    fastify.post('/templates', async (request, reply) => {
+        const accountId = request.user?.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
+
+        try {
+            const template = await invoiceService.createTemplate(accountId, request.body as any);
+            return template;
+        } catch (error: any) {
+            Logger.error('Failed to create invoice template', { error, accountId, body: request.body });
+            if (error?.code === 'P2002') {
+                return reply.code(409).send({ error: 'A template with this name already exists' });
+            }
+            return reply.code(500).send({ error: 'Failed to create template' });
+        }
+    });
+
+    // Update template
+    fastify.put<{ Params: { id: string } }>('/templates/:id', async (request, reply) => {
+        const accountId = request.user?.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
+
+        try {
+            const template = await invoiceService.updateTemplate(request.params.id, accountId, request.body as any);
+            return template;
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to update template' });
+        }
+    });
+};
+
+export default invoicesRoutes;

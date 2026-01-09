@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import _ from 'lodash';
+import { debounce } from '../../utils/debounce';
 import { SyncStatusBadge } from './SyncStatusBadge';
 
 interface HeaderProps {
@@ -28,7 +28,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
     const [showNotifications, setShowNotifications] = useState(false);
 
     useEffect(() => {
-        const search = _.debounce(async (q: string) => {
+        const search = debounce(async (q: string) => {
             if (!q || q.length < 2 || !token || !currentAccount) return;
 
             setIsLoading(true);

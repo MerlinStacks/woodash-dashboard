@@ -1,189 +1,188 @@
 /**
- * Tracking Ingestion Routes
- * 
+ * Tracking Ingestion Routes - Fastify Plugin
  * Public event ingestion endpoints: POST /events, /e, pixel tracking.
  */
 
-import express from 'express';
+import { FastifyPluginAsync } from 'fastify';
 import { TrackingService } from '../services/TrackingService';
 import { Logger } from '../utils/logger';
 import { isValidAccount, isRateLimited } from '../middleware/trackingMiddleware';
 
-const router = express.Router();
-
 // Transparent 1x1 GIF for pixel tracking
 const TRANSPARENT_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 
-/**
- * DEPRECATED: Returns no-op script (server-side tracking only).
- */
-router.get('/tracking.js', (req, res) => {
-    Logger.debug('Tracking script requested (deprecated)', { accountId: req.query.id });
-    res.setHeader('Content-Type', 'application/javascript');
-    res.send(`(function(){})();`);
-});
+const trackingIngestionRoutes: FastifyPluginAsync = async (fastify) => {
+    /**
+     * DEPRECATED: Returns no-op script (server-side tracking only).
+     */
+    fastify.get('/tracking.js', async (request, reply) => {
+        const query = request.query as { id?: string };
+        Logger.debug('Tracking script requested (deprecated)', { accountId: query.id });
+        reply.header('Content-Type', 'application/javascript');
+        return '(function(){})();';
+    });
 
-/**
- * POST /api/tracking/events - Main event ingestion
- */
-router.post('/events', async (req, res) => {
-    try {
-        const { accountId, visitorId, type, url, payload, pageTitle, referrer, utmSource, utmMedium, utmCampaign, is404, clickId, clickPlatform, landingReferrer } = req.body;
+    /**
+     * POST /events - Main event ingestion
+     */
+    fastify.post('/events', async (request, reply) => {
+        try {
+            const body = request.body as any;
+            const { accountId, visitorId, type, url, payload, pageTitle, referrer, utmSource, utmMedium, utmCampaign, is404, clickId, clickPlatform, landingReferrer } = body;
 
-        if (!accountId || !visitorId || !type) {
-            return res.status(400).json({ error: 'Missing required fields' });
+            if (!accountId || !visitorId || !type) {
+                return reply.code(400).send({ error: 'Missing required fields' });
+            }
+
+            if (!(await isValidAccount(accountId))) {
+                return reply.code(400).send({ error: 'Invalid account' });
+            }
+
+            if (isRateLimited(accountId)) {
+                return reply.code(429).send({ error: 'Rate limit exceeded' });
+            }
+
+            Logger.debug('Tracking event received', { type, accountId });
+
+            let ip = request.headers['x-forwarded-for'] || request.ip;
+            if (Array.isArray(ip)) ip = ip[0];
+
+            await TrackingService.processEvent({
+                accountId, visitorId, type, url, payload, pageTitle,
+                ipAddress: ip as string,
+                userAgent: request.headers['user-agent'] as string,
+                referrer, utmSource, utmMedium, utmCampaign, is404,
+                clickId, clickPlatform, landingReferrer
+            });
+
+            return { success: true };
+        } catch (error) {
+            Logger.error('Tracking Error', { error });
+            return reply.code(500).send({ error: 'Internal Server Error' });
         }
+    });
 
-        if (!(await isValidAccount(accountId))) {
-            return res.status(400).json({ error: 'Invalid account' });
+    /**
+     * POST /e - Short alias (ad-blocker friendly)
+     */
+    fastify.post('/e', async (request, reply) => {
+        try {
+            const body = request.body as any;
+            const { accountId, visitorId, type, url, payload, pageTitle, referrer, utmSource, utmMedium, utmCampaign, userAgent: bodyUserAgent, is404, clickId, clickPlatform, landingReferrer } = body;
+
+            if (!accountId || !visitorId || !type) {
+                return reply.code(400).send({ error: 'Missing required fields' });
+            }
+
+            if (!(await isValidAccount(accountId))) {
+                return reply.code(400).send({ error: 'Invalid account' });
+            }
+
+            if (isRateLimited(accountId)) {
+                return reply.code(429).send({ error: 'Rate limit exceeded' });
+            }
+
+            let ip = request.headers['x-forwarded-for'] || request.headers['x-real-ip'] || request.ip;
+            if (Array.isArray(ip)) ip = ip[0];
+            if (typeof ip === 'string' && ip.includes(',')) ip = ip.split(',')[0].trim();
+
+            await TrackingService.processEvent({
+                accountId, visitorId, type, url, payload, pageTitle,
+                ipAddress: ip as string,
+                userAgent: bodyUserAgent || request.headers['user-agent'] as string,
+                referrer, utmSource, utmMedium, utmCampaign, is404,
+                clickId, clickPlatform, landingReferrer
+            });
+
+            const ecommerceTypes = ['add_to_cart', 'remove_from_cart', 'cart_view', 'checkout_view', 'checkout_start', 'purchase'];
+            if (ecommerceTypes.includes(type)) {
+                Logger.info('E-commerce event received', { type, visitorId, accountId, payload });
+            }
+
+            return { success: true };
+        } catch (error) {
+            const errorDetails = error instanceof Error
+                ? { message: error.message, stack: error.stack, name: error.name }
+                : { raw: String(error) };
+            const body = request.body as any;
+            Logger.error('Tracking Error', {
+                error: errorDetails,
+                eventType: body?.type,
+                visitorId: body?.visitorId,
+                accountId: body?.accountId,
+                url: body?.url,
+                payloadKeys: body?.payload ? Object.keys(body.payload) : []
+            });
+            return reply.code(500).send({ error: 'Internal Server Error' });
         }
+    });
 
-        if (isRateLimited(accountId)) {
-            return res.status(429).json({ error: 'Rate limit exceeded' });
+    /**
+     * GET /p.gif - Pixel tracking fallback
+     */
+    fastify.get('/p.gif', async (request, reply) => {
+        try {
+            const query = request.query as { a?: string; v?: string; t?: string; u?: string; p?: string };
+            const { a: accountId, v: visitorId, t: type, u: url, p: payloadStr } = query;
+
+            if (!accountId || !visitorId || !type || !(await isValidAccount(accountId)) || isRateLimited(accountId)) {
+                reply.header('Content-Type', 'image/gif');
+                reply.header('Cache-Control', 'no-store');
+                return reply.send(TRANSPARENT_GIF);
+            }
+
+            let ip = request.headers['x-forwarded-for'] || request.ip;
+            if (Array.isArray(ip)) ip = ip[0];
+
+            let payload = {};
+            if (payloadStr) {
+                try { payload = JSON.parse(decodeURIComponent(payloadStr)); } catch { }
+            }
+
+            await TrackingService.processEvent({
+                accountId, visitorId, type, url: url || '',
+                payload, pageTitle: '',
+                ipAddress: ip as string,
+                userAgent: request.headers['user-agent'] as string,
+                referrer: request.headers.referer || '',
+            });
+
+            reply.header('Content-Type', 'image/gif');
+            reply.header('Cache-Control', 'no-store');
+            return reply.send(TRANSPARENT_GIF);
+        } catch (error) {
+            Logger.error('Pixel Tracking Error', { error });
+            reply.header('Content-Type', 'image/gif');
+            reply.header('Cache-Control', 'no-store');
+            return reply.send(TRANSPARENT_GIF);
         }
+    });
 
-        Logger.debug('Tracking event received', { type, accountId });
+    /**
+     * POST /custom - Custom merchant events
+     */
+    fastify.post('/custom', async (request, reply) => {
+        try {
+            const body = request.body as { accountId?: string; visitorId?: string; eventName?: string; properties?: any; url?: string };
+            const { accountId, visitorId, eventName, properties } = body;
 
-        let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        if (Array.isArray(ip)) ip = ip[0];
+            if (!accountId || !visitorId || !eventName) {
+                return reply.code(400).send({ error: 'Missing required fields' });
+            }
 
-        await TrackingService.processEvent({
-            accountId, visitorId, type, url, payload, pageTitle,
-            ipAddress: ip as string,
-            userAgent: req.headers['user-agent'],
-            referrer, utmSource, utmMedium, utmCampaign, is404,
-            clickId, clickPlatform, landingReferrer
-        });
+            await TrackingService.processEvent({
+                accountId, visitorId,
+                type: `custom:${eventName}`,
+                url: body.url || '',
+                payload: properties || {}
+            });
 
-        res.json({ success: true });
-    } catch (error) {
-        Logger.error('Tracking Error', { error });
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-
-/**
- * POST /api/tracking/e - Short alias (ad-blocker friendly)
- */
-router.post('/e', async (req, res) => {
-    try {
-        const { accountId, visitorId, type, url, payload, pageTitle, referrer, utmSource, utmMedium, utmCampaign, userAgent: bodyUserAgent, is404, clickId, clickPlatform, landingReferrer } = req.body;
-
-        if (!accountId || !visitorId || !type) {
-            return res.status(400).json({ error: 'Missing required fields' });
+            return { success: true };
+        } catch (error) {
+            Logger.error('Custom Event Error', { error });
+            return reply.code(500).send({ error: 'Failed to track custom event' });
         }
+    });
+};
 
-        if (!(await isValidAccount(accountId))) {
-            return res.status(400).json({ error: 'Invalid account' });
-        }
-
-        if (isRateLimited(accountId)) {
-            return res.status(429).json({ error: 'Rate limit exceeded' });
-        }
-
-        let ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress;
-        if (Array.isArray(ip)) ip = ip[0];
-        if (typeof ip === 'string' && ip.includes(',')) ip = ip.split(',')[0].trim();
-
-        await TrackingService.processEvent({
-            accountId, visitorId, type, url, payload, pageTitle,
-            ipAddress: ip as string,
-            userAgent: bodyUserAgent || req.headers['user-agent'],
-            referrer, utmSource, utmMedium, utmCampaign, is404,
-            clickId, clickPlatform, landingReferrer
-        });
-
-        // Log e-commerce events at info level for debugging
-        const ecommerceTypes = ['add_to_cart', 'remove_from_cart', 'cart_view', 'checkout_view', 'checkout_start', 'purchase'];
-        if (ecommerceTypes.includes(type)) {
-            Logger.info('E-commerce event received', { type, visitorId, accountId, payload });
-        }
-
-        res.json({ success: true });
-    } catch (error) {
-        // Enhanced error logging with full context
-        const errorDetails = error instanceof Error
-            ? { message: error.message, stack: error.stack, name: error.name }
-            : { raw: String(error) };
-        Logger.error('Tracking Error', {
-            error: errorDetails,
-            eventType: req.body?.type,
-            visitorId: req.body?.visitorId,
-            accountId: req.body?.accountId,
-            url: req.body?.url,
-            payloadKeys: req.body?.payload ? Object.keys(req.body.payload) : []
-        });
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-
-/**
- * GET /api/tracking/p.gif - Pixel tracking fallback
- */
-router.get('/p.gif', async (req, res) => {
-    try {
-        const { a: accountId, v: visitorId, t: type, u: url, p: payloadStr } = req.query;
-
-        if (!accountId || !visitorId || !type || !(await isValidAccount(accountId as string)) || isRateLimited(accountId as string)) {
-            res.setHeader('Content-Type', 'image/gif');
-            res.setHeader('Cache-Control', 'no-store');
-            return res.send(TRANSPARENT_GIF);
-        }
-
-        let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        if (Array.isArray(ip)) ip = ip[0];
-
-        let payload = {};
-        if (payloadStr) {
-            try { payload = JSON.parse(decodeURIComponent(payloadStr as string)); } catch { }
-        }
-
-        await TrackingService.processEvent({
-            accountId: accountId as string,
-            visitorId: visitorId as string,
-            type: type as string,
-            url: url as string || '',
-            payload,
-            pageTitle: '',
-            ipAddress: ip as string,
-            userAgent: req.headers['user-agent'],
-            referrer: req.headers.referer || '',
-        });
-
-        res.setHeader('Content-Type', 'image/gif');
-        res.setHeader('Cache-Control', 'no-store');
-        res.send(TRANSPARENT_GIF);
-    } catch (error) {
-        Logger.error('Pixel Tracking Error', { error });
-        res.setHeader('Content-Type', 'image/gif');
-        res.setHeader('Cache-Control', 'no-store');
-        res.send(TRANSPARENT_GIF);
-    }
-});
-
-/**
- * POST /api/tracking/custom - Custom merchant events
- */
-router.post('/custom', async (req, res) => {
-    try {
-        const { accountId, visitorId, eventName, properties } = req.body;
-
-        if (!accountId || !visitorId || !eventName) {
-            return res.status(400).json({ error: 'Missing required fields' });
-        }
-
-        await TrackingService.processEvent({
-            accountId, visitorId,
-            type: `custom:${eventName}`,
-            url: req.body.url || '',
-            payload: properties || {}
-        });
-
-        res.json({ success: true });
-    } catch (error) {
-        Logger.error('Custom Event Error', { error });
-        res.status(500).json({ error: 'Failed to track custom event' });
-    }
-});
-
-export default router;
+export default trackingIngestionRoutes;

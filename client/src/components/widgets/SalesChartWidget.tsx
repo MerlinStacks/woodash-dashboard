@@ -3,7 +3,8 @@ import { BarChart3, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import ReactECharts from 'echarts-for-react';
+import * as echarts from 'echarts';
 
 export function SalesChartWidget({ className, dateRange, comparison }: WidgetProps) {
     const { token } = useAuth();
@@ -36,9 +37,7 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
                     if (!Array.isArray(comparisonArr)) comparisonArr = [];
                 }
 
-                // Merge Data for Recharts
-                // We map by index to overlay them roughly
-                // X - Axis will show Current Period Dates
+                // Merge Data
                 const maxLength = Math.max(currentArr.length, comparisonArr.length);
 
                 for (let i = 0; i < maxLength; i++) {
@@ -46,10 +45,9 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
                     const comp = comparisonArr[i] || {};
 
                     processedData.push({
-                        date: curr.date || `Day ${i + 1}`, // Use current date for X-axis label
+                        date: curr.date || `Day ${i + 1}`,
                         sales: curr.sales || 0,
                         comparisonSales: comparison ? (comp.sales || 0) : undefined,
-                        comparisonDate: comp.date // Store for tooltip maybe?
                     });
                 }
 
@@ -66,6 +64,89 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
 
     }, [currentAccount, token, dateRange, comparison]);
 
+    const getChartOptions = (): echarts.EChartsOption => {
+        const dates = data.map(d => {
+            const s = String(d.date);
+            if (s.startsWith('Day')) return s;
+            const date = new Date(s);
+            return isNaN(date.getTime()) ? s : date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+        });
+        const salesValues = data.map(d => d.sales);
+        const comparisonValues = comparison ? data.map(d => d.comparisonSales ?? 0) : [];
+
+        const series: echarts.SeriesOption[] = [
+            {
+                name: 'Current Period',
+                type: 'line',
+                smooth: true,
+                data: salesValues,
+                lineStyle: { color: '#22c55e', width: 2 },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(34, 197, 94, 0.1)' },
+                        { offset: 1, color: 'rgba(34, 197, 94, 0)' }
+                    ])
+                },
+                itemStyle: { color: '#22c55e' },
+                symbol: 'none'
+            }
+        ];
+
+        if (comparison && comparisonValues.length > 0) {
+            series.unshift({
+                name: 'Comparison',
+                type: 'line',
+                smooth: true,
+                data: comparisonValues,
+                lineStyle: { color: '#9ca3af', width: 2, type: 'dashed' },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(156, 163, 175, 0.1)' },
+                        { offset: 1, color: 'rgba(156, 163, 175, 0)' }
+                    ])
+                },
+                itemStyle: { color: '#9ca3af' },
+                symbol: 'none'
+            });
+        }
+
+        return {
+            grid: { top: 10, right: 10, left: 40, bottom: 30 },
+            xAxis: {
+                type: 'category',
+                data: dates,
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: { fontSize: 10, color: '#6b7280' }
+            },
+            yAxis: {
+                type: 'value',
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: {
+                    fontSize: 10,
+                    color: '#6b7280',
+                    formatter: (value: number) => `$${value}`
+                },
+                splitLine: { lineStyle: { color: '#f3f4f6', type: 'dashed' } }
+            },
+            tooltip: {
+                trigger: 'axis',
+                formatter: (params: any) => {
+                    if (!Array.isArray(params) || params.length === 0) return '';
+                    const date = params[0].axisValue;
+                    let html = `<div style="font-weight:600;margin-bottom:4px">${date}</div>`;
+                    params.forEach((p: any) => {
+                        const value = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(p.value || 0);
+                        html += `<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${p.color}"></span>${p.seriesName}: ${value}</div>`;
+                    });
+                    return html;
+                }
+            },
+            series
+        };
+    };
+
     return (
         <div className={`bg-white h-full w-full p-4 flex flex-col rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[300px] ${className}`} style={{ minHeight: '300px' }}>
             <div className="flex justify-between items-center mb-2">
@@ -79,77 +160,11 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
                 ) : data.length === 0 ? (
                     <div className="absolute inset-0 flex justify-center items-center text-gray-400 text-sm">No data available</div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                        <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.1} />
-                                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                                </linearGradient>
-                                <linearGradient id="colorComp" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#9ca3af" stopOpacity={0.1} />
-                                    <stop offset="95%" stopColor="#9ca3af" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                            <XAxis
-                                dataKey="date"
-                                tickFormatter={(value: any) => {
-                                    // If strict "Day X" string, keep it. Else format date.
-                                    const s = String(value);
-                                    if (s.startsWith('Day')) return s;
-                                    const d = new Date(s);
-                                    return isNaN(d.getTime()) ? s : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-                                }}
-                                fontSize={10}
-                                tickLine={false}
-                                axisLine={false}
-                                minTickGap={30}
-                            />
-                            <YAxis
-                                fontSize={10}
-                                tickLine={false}
-                                axisLine={false}
-                                tickFormatter={(value: any) => `$${value}`}
-                            />
-                            <Tooltip
-                                labelFormatter={(label: string | number) => {
-                                    const str = String(label);
-                                    if (str.startsWith('Day')) return str;
-                                    const d = new Date(str);
-                                    return isNaN(d.getTime()) ? str : d.toLocaleDateString();
-                                }}
-                                formatter={(value: any, name: any) => [
-                                    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value) || 0),
-                                    name === 'sales' ? 'Current Period' : 'Comparison'
-                                ]}
-                            />
-                            {/* Comparison Layer (Gray) */}
-                            {comparison && (
-                                <Area
-                                    type="monotone"
-                                    dataKey="comparisonSales"
-                                    stroke="#9ca3af"
-                                    strokeWidth={2}
-                                    strokeDasharray="4 4"
-                                    fillOpacity={1}
-                                    fill="url(#colorComp)"
-                                    name="comparisonSales"
-                                />
-                            )}
-
-                            {/* Current Layer (Green) */}
-                            <Area
-                                type="monotone"
-                                dataKey="sales"
-                                stroke="#22c55e"
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill="url(#colorSales)"
-                                name="sales"
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    <ReactECharts
+                        option={getChartOptions()}
+                        style={{ height: '100%', width: '100%' }}
+                        opts={{ renderer: 'svg' }}
+                    />
                 )}
             </div>
         </div>

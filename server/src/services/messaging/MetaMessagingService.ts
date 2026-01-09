@@ -6,7 +6,6 @@
  * Facebook Pages and Instagram Business accounts.
  */
 
-import axios from 'axios';
 import { prisma } from '../../utils/prisma';
 import { Logger } from '../../utils/logger';
 import { EventBus, EVENTS } from '../events';
@@ -68,38 +67,43 @@ export class MetaMessagingService {
                 ? `${GRAPH_API_BASE}/${externalId}/messages`
                 : `${GRAPH_API_BASE}/${externalId}/messages`;
 
-            const response = await axios.post(
-                endpoint,
-                {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
                     recipient: { id: payload.recipientId },
                     message: { text: payload.message },
                     messaging_type: payload.messageType || 'RESPONSE',
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(JSON.stringify(errorData));
+            }
+
+            const data = await response.json();
 
             Logger.info('[MetaMessaging] Message sent', {
                 platform,
                 recipientId: payload.recipientId,
-                messageId: response.data.message_id,
+                messageId: data.message_id,
             });
 
             EventBus.emit(EVENTS.SOCIAL.MESSAGE_SENT, {
                 platform,
                 socialAccountId,
-                messageId: response.data.message_id,
+                messageId: data.message_id,
             });
 
-            return { messageId: response.data.message_id };
+            return { messageId: data.message_id };
         } catch (error: any) {
             Logger.error('[MetaMessaging] Failed to send message', {
                 socialAccountId,
-                error: error.response?.data || error.message,
+                error: error.message,
             });
             return null;
         }
@@ -269,20 +273,19 @@ export class MetaMessagingService {
         userId: string
     ): Promise<{ name?: string; profilePic?: string } | null> {
         try {
-            const response = await axios.get(
-                `${GRAPH_API_BASE}/${userId}`,
-                {
-                    params: {
-                        fields: 'name,profile_pic',
-                        access_token: accessToken,
-                    },
-                }
-            );
-            return response.data;
+            const url = new URL(`${GRAPH_API_BASE}/${userId}`);
+            url.searchParams.set('fields', 'name,profile_pic');
+            url.searchParams.set('access_token', accessToken);
+
+            const response = await fetch(url.toString());
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return await response.json();
         } catch (error: any) {
             Logger.warn('[MetaMessaging] Failed to fetch user profile', {
                 userId,
-                error: error.response?.data || error.message,
+                error: error.message,
             });
             return null;
         }
@@ -297,17 +300,17 @@ export class MetaMessagingService {
         pageId: string
     ): Promise<{ igUserId: string; username: string } | null> {
         try {
-            const response = await axios.get(
-                `${GRAPH_API_BASE}/${pageId}`,
-                {
-                    params: {
-                        fields: 'instagram_business_account{id,username}',
-                        access_token: pageAccessToken,
-                    },
-                }
-            );
+            const url = new URL(`${GRAPH_API_BASE}/${pageId}`);
+            url.searchParams.set('fields', 'instagram_business_account{id,username}');
+            url.searchParams.set('access_token', pageAccessToken);
 
-            const igAccount = response.data.instagram_business_account;
+            const response = await fetch(url.toString());
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const igAccount = data.instagram_business_account;
             if (!igAccount) {
                 return null;
             }
@@ -319,7 +322,7 @@ export class MetaMessagingService {
         } catch (error: any) {
             Logger.error('[MetaMessaging] Failed to get Instagram business account', {
                 pageId,
-                error: error.response?.data || error.message,
+                error: error.message,
             });
             return null;
         }
@@ -353,20 +356,20 @@ export class MetaMessagingService {
         userAccessToken: string
     ): Promise<Array<{ id: string; name: string; accessToken: string }>> {
         try {
-            const response = await axios.get(
-                `${GRAPH_API_BASE}/me/accounts`,
-                {
-                    params: {
-                        fields: 'id,name,access_token',
-                        access_token: userAccessToken,
-                    },
-                }
-            );
+            const url = new URL(`${GRAPH_API_BASE}/me/accounts`);
+            url.searchParams.set('fields', 'id,name,access_token');
+            url.searchParams.set('access_token', userAccessToken);
 
-            return response.data.data || [];
+            const response = await fetch(url.toString());
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.data || [];
         } catch (error: any) {
             Logger.error('[MetaMessaging] Failed to list user pages', {
-                error: error.response?.data || error.message,
+                error: error.message,
             });
             return [];
         }

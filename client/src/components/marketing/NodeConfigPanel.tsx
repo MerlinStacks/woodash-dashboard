@@ -304,21 +304,53 @@ const ActionConfig: React.FC<ActionConfigProps> = ({ config, onUpdate }) => {
                             <option value="abandoned_cart">Abandoned Cart Reminder</option>
                         </select>
                     </div>
+                    {/* Mark as Transactional */}
+                    <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <label className="flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                checked={config.isTransactional || false}
+                                onChange={(e) => onUpdate('isTransactional', e.target.checked)}
+                                className="w-4 h-4 rounded text-yellow-600"
+                            />
+                            <div>
+                                <span className="text-sm font-medium text-yellow-800">Mark as Transactional</span>
+                                <p className="text-xs text-yellow-700">Transactional emails are sent to all contacts, including unsubscribed</p>
+                            </div>
+                        </label>
+                    </div>
                 </>
             )}
 
             {config.actionType === 'SEND_SMS' && (
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">SMS Message</label>
-                    <textarea
-                        value={config.smsMessage || ''}
-                        onChange={(e) => onUpdate('smsMessage', e.target.value)}
-                        placeholder="Hi {{customer.firstName}}, thanks for your order!"
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Use {"{{variable}}"} for personalization</p>
-                </div>
+                <>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">SMS Message</label>
+                        <textarea
+                            value={config.smsMessage || ''}
+                            onChange={(e) => onUpdate('smsMessage', e.target.value)}
+                            placeholder="Hi {{customer.firstName}}, thanks for your order!"
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Use {"{{variable}}"} for personalization</p>
+                    </div>
+                    {/* Mark as Transactional */}
+                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <label className="flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                checked={config.isTransactional || false}
+                                onChange={(e) => onUpdate('isTransactional', e.target.checked)}
+                                className="w-4 h-4 rounded text-yellow-600"
+                            />
+                            <div>
+                                <span className="text-sm font-medium text-yellow-800">Mark as Transactional</span>
+                                <p className="text-xs text-yellow-700">Transactional SMS are sent to all contacts, including unsubscribed</p>
+                            </div>
+                        </label>
+                    </div>
+                </>
             )}
 
             {config.actionType === 'ADD_TAG' && (
@@ -333,34 +365,39 @@ const ActionConfig: React.FC<ActionConfigProps> = ({ config, onUpdate }) => {
                     />
                     <p className="text-xs text-gray-500 mt-1">This tag will be added to the contact</p>
                 </div>
-            )}
+            )
+            }
 
-            {config.actionType === 'REMOVE_TAG' && (
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tag Name</label>
-                    <input
-                        type="text"
-                        value={config.tagName || ''}
-                        onChange={(e) => onUpdate('tagName', e.target.value)}
-                        placeholder="Abandoned Cart"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">This tag will be removed from the contact</p>
-                </div>
-            )}
+            {
+                config.actionType === 'REMOVE_TAG' && (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tag Name</label>
+                        <input
+                            type="text"
+                            value={config.tagName || ''}
+                            onChange={(e) => onUpdate('tagName', e.target.value)}
+                            placeholder="Abandoned Cart"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">This tag will be removed from the contact</p>
+                    </div>
+                )
+            }
 
-            {config.actionType === 'WEBHOOK' && (
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Webhook URL</label>
-                    <input
-                        type="url"
-                        value={config.webhookUrl || ''}
-                        onChange={(e) => onUpdate('webhookUrl', e.target.value)}
-                        placeholder="https://example.com/webhook"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-            )}
+            {
+                config.actionType === 'WEBHOOK' && (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Webhook URL</label>
+                        <input
+                            type="url"
+                            value={config.webhookUrl || ''}
+                            onChange={(e) => onUpdate('webhookUrl', e.target.value)}
+                            placeholder="https://example.com/webhook"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                )
+            }
         </>
     );
 };
@@ -454,8 +491,23 @@ const DelayConfig: React.FC<DelayConfigProps> = ({ config, onUpdate }) => {
                             <option value="hours">Hours</option>
                             <option value="days">Days</option>
                             <option value="weeks">Weeks</option>
+                            <option value="months">Months</option>
                         </select>
                     </div>
+
+                    {/* Contact Timezone */}
+                    <label className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-100">
+                        <input
+                            type="checkbox"
+                            checked={config.useContactTimezone || false}
+                            onChange={(e) => onUpdate('useContactTimezone', e.target.checked)}
+                            className="rounded text-purple-600"
+                        />
+                        <div>
+                            <span className="text-sm font-medium text-purple-700">Use contact's timezone</span>
+                            <p className="text-xs text-purple-600">Times will be calculated based on the contact's local time</p>
+                        </div>
+                    </label>
 
                     {/* Time of day constraint */}
                     <label className="flex items-center gap-2">
@@ -510,11 +562,26 @@ const DelayConfig: React.FC<DelayConfigProps> = ({ config, onUpdate }) => {
                             <span className="text-white text-[10px] font-bold">i</span>
                         </div>
                         <span className="text-xs text-blue-700">
-                            Delay of {config.duration || 1} {config.unit || 'hours'}.
-                            {config.delayUntilTimeEnabled && ` Until ${config.delayUntilTime || '09:00'}.`}
-                            {config.delayUntilDaysEnabled && (config.delayUntilDays?.length > 0) && ` On ${config.delayUntilDays.join(', ')}.`}
+                            Delay of {config.duration || 1} {config.unit || 'hours'}
+                            {config.useContactTimezone && " (contact's timezone)"}
+                            {config.delayUntilTimeEnabled && ` until ${config.delayUntilTime || '09:00'}`}
+                            {config.delayUntilDaysEnabled && (config.delayUntilDays?.length > 0) && ` on ${config.delayUntilDays.join(', ')}`}.
                         </span>
                     </div>
+
+                    {/* Jump if time passed */}
+                    <label className="flex items-center gap-2 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <input
+                            type="checkbox"
+                            checked={config.jumpIfPassed || false}
+                            onChange={(e) => onUpdate('jumpIfPassed', e.target.checked)}
+                            className="rounded text-yellow-600"
+                        />
+                        <div>
+                            <span className="text-sm font-medium text-yellow-700">Jump to next step if time has passed</span>
+                            <p className="text-xs text-yellow-600">If the scheduled time already passed, skip this delay</p>
+                        </div>
+                    </label>
                 </div>
             )}
 
@@ -555,71 +622,272 @@ interface ConditionConfigProps {
     onUpdate: (key: string, value: any) => void;
 }
 
-const ConditionConfig: React.FC<ConditionConfigProps> = ({ config, onUpdate }) => {
-    const fields = [
-        { value: 'customer.totalSpent', label: 'Customer Total Spent' },
-        { value: 'customer.ordersCount', label: 'Customer Order Count' },
-        { value: 'order.total', label: 'Order Total' },
-        { value: 'order.itemCount', label: 'Order Item Count' },
-        { value: 'customer.tags', label: 'Customer Tags' },
-    ];
+// Condition groups matching FunnelKit pattern
+const CONDITION_GROUPS = [
+    {
+        id: 'segments',
+        label: 'Segments',
+        icon: '📋',
+        conditions: [
+            { field: 'segment.id', label: 'Contact is in Segment', operators: ['eq', 'neq'] },
+            { field: 'list.id', label: 'Contact is in List', operators: ['eq', 'neq'] },
+        ]
+    },
+    {
+        id: 'contact',
+        label: 'Contact Details',
+        icon: '👤',
+        conditions: [
+            { field: 'customer.email', label: 'Email address', operators: ['contains', 'not_contains', 'eq', 'neq'] },
+            { field: 'customer.phone', label: 'Phone number', operators: ['is_set', 'not_set', 'eq'] },
+            { field: 'customer.firstName', label: 'First name', operators: ['eq', 'neq', 'contains'] },
+            { field: 'customer.lastName', label: 'Last name', operators: ['eq', 'neq', 'contains'] },
+            { field: 'customer.tags', label: 'Has tag', operators: ['contains', 'not_contains'] },
+        ]
+    },
+    {
+        id: 'woocommerce',
+        label: 'WooCommerce',
+        icon: '🛒',
+        conditions: [
+            { field: 'order.total', label: 'Order Total', operators: ['gt', 'gte', 'lt', 'lte', 'eq'] },
+            { field: 'order.itemCount', label: 'Order Item Count', operators: ['gt', 'gte', 'lt', 'lte', 'eq'] },
+            { field: 'order.productId', label: 'Order contains product', operators: ['eq', 'neq'] },
+            { field: 'order.categoryId', label: 'Order contains category', operators: ['eq', 'neq'] },
+            { field: 'customer.totalSpent', label: 'Customer Lifetime Value', operators: ['gt', 'gte', 'lt', 'lte'] },
+            { field: 'customer.ordersCount', label: 'Customer Total Orders', operators: ['gt', 'gte', 'lt', 'lte', 'eq'] },
+        ]
+    },
+    {
+        id: 'user',
+        label: 'User',
+        icon: '🔐',
+        conditions: [
+            { field: 'user.role', label: 'User Role', operators: ['eq', 'neq'] },
+            { field: 'user.isLoggedIn', label: 'Is Logged In', operators: ['eq'] },
+            { field: 'user.registeredDays', label: 'Days since registration', operators: ['gt', 'lt', 'eq'] },
+        ]
+    },
+    {
+        id: 'geography',
+        label: 'Geography',
+        icon: '🌍',
+        conditions: [
+            { field: 'customer.country', label: 'Country', operators: ['eq', 'neq'] },
+            { field: 'customer.state', label: 'State/Province', operators: ['eq', 'neq'] },
+            { field: 'customer.city', label: 'City', operators: ['eq', 'neq', 'contains'] },
+            { field: 'customer.postcode', label: 'Postcode', operators: ['eq', 'neq', 'starts_with'] },
+        ]
+    },
+    {
+        id: 'engagement',
+        label: 'Engagement',
+        icon: '📧',
+        conditions: [
+            { field: 'email.opened', label: 'Opened any email', operators: ['eq'] },
+            { field: 'email.openedRecent', label: 'Opened email in last X days', operators: ['eq'] },
+            { field: 'email.clicked', label: 'Clicked any link', operators: ['eq'] },
+            { field: 'email.clickedRecent', label: 'Clicked link in last X days', operators: ['eq'] },
+        ]
+    },
+    {
+        id: 'datetime',
+        label: 'DateTime',
+        icon: '📅',
+        conditions: [
+            { field: 'date.dayOfWeek', label: 'Day of Week', operators: ['eq', 'neq'] },
+            { field: 'date.hour', label: 'Hour of Day', operators: ['eq', 'gt', 'lt', 'between'] },
+            { field: 'date.month', label: 'Month', operators: ['eq', 'neq'] },
+        ]
+    },
+];
 
-    const operators = [
-        { value: 'eq', label: 'equals' },
-        { value: 'neq', label: 'not equals' },
-        { value: 'gt', label: 'greater than' },
-        { value: 'gte', label: 'greater than or equal' },
-        { value: 'lt', label: 'less than' },
-        { value: 'lte', label: 'less than or equal' },
-        { value: 'contains', label: 'contains' },
-    ];
+const OPERATOR_LABELS: Record<string, string> = {
+    'eq': 'equals',
+    'neq': 'not equals',
+    'gt': 'greater than',
+    'gte': 'greater than or equal',
+    'lt': 'less than',
+    'lte': 'less than or equal',
+    'contains': 'contains',
+    'not_contains': 'does not contain',
+    'is_set': 'is set',
+    'not_set': 'is not set',
+    'starts_with': 'starts with',
+    'between': 'is between',
+};
+
+const ConditionConfig: React.FC<ConditionConfigProps> = ({ config, onUpdate }) => {
+    const [activeGroup, setActiveGroup] = useState(config.group || 'woocommerce');
+    const [conditions, setConditions] = useState<any[]>(config.conditions || [{ field: '', operator: '', value: '' }]);
+
+    // Find available conditions for active group
+    const activeGroupData = CONDITION_GROUPS.find(g => g.id === activeGroup);
+    const availableConditions = activeGroupData?.conditions || [];
+
+    // Get operators for a field
+    const getOperatorsForField = (fieldValue: string) => {
+        for (const group of CONDITION_GROUPS) {
+            const condition = group.conditions.find(c => c.field === fieldValue);
+            if (condition) {
+                return condition.operators;
+            }
+        }
+        return ['eq', 'neq', 'gt', 'lt'];
+    };
+
+    const updateCondition = (index: number, key: string, value: any) => {
+        const updated = [...conditions];
+        updated[index] = { ...updated[index], [key]: value };
+        setConditions(updated);
+        onUpdate('conditions', updated);
+    };
+
+    const addCondition = () => {
+        const updated = [...conditions, { field: '', operator: '', value: '' }];
+        setConditions(updated);
+        onUpdate('conditions', updated);
+    };
+
+    const removeCondition = (index: number) => {
+        if (conditions.length <= 1) return;
+        const updated = conditions.filter((_, i) => i !== index);
+        setConditions(updated);
+        onUpdate('conditions', updated);
+    };
+
+    // Sync group to config
+    useEffect(() => {
+        onUpdate('group', activeGroup);
+    }, [activeGroup]);
 
     return (
-        <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">Condition Rule</label>
+        <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700">Add Conditions</label>
+                <span className="text-xs text-gray-500">Match {config.matchType || 'all'} conditions</span>
+            </div>
 
-            <div>
-                <label className="block text-xs text-gray-500 mb-1">Field</label>
-                <select
-                    value={config.field || 'customer.totalSpent'}
-                    onChange={(e) => onUpdate('field', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+            {/* Match Type Toggle */}
+            <div className="flex gap-2">
+                <button
+                    onClick={() => onUpdate('matchType', 'all')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${(config.matchType || 'all') === 'all'
+                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                 >
-                    {fields.map(f => (
-                        <option key={f.value} value={f.value}>{f.label}</option>
-                    ))}
-                </select>
-            </div>
-
-            <div>
-                <label className="block text-xs text-gray-500 mb-1">Operator</label>
-                <select
-                    value={config.operator || 'gt'}
-                    onChange={(e) => onUpdate('operator', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                    Match ALL (AND)
+                </button>
+                <button
+                    onClick={() => onUpdate('matchType', 'any')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${config.matchType === 'any'
+                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
                 >
-                    {operators.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
+                    Match ANY (OR)
+                </button>
+            </div>
+
+            {/* Category Selector */}
+            <div className="flex gap-2 flex-wrap">
+                {CONDITION_GROUPS.map(group => (
+                    <button
+                        key={group.id}
+                        onClick={() => setActiveGroup(group.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${activeGroup === group.id
+                            ? 'bg-blue-50 text-blue-700 border border-blue-300'
+                            : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                            }`}
+                    >
+                        <span>{group.icon}</span>
+                        {group.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Available Conditions */}
+            <div className="border rounded-lg p-3 bg-gray-50 max-h-[200px] overflow-y-auto">
+                <div className="text-xs text-gray-500 mb-2">Select a condition to add:</div>
+                <div className="space-y-1">
+                    {availableConditions.map(cond => (
+                        <button
+                            key={cond.field}
+                            onClick={() => {
+                                // Add this condition
+                                if (conditions[conditions.length - 1]?.field === '') {
+                                    updateCondition(conditions.length - 1, 'field', cond.field);
+                                    updateCondition(conditions.length - 1, 'operator', cond.operators[0]);
+                                } else {
+                                    const newCond = { field: cond.field, operator: cond.operators[0], value: '' };
+                                    const updated = [...conditions, newCond];
+                                    setConditions(updated);
+                                    onUpdate('conditions', updated);
+                                }
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-white rounded-lg transition-colors flex items-center gap-2"
+                        >
+                            <span className="text-gray-400">+</span>
+                            {cond.label}
+                        </button>
                     ))}
-                </select>
+                </div>
             </div>
 
-            <div>
-                <label className="block text-xs text-gray-500 mb-1">Value</label>
-                <input
-                    type="text"
-                    value={config.value || ''}
-                    onChange={(e) => onUpdate('value', e.target.value)}
-                    placeholder="100"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-            </div>
+            {/* Active Conditions */}
+            {conditions.filter(c => c.field).length > 0 && (
+                <div className="space-y-2">
+                    <div className="text-xs font-medium text-gray-700">Active conditions:</div>
+                    {conditions.map((cond, idx) => cond.field && (
+                        <div key={idx} className="flex items-center gap-2 p-3 bg-white border rounded-lg">
+                            <div className="flex-1 grid grid-cols-3 gap-2">
+                                <div className="text-sm text-gray-700 font-medium truncate">
+                                    {CONDITION_GROUPS.flatMap(g => g.conditions).find(c => c.field === cond.field)?.label || cond.field}
+                                </div>
+                                <select
+                                    value={cond.operator}
+                                    onChange={(e) => updateCondition(idx, 'operator', e.target.value)}
+                                    className="text-sm border border-gray-300 rounded px-2 py-1"
+                                >
+                                    {getOperatorsForField(cond.field).map(op => (
+                                        <option key={op} value={op}>{OPERATOR_LABELS[op] || op}</option>
+                                    ))}
+                                </select>
+                                <input
+                                    type="text"
+                                    value={cond.value || ''}
+                                    onChange={(e) => updateCondition(idx, 'value', e.target.value)}
+                                    placeholder="Value..."
+                                    className="text-sm border border-gray-300 rounded px-2 py-1"
+                                />
+                            </div>
+                            <button
+                                onClick={() => removeCondition(idx)}
+                                className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
-            <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 border">
-                <strong>Preview:</strong><br />
-                If {config.field || 'customer.totalSpent'} {config.operator || 'gt'} {config.value || '...'} → YES branch<br />
-                Otherwise → NO branch
-            </div>
+            {/* Preview */}
+            {conditions.filter(c => c.field && c.value).length > 0 && (
+                <div className="bg-orange-50 p-3 rounded-lg text-sm text-orange-700 border border-orange-200">
+                    <strong>Preview:</strong><br />
+                    If {conditions.filter(c => c.field && c.value).map((c, i) => (
+                        <span key={i}>
+                            {i > 0 && <span className="font-medium"> {config.matchType === 'any' ? 'OR' : 'AND'} </span>}
+                            {CONDITION_GROUPS.flatMap(g => g.conditions).find(cond => cond.field === c.field)?.label || c.field} {OPERATOR_LABELS[c.operator] || c.operator} "{c.value}"
+                        </span>
+                    ))} → <span className="text-green-600 font-medium">YES</span><br />
+                    Otherwise → <span className="text-red-600 font-medium">NO</span>
+                </div>
+            )}
         </div>
     );
 };
+

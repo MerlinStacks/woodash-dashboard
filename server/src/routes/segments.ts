@@ -1,83 +1,88 @@
+/**
+ * Segments Route - Fastify Plugin
+ */
 
-import { Router, Response } from 'express';
-import { AuthenticatedRequest } from '../types/express';
-import { requireAuth } from '../middleware/auth';
+import { FastifyPluginAsync } from 'fastify';
+import { requireAuthFastify } from '../middleware/auth';
 import { segmentService } from '../services/SegmentService';
 import { Logger } from '../utils/logger';
 
-const router = Router();
+const segmentsRoutes: FastifyPluginAsync = async (fastify) => {
+    // Apply auth to all routes
+    fastify.addHook('preHandler', requireAuthFastify);
 
-// List Segments
-router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.accountId!;
-        const segments = await segmentService.listSegments(accountId);
-        res.json(segments);
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to list segments' });
-    }
-});
+    // List Segments
+    fastify.get('/', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            const segments = await segmentService.listSegments(accountId);
+            return segments;
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to list segments' });
+        }
+    });
 
-// Create Segment
-router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.accountId!;
-        const segment = await segmentService.createSegment(accountId, req.body);
-        res.json(segment);
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to create segment' });
-    }
-});
+    // Create Segment
+    fastify.post('/', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            const segment = await segmentService.createSegment(accountId, request.body as any);
+            return segment;
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to create segment' });
+        }
+    });
 
-// Get Segment
-router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.accountId!;
-        const segment = await segmentService.getSegment(req.params.id, accountId);
-        if (!segment) return res.status(404).json({ error: 'Segment not found' });
-        res.json(segment);
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to get segment' });
-    }
-});
+    // Get Segment
+    fastify.get<{ Params: { id: string } }>('/:id', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            const segment = await segmentService.getSegment(request.params.id, accountId);
+            if (!segment) return reply.code(404).send({ error: 'Segment not found' });
+            return segment;
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to get segment' });
+        }
+    });
 
-// Update Segment
-router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.accountId!;
-        await segmentService.updateSegment(req.params.id, accountId, req.body);
-        res.json({ success: true });
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to update segment' });
-    }
-});
+    // Update Segment
+    fastify.put<{ Params: { id: string } }>('/:id', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            await segmentService.updateSegment(request.params.id, accountId, request.body as any);
+            return { success: true };
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to update segment' });
+        }
+    });
 
-// Delete Segment
-router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.accountId!;
-        await segmentService.deleteSegment(req.params.id, accountId);
-        res.json({ success: true });
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to delete segment' });
-    }
-});
+    // Delete Segment
+    fastify.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            await segmentService.deleteSegment(request.params.id, accountId);
+            return { success: true };
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to delete segment' });
+        }
+    });
 
-// Preview Customers in Segment
-router.get('/:id/preview', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.accountId!;
-        const customers = await segmentService.previewCustomers(accountId, req.params.id);
-        res.json(customers);
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to preview segment' });
-    }
-});
+    // Preview Customers in Segment
+    fastify.get<{ Params: { id: string } }>('/:id/preview', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            const customers = await segmentService.previewCustomers(accountId, request.params.id);
+            return customers;
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to preview segment' });
+        }
+    });
+};
 
-export default router;
+export default segmentsRoutes;

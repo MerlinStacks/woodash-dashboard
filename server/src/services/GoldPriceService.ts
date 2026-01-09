@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { Logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
 
@@ -19,14 +18,19 @@ export class GoldPriceService {
             Logger.info('GoldPriceService: No API Token, using public endpoint');
             try {
                 // This endpoint returns Ounce price in configured currency (default USD)
-                const response = await axios.get(`https://data-asg.goldprice.org/dbXRates/${currency}`, {
+                const response = await fetch(`https://data-asg.goldprice.org/dbXRates/${currency}`, {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                     }
                 });
 
-                if (response.data && response.data.items && response.data.items.length > 0) {
-                    const item = response.data.items[0];
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data && data.items && data.items.length > 0) {
+                    const item = data.items[0];
                     // The API returns keys like xauPrice (which is in the requested currency)
                     if (item.xauPrice) {
                         const pricePerOunce = item.xauPrice;
@@ -44,18 +48,23 @@ export class GoldPriceService {
         // Use Authorized API
         try {
             const symbol = `XAU`;
-            const response = await axios.get(`${GOLD_API_URL}/${symbol}/${currency}`, {
+            const response = await fetch(`${GOLD_API_URL}/${symbol}/${currency}`, {
                 headers: {
                     'x-access-token': API_TOKEN,
                     'Content-Type': 'application/json',
                 },
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
             // Response example: { "price": 2745.30, "currency": "USD", ... }
-            if (response.data && response.data.price) {
+            if (data && data.price) {
                 // Gold price is usually per Ounce (Troy Ounce ~ 31.1035g)
                 // We want per GRAM for the calculator
-                const pricePerOunce = parseFloat(response.data.price);
+                const pricePerOunce = parseFloat(data.price);
                 const pricePerGram = pricePerOunce / 31.1034768;
                 return pricePerGram;
             }

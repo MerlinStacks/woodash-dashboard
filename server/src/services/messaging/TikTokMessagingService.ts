@@ -10,7 +10,6 @@
  * Also unavailable in EEA, Switzerland, and UK.
  */
 
-import axios from 'axios';
 import { prisma } from '../../utils/prisma';
 import { Logger } from '../../utils/logger';
 import { EventBus, EVENTS } from '../events';
@@ -102,41 +101,41 @@ export class TikTokMessagingService {
 
             const { accessToken } = socialAccount;
 
-            const response = await axios.post(
-                `${TIKTOK_API_BASE}/message/send/`,
-                {
+            const response = await fetch(`${TIKTOK_API_BASE}/message/send/`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
                     receiver_open_id: payload.recipientOpenId,
                     message_type: 'text',
                     text: payload.message,
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
+                }),
+            });
 
-            if (response.data.error?.code !== 'ok') {
-                throw new Error(response.data.error?.message || 'TikTok API error');
+            const data = await response.json();
+
+            if (data.error?.code !== 'ok') {
+                throw new Error(data.error?.message || 'TikTok API error');
             }
 
             Logger.info('[TikTokMessaging] Message sent', {
                 recipientOpenId: payload.recipientOpenId,
-                messageId: response.data.data?.message_id,
+                messageId: data.data?.message_id,
             });
 
             EventBus.emit(EVENTS.SOCIAL.MESSAGE_SENT, {
                 platform: 'TIKTOK',
                 socialAccountId,
-                messageId: response.data.data?.message_id,
+                messageId: data.data?.message_id,
             });
 
-            return { messageId: response.data.data?.message_id };
+            return { messageId: data.data?.message_id };
         } catch (error: any) {
             Logger.error('[TikTokMessaging] Failed to send message', {
                 socialAccountId,
-                error: error.response?.data || error.message,
+                error: error.message,
             });
             throw error;
         }
@@ -296,23 +295,21 @@ export class TikTokMessagingService {
         redirectUri: string
     ): Promise<{ accessToken: string; refreshToken: string; openId: string; expiresIn: number } | null> {
         try {
-            const response = await axios.post(
-                'https://open.tiktokapis.com/v2/oauth/token/',
-                new URLSearchParams({
+            const response = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
                     client_key: clientKey,
                     client_secret: clientSecret,
                     code,
                     grant_type: 'authorization_code',
                     redirect_uri: redirectUri,
                 }),
-                {
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                }
-            );
+            });
 
-            const data = response.data;
+            const data = await response.json();
             if (data.error) {
                 throw new Error(data.error_description || data.error);
             }
@@ -325,7 +322,7 @@ export class TikTokMessagingService {
             };
         } catch (error: any) {
             Logger.error('[TikTokMessaging] Token exchange failed', {
-                error: error.response?.data || error.message,
+                error: error.message,
             });
             return null;
         }
@@ -340,22 +337,20 @@ export class TikTokMessagingService {
         clientSecret: string
     ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number } | null> {
         try {
-            const response = await axios.post(
-                'https://open.tiktokapis.com/v2/oauth/token/',
-                new URLSearchParams({
+            const response = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
                     client_key: clientKey,
                     client_secret: clientSecret,
                     grant_type: 'refresh_token',
                     refresh_token: refreshToken,
                 }),
-                {
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                }
-            );
+            });
 
-            const data = response.data;
+            const data = await response.json();
             if (data.error) {
                 throw new Error(data.error_description || data.error);
             }
@@ -367,7 +362,7 @@ export class TikTokMessagingService {
             };
         } catch (error: any) {
             Logger.error('[TikTokMessaging] Token refresh failed', {
-                error: error.response?.data || error.message,
+                error: error.message,
             });
             return null;
         }

@@ -443,7 +443,7 @@ export function ChatWindow({ conversationId, messages, onSendMessage, recipientE
             )}
 
             {/* Messages Area - Using MessageBubble Component */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-100">
                 {filteredMessages.map((msg) => (
                     <MessageBubble
                         key={msg.id}

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, Building2, Code, Eye, Sparkles, Loader2, AlertCircle } from 'lucide-react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import { RichTextEditor } from '../common/RichTextEditor';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 
@@ -172,11 +171,12 @@ export function GeneralInfoPanel({ formData, product, suppliers = [], onChange }
 
                         {viewMode === 'visual' ? (
                             <div className="bg-white/50 border border-gray-200 rounded-lg overflow-hidden transition-all duration-300">
-                                <ReactQuill
-                                    theme="snow"
+                                <RichTextEditor
+                                    variant="standard"
                                     value={formData.description || ''}
-                                    onChange={(val) => onChange({ description: val })}
-                                    className="h-64 mb-12" // mb-12 to account for toolbar
+                                    onChange={(val: string) => onChange({ description: val })}
+                                    features={['bold', 'italic', 'underline', 'link', 'list']}
+                                    placeholder="Enter product description..."
                                 />
                             </div>
                         ) : (

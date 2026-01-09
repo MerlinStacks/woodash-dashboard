@@ -22,6 +22,7 @@ const EVENTS_BY_CATEGORY: Record<string, { subcategory?: string; events: EventIt
             events: [
                 { id: 'ORDER_CREATED', label: 'Order Created', icon: '🛒' },
                 { id: 'ORDER_COMPLETED', label: 'Order Completed', icon: '✅' },
+                { id: 'ORDER_STATUS_CHANGED', label: 'Order Status Changed', icon: '🔄' },
             ]
         },
         {
@@ -40,10 +41,20 @@ const EVENTS_BY_CATEGORY: Record<string, { subcategory?: string; events: EventIt
     ],
     customer: [
         {
+            subcategory: 'Lists',
+            events: [
+                { id: 'ADDED_TO_LIST', label: 'Added to List', icon: '📋' },
+                { id: 'REMOVED_FROM_LIST', label: 'Removed from List', icon: '📋' },
+            ]
+        },
+        {
+            subcategory: 'Contact',
             events: [
                 { id: 'CUSTOMER_SIGNUP', label: 'Customer Signup', icon: '👤' },
                 { id: 'TAG_ADDED', label: 'Tag is Added', icon: '🏷️' },
                 { id: 'TAG_REMOVED', label: 'Tag is Removed', icon: '🏷️' },
+                { id: 'CONTACT_BOUNCED', label: 'Contact Bounced', icon: '⚠️' },
+                { id: 'BIRTHDAY_REMINDER', label: 'Birthday Reminder', icon: '🎂' },
                 { id: 'MANUAL', label: 'Manual Entry', icon: '✋' },
             ]
         },
@@ -61,6 +72,7 @@ const EVENTS_BY_CATEGORY: Record<string, { subcategory?: string; events: EventIt
             events: [
                 { id: 'EMAIL_OPENED', label: 'Email Opened', icon: '📧' },
                 { id: 'LINK_CLICKED', label: 'Link Clicked', icon: '🔗' },
+                { id: 'CONTACT_UNSUBSCRIBED', label: 'Contact Unsubscribed', icon: '🚫' },
             ]
         },
     ],
@@ -155,8 +167,8 @@ export const EventSelectorModal: React.FC<EventSelectorModalProps> = ({
                                         setSelectedEvent(null);
                                     }}
                                     className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors ${activeCategory === cat.id
-                                            ? 'bg-white text-blue-600 font-medium border-r-2 border-blue-600'
-                                            : 'text-gray-600 hover:bg-gray-100'
+                                        ? 'bg-white text-blue-600 font-medium border-r-2 border-blue-600'
+                                        : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
                                     <Icon size={16} />
@@ -181,8 +193,8 @@ export const EventSelectorModal: React.FC<EventSelectorModalProps> = ({
                                             key={event.id}
                                             onClick={() => setSelectedEvent(event)}
                                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-full transition-all ${selectedEvent?.id === event.id
-                                                    ? 'bg-blue-50 border-blue-400 text-blue-700 ring-2 ring-blue-200'
-                                                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                                                ? 'bg-blue-50 border-blue-400 text-blue-700 ring-2 ring-blue-200'
+                                                : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
                                                 }`}
                                         >
                                             <span>{event.icon}</span>

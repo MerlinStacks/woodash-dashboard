@@ -1,134 +1,124 @@
-import { Router, Response } from 'express';
-import { AuthenticatedRequest } from '../types/express';
+/**
+ * Woo Route - Fastify Plugin
+ */
+
+import { FastifyPluginAsync } from 'fastify';
 import { WooService } from '../services/woo';
-import { requireAuth } from '../middleware/auth';
+import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 
-const router = Router();
+const wooRoutes: FastifyPluginAsync = async (fastify) => {
+    fastify.addHook('preHandler', requireAuthFastify);
 
-router.use(requireAuth);
-
-router.get('/orders', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.accountId;
-        if (!accountId) return res.status(400).json({ error: 'No account selected' });
-
-        const woo = await WooService.forAccount(accountId);
-        const orders = await woo.getOrders({ per_page: 20 });
-
-        res.json(orders);
-    } catch (error: any) {
-        Logger.error('Woo API Error', { error: error.response?.data || error.message });
-        res.status(500).json({ error: 'Failed to fetch orders' });
-    }
-});
-
-router.get('/products', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.accountId;
-        if (!accountId) return res.status(400).json({ error: 'No account selected' });
-
-        const woo = await WooService.forAccount(accountId);
-        // Pass standard Woo query params (search, page, per_page, etc.)
-        const products = await woo.getProducts({
-            ...req.query,
-            per_page: Number(req.query.per_page) || 20
-        });
-
-        res.json(products);
-    } catch (error: any) {
-        Logger.error('Woo API Error', { error: error.response?.data || error.message });
-        res.status(500).json({ error: 'Failed to fetch products' });
-    }
-});
-
-router.post('/configure', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.accountId;
-        const { origin, wooUrl, wooConsumerKey, wooConsumerSecret } = req.body; // Client sends its current origin + credentials
-
-        if (!accountId) return res.status(400).json({ error: 'No account selected' });
-        // Clean origin to remove trailing slash
-        const cleanOrigin = origin ? origin.replace(/\/$/, '') : '';
-        if (!cleanOrigin) return res.status(400).json({ error: 'Origin URL is required' });
-
-        let woo;
-        if (wooUrl && wooConsumerKey && wooConsumerSecret) {
-            // Use provided credentials (fresh from form)
-            woo = new WooService({
-                url: wooUrl,
-                consumerKey: wooConsumerKey,
-                consumerSecret: wooConsumerSecret,
-                accountId: accountId
-            });
-        } else {
-            // Fallback to saved credentials
-            woo = await WooService.forAccount(accountId);
-        }
-
-
-        // Validate credentials against a standard endpoint first
+    fastify.get('/orders', async (request, reply) => {
         try {
-            // Check system status (requires read access)
-            // If this fails, the credentials themselves are likely invalid or have very low permissions
-            await woo.getSystemStatus();
-        } catch (authError: any) {
-            Logger.error('Credential Verification Failed', { error: authError.message });
-            return res.status(401).json({
-                error: 'Invalid WooCommerce Credentials. Please check your Consumer Key and Secret.',
-                details: authError.message
-            });
+            const accountId = request.accountId;
+            if (!accountId) return reply.code(400).send({ error: 'No account selected' });
+
+            const woo = await WooService.forAccount(accountId);
+            const orders = await woo.getOrders({ per_page: 20 });
+
+            return orders;
+        } catch (error: any) {
+            Logger.error('Woo API Error', { error: error.response?.data || error.message });
+            return reply.code(500).send({ error: 'Failed to fetch orders' });
         }
+    });
 
-        // Push configuration to the plugin
+    fastify.get('/products', async (request, reply) => {
         try {
-            const result = await woo.updatePluginSettings({
-                account_id: accountId,
-                api_url: cleanOrigin
-            });
-            res.json({ success: true, plugin_response: result });
-        } catch (pluginError: any) {
-            Logger.error('Plugin Settings Update Failed', { error: pluginError.message });
+            const accountId = request.accountId;
+            if (!accountId) return reply.code(400).send({ error: 'No account selected' });
 
-            // Check if it's a 401 Unauthorized during the write operation
-            if (pluginError.response && pluginError.response.status === 401) {
-                return res.status(401).json({
-                    error: 'Configuration failed. Your API Key appears to be "Read Only". Please generate new WooCommerce keys with "Read/Write" permissions.',
-                    details: pluginError.response.data
+            const woo = await WooService.forAccount(accountId);
+            const query = request.query as Record<string, any>;
+            const products = await woo.getProducts({
+                ...query,
+                per_page: Number(query.per_page) || 20
+            });
+
+            return products;
+        } catch (error: any) {
+            Logger.error('Woo API Error', { error: error.response?.data || error.message });
+            return reply.code(500).send({ error: 'Failed to fetch products' });
+        }
+    });
+
+    fastify.post('/configure', async (request, reply) => {
+        try {
+            const accountId = request.accountId;
+            const { origin, wooUrl, wooConsumerKey, wooConsumerSecret } = request.body as any;
+
+            if (!accountId) return reply.code(400).send({ error: 'No account selected' });
+            const cleanOrigin = origin ? origin.replace(/\/$/, '') : '';
+            if (!cleanOrigin) return reply.code(400).send({ error: 'Origin URL is required' });
+
+            let woo;
+            if (wooUrl && wooConsumerKey && wooConsumerSecret) {
+                woo = new WooService({
+                    url: wooUrl,
+                    consumerKey: wooConsumerKey,
+                    consumerSecret: wooConsumerSecret,
+                    accountId: accountId
+                });
+            } else {
+                woo = await WooService.forAccount(accountId);
+            }
+
+            try {
+                await woo.getSystemStatus();
+            } catch (authError: any) {
+                Logger.error('Credential Verification Failed', { error: authError.message });
+                return reply.code(401).send({
+                    error: 'Invalid WooCommerce Credentials. Please check your Consumer Key and Secret.',
+                    details: authError.message
                 });
             }
 
-            throw pluginError; // Re-throw to be caught by the outer error handler for generic errors
+            try {
+                const result = await woo.updatePluginSettings({
+                    account_id: accountId,
+                    api_url: cleanOrigin
+                });
+                return { success: true, plugin_response: result };
+            } catch (pluginError: any) {
+                Logger.error('Plugin Settings Update Failed', { error: pluginError.message });
+
+                if (pluginError.response?.status === 401) {
+                    return reply.code(401).send({
+                        error: 'Configuration failed. Your API Key appears to be "Read Only". Please generate new WooCommerce keys with "Read/Write" permissions.',
+                        details: pluginError.response.data
+                    });
+                }
+
+                throw pluginError;
+            }
+        } catch (error: any) {
+            const errorDetails = {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                headers: error.response?.headers,
+                url: error.config?.url
+            };
+            Logger.error('Woo Configuration Error', { errorDetails });
+
+            let userMessage = 'Failed to configure plugin';
+            if (error.response?.status === 404) {
+                userMessage = 'Plugin endpoint not found on your store. Please ensure the OverSeek Helper Plugin is installed and active.';
+            } else if (error.code === 'ENOTFOUND') {
+                userMessage = 'Could not DNS resolve your store URL. Please check your domain settings.';
+            } else if (error.message.includes('ECONNREFUSED')) {
+                userMessage = 'Connection refused. Is your store server reachable?';
+            }
+
+            return reply.code(500).send({
+                error: `${userMessage} (${error.message}) - ${JSON.stringify(error.response?.data || {})}`,
+                technical_details: error.message,
+                woo_response: error.response?.data
+            });
         }
-    } catch (error: any) {
-        const errorDetails = {
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status,
-            headers: error.response?.headers,
-            url: error.config?.url
-        };
-        Logger.error('Woo Configuration Error', { errorDetails });
+    });
+};
 
-        // Write to a temporary debug file for deeper inspection if needed
-        require('fs').writeFileSync('debug_woo_error.json', JSON.stringify(errorDetails, null, 2));
-
-        // Determine a friendlier error message
-        let userMessage = 'Failed to configure plugin';
-        if (error.response?.status === 404) {
-            userMessage = 'Plugin endpoint not found on your store. Please ensure the OverSeek Helper Plugin is installed and active.';
-        } else if (error.code === 'ENOTFOUND') {
-            userMessage = 'Could not DNS resolve your store URL. Please check your domain settings.';
-        } else if (error.message.includes('ECONNREFUSED')) {
-            userMessage = 'Connection refused. Is your store server reachable?';
-        }
-
-        res.status(500).json({
-            error: `${userMessage} (${error.message}) - ${JSON.stringify(error.response?.data || {})}`,
-            technical_details: error.message,
-            woo_response: error.response?.data
-        });
-    }
-});
-
-export default router;
+export default wooRoutes;

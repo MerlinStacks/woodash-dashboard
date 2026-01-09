@@ -1,47 +1,53 @@
-import { Router, Request, Response } from 'express';
-import { AuthenticatedRequest } from '../types/express';
+/**
+ * Customers Route - Fastify Plugin
+ */
+
+import { FastifyPluginAsync } from 'fastify';
 import { CustomersService } from '../services/customers';
-import { requireAuth } from '../middleware/auth';
+import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 
-const router = Router();
+const customersRoutes: FastifyPluginAsync = async (fastify) => {
+    // Apply auth to all routes in this plugin
+    fastify.addHook('preHandler', requireAuthFastify);
 
-router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = (req as any).accountId;
-        // Middleware guarantees accountId or returns 400
+    fastify.get('/', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
 
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 20;
-        const query = (req.query.q as string) || '';
+            const query = request.query as { page?: string; limit?: string; q?: string };
+            const page = parseInt(query.page || '1');
+            const limit = parseInt(query.limit || '20');
+            const q = query.q || '';
 
-        const result = await CustomersService.searchCustomers(accountId, query, page, limit);
-        res.json(result);
-    } catch (error: any) {
-        Logger.error('Failed to fetch customers', { error });
-        res.status(500).json({ error: 'Failed to fetch customers' });
-    }
-});
-
-router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        Logger.debug(`GET /customers/${req.params.id}`, { accountId: (req as any).accountId });
-        const accountId = (req as any).accountId;
-        const customerId = req.params.id;
-
-        const result = await CustomersService.getCustomerDetails(accountId, customerId);
-
-        if (!result) {
-            Logger.debug(`Customer not found`, { customerId: req.params.id });
-            res.status(404).json({ error: 'Customer not found' });
-            return;
+            const result = await CustomersService.searchCustomers(accountId, q, page, limit);
+            return result;
+        } catch (error: any) {
+            Logger.error('Failed to fetch customers', { error });
+            return reply.code(500).send({ error: 'Failed to fetch customers' });
         }
+    });
 
-        res.json(result);
-    } catch (error: any) {
-        Logger.error('Get Customer Details Error', { error });
-        res.status(500).json({ error: 'Failed to fetch customer details' });
-    }
-});
+    fastify.get<{ Params: { id: string } }>('/:id', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            const customerId = request.params.id;
 
-export default router;
+            Logger.debug(`GET /customers/${customerId}`, { accountId });
+
+            const result = await CustomersService.getCustomerDetails(accountId, customerId);
+
+            if (!result) {
+                Logger.debug(`Customer not found`, { customerId });
+                return reply.code(404).send({ error: 'Customer not found' });
+            }
+
+            return result;
+        } catch (error: any) {
+            Logger.error('Get Customer Details Error', { error });
+            return reply.code(500).send({ error: 'Failed to fetch customer details' });
+        }
+    });
+};
+
+export default customersRoutes;

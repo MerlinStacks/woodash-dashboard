@@ -8,6 +8,7 @@ import {
     Radio,
     Key,
     Sparkles,
+    Settings,
     ChevronLeft,
     ChevronRight,
     LogOut
@@ -22,6 +23,7 @@ const navItems = [
     { icon: Sparkles, label: 'AI Prompts', path: '/admin/ai-prompts' },
     { icon: FileText, label: 'System Logs', path: '/admin/logs' },
     { icon: Radio, label: 'Broadcasts', path: '/admin/broadcast' },
+    { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
 export function AdminSidebar() {

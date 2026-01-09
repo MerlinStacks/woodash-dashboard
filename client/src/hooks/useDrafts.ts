@@ -3,7 +3,7 @@
  * Drafts are persisted per-conversation and auto-restored when switching threads.
  */
 import { useCallback, useRef, useEffect } from 'react';
-import { debounce } from 'lodash';
+import { debounce } from '../utils/debounce';
 
 const DRAFT_KEY_PREFIX = 'inbox_draft_';
 

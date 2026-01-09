@@ -3,7 +3,7 @@ import { redisClient } from '../../utils/redis';
 import { Logger } from '../../utils/logger';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
-import { ExpressAdapter } from '@bull-board/express';
+import { FastifyAdapter } from '@bull-board/fastify';
 
 // Define Queue Names
 export const QUEUES = {
@@ -31,7 +31,7 @@ export class QueueFactory {
         }
 
         const queue = new Queue(name, {
-            connection: redisClient,
+            connection: redisClient as any,
             defaultJobOptions: {
                 attempts: 3,
                 backoff: {
@@ -57,7 +57,7 @@ export class QueueFactory {
             Logger.info(`Processing Job ${job.id}`, { jobId: job.id, accountId: job.data.accountId });
             await processor(job);
         }, {
-            connection: redisClient.duplicate(),
+            connection: redisClient.duplicate() as any,
             concurrency: 5, // Can perform 5 syncs in parallel per queue type
         });
 
@@ -74,12 +74,12 @@ export class QueueFactory {
 
     // Bull Board Setup
     static createBoard() {
-        const serverAdapter = new ExpressAdapter();
+        const serverAdapter = new FastifyAdapter();
         serverAdapter.setBasePath('/admin/queues');
 
         createBullBoard({
-            queues: Array.from(queues.values()).map(q => new BullMQAdapter(q) as any),
-            serverAdapter,
+            queues: Array.from(queues.values()).map(q => new BullMQAdapter(q)) as any,
+            serverAdapter: serverAdapter as any,
         });
 
         return serverAdapter;

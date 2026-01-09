@@ -26,16 +26,18 @@ import {
     EventSelectorModal,
     StepTypePopup,
     ActionSelectorModal,
+    RecipeSelectorModal,
     StepType,
+    AutomationRecipe,
 } from './flow';
 
-// Define Node Types
-const nodeTypes: NodeTypes = {
+// Define Node Types - Cast needed for React 19 compatibility with @xyflow/react types
+const nodeTypes = {
     trigger: TriggerNode,
     action: ActionNode,
     delay: DelayNode,
     condition: ConditionNode,
-};
+} as NodeTypes;
 
 let id = 0;
 const getId = () => `node_${Date.now()}_${id++}`;
@@ -83,8 +85,10 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
     const [showEventSelector, setShowEventSelector] = useState(false);
     const [showStepPopup, setShowStepPopup] = useState(false);
     const [showActionSelector, setShowActionSelector] = useState(false);
+    const [showRecipeSelector, setShowRecipeSelector] = useState(false);
     const [stepPopupPosition, setStepPopupPosition] = useState({ x: 0, y: 0 });
     const [pendingNodeParent, setPendingNodeParent] = useState<string | null>(null);
+
 
     // Stable callback refs for node operations (to avoid circular deps in node data)
     const copyNodeRef = useRef<(nodeId: string) => void>(() => { });
@@ -194,6 +198,37 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
         setStepPopupPosition(buttonPosition);
         setShowStepPopup(true);
     }, []);
+
+    // --- Recipe Selection ---
+    const handleRecipeSelect = useCallback((recipe: AutomationRecipe) => {
+        // Generate positions for nodes
+        const nodesWithPositions = recipe.nodes.map((node, index) => ({
+            ...node,
+            id: `recipe_${node.id}_${getId()}`,
+            position: { x: 250, y: 100 + index * 180 },
+            data: {
+                ...node.data,
+                onAddStep: handleOpenStepPopup,
+                onCopy: onNodeCopy,
+                onDelete: onNodeDelete,
+            },
+        }));
+
+        // Update edge references to new node IDs
+        const edgesWithIds = recipe.edges.map((edge, index) => {
+            const sourceNode = nodesWithPositions.find(n => n.id.includes(`_${edge.source}_`));
+            const targetNode = nodesWithPositions.find(n => n.id.includes(`_${edge.target}_`));
+            return {
+                ...edge,
+                id: `recipe_edge_${index}_${getId()}`,
+                source: sourceNode?.id || edge.source,
+                target: targetNode?.id || edge.target,
+            };
+        });
+
+        setNodes(nodesWithPositions);
+        setEdges(edgesWithIds);
+    }, [setNodes, setEdges, handleOpenStepPopup, onNodeCopy, onNodeDelete]);
 
     const handleStepSelect = useCallback((stepType: StepType) => {
         if (!pendingNodeParent) return;
@@ -361,7 +396,10 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
 
                 {/* Starting Point Card (empty canvas) */}
                 {isEmptyCanvas && (
-                    <StartingPointCard onClick={() => setShowEventSelector(true)} />
+                    <StartingPointCard
+                        onClick={() => setShowEventSelector(true)}
+                        onRecipeClick={() => setShowRecipeSelector(true)}
+                    />
                 )}
             </div>
 
@@ -401,6 +439,13 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
                     setPendingNodeParent(null);
                 }}
                 onSelect={handleActionSelect}
+            />
+
+            {/* Recipe Selector Modal */}
+            <RecipeSelectorModal
+                isOpen={showRecipeSelector}
+                onClose={() => setShowRecipeSelector(false)}
+                onSelect={handleRecipeSelect}
             />
         </div>
     );

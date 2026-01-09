@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { renderWidget, WidgetRegistry } from '../components/widgets/WidgetRegistry';
 import { Loader2, Plus, X, Lock, Unlock } from 'lucide-react';
-import _ from 'lodash';
+import { debounce, isEqual } from '../utils/debounce';
 import { useRef, useLayoutEffect, useState, useEffect, useMemo } from 'react';
 import { useMobile } from '../hooks/useMobile';
 import { getDateRange, getComparisonRange, DateRangeOption, ComparisonOption } from '../utils/dateUtils';
@@ -132,13 +132,13 @@ export function DashboardPage() {
             return w;
         });
 
-        if (!_.isEqual(widgets, newWidgets)) {
+        if (!isEqual(widgets, newWidgets)) {
             setWidgets(newWidgets);
             debouncedSave(newWidgets);
         }
     };
 
-    const debouncedSave = _.debounce(async (newWidgets: WidgetInstance[]) => {
+    const debouncedSave = debounce(async (newWidgets: WidgetInstance[]) => {
         setIsSaving(true);
         try {
             await fetch('/api/dashboard', {

@@ -1,9 +1,39 @@
 
 import { createPrismaClient } from '../../utils/prisma';
-import axios from 'axios';
 import https from 'https';
 
 const prisma = createPrismaClient();
+
+// Custom fetch with HTTPS agent for debug purposes
+async function fetchWithAgent(url: string, agent: https.Agent): Promise<Response> {
+    // Node.js native fetch doesn't support custom agents directly,
+    // so we use the https module for this debug script
+    return new Promise((resolve, reject) => {
+        const urlObj = new URL(url);
+        const options: https.RequestOptions = {
+            hostname: urlObj.hostname,
+            port: urlObj.port || 443,
+            path: urlObj.pathname + urlObj.search,
+            method: 'GET',
+            agent,
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                resolve({
+                    ok: res.statusCode !== undefined && res.statusCode >= 200 && res.statusCode < 300,
+                    status: res.statusCode || 0,
+                    json: () => Promise.resolve(JSON.parse(data)),
+                } as unknown as Response);
+            });
+        });
+
+        req.on('error', reject);
+        req.end();
+    });
+}
 
 async function main() {
     const log = await prisma.syncLog.findFirst({
@@ -23,14 +53,10 @@ async function main() {
         rejectUnauthorized: false
     });
 
+    const testUrl = `${wooUrl}/wp-json/wc/v3/system_status?consumer_key=${wooConsumerKey}&consumer_secret=${wooConsumerSecret}`;
+
     try {
-        const response = await axios.get(`${wooUrl}/wp-json/wc/v3/system_status`, {
-            params: {
-                consumer_key: wooConsumerKey,
-                consumer_secret: wooConsumerSecret
-            },
-            httpsAgent: agent
-        });
+        const response = await fetchWithAgent(testUrl, agent);
         console.log("Success:", response.status);
     } catch (error: any) {
         console.error("Standard Agent connection failed:", error.message);
@@ -49,10 +75,7 @@ async function main() {
 
     try {
         console.log("Attempt 2: Explicit servername");
-        await axios.get(`${wooUrl}/wp-json/wc/v3/system_status`, {
-            params: { consumer_key: wooConsumerKey, consumer_secret: wooConsumerSecret },
-            httpsAgent: agent2
-        });
+        await fetchWithAgent(testUrl, agent2);
         console.log("Success with explicit servername!");
     } catch (e: any) { console.log("Failed 2:", e.message); }
 

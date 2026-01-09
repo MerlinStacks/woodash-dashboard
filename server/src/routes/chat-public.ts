@@ -1,133 +1,99 @@
-import { Router } from 'express';
+/**
+ * Public Chat Routes - Fastify Plugin Factory
+ * Public-facing endpoints for guest visitors.
+ */
+
+import { FastifyPluginAsync } from 'fastify';
 import { prisma } from '../utils/prisma';
 import { ChatService } from '../services/ChatService';
 import { Logger } from '../utils/logger';
 
-export const createPublicChatRouter = (chatService: ChatService) => {
-    const router = Router();
+export const createPublicChatRoutes = (chatService: ChatService): FastifyPluginAsync => {
+    return async (fastify) => {
+        // POST /conversation - Start or resume a conversation for a guest visitor
+        fastify.post('/conversation', async (request, reply) => {
+            try {
+                const { accountId, visitorToken, name, email } = request.body as any;
 
-    // POST /api/chat/public/conversation
-    // Start or resume a conversation for a guest visitor
-    router.post('/conversation', async (req, res) => {
-        try {
-            const { accountId, visitorToken, name, email } = req.body;
-
-            if (!accountId || !visitorToken) {
-                return res.status(400).json({ error: 'Missing accountId or visitorToken' });
-            }
-
-            // 1. Check for existing open conversation
-            let conversation = await prisma.conversation.findFirst({
-                where: {
-                    accountId,
-                    visitorToken,
-                    status: 'OPEN'
-                },
-                include: {
-                    messages: {
-                        orderBy: { createdAt: 'asc' }
-                    },
-                    assignee: {
-                        select: { id: true, fullName: true, avatarUrl: true }
-                    }
+                if (!accountId || !visitorToken) {
+                    return reply.code(400).send({ error: 'Missing accountId or visitorToken' });
                 }
-            });
 
-            // 2. If not found, create new
-            if (!conversation) {
-                conversation = await prisma.conversation.create({
-                    data: {
-                        accountId,
-                        visitorToken,
-                        status: 'OPEN',
-                        // If we have name/email, we could try to link or create a WooCustomer?
-                        // For now just store in context if needed, or rely on messages.
-                    },
+                // Check for existing open conversation
+                let conversation = await prisma.conversation.findFirst({
+                    where: { accountId, visitorToken, status: 'OPEN' },
                     include: {
-                        messages: true,
-                        assignee: {
-                            select: { id: true, fullName: true, avatarUrl: true }
-                        }
+                        messages: { orderBy: { createdAt: 'asc' } },
+                        assignee: { select: { id: true, fullName: true, avatarUrl: true } }
                     }
                 });
 
-                // Add system start message? Or just wait for user to type.
+                // If not found, create new
+                if (!conversation) {
+                    conversation = await prisma.conversation.create({
+                        data: { accountId, visitorToken, status: 'OPEN' },
+                        include: {
+                            messages: true,
+                            assignee: { select: { id: true, fullName: true, avatarUrl: true } }
+                        }
+                    });
+                }
+
+                return conversation;
+            } catch (error) {
+                Logger.error('Public chat conversation error', { error });
+                return reply.code(500).send({ error: 'Failed to start conversation' });
             }
+        });
 
-            res.json(conversation);
+        // POST /:id/messages - Send a message as a guest
+        fastify.post<{ Params: { id: string } }>('/:id/messages', async (request, reply) => {
+            try {
+                const { content, visitorToken } = request.body as any;
+                const conversationId = request.params.id;
 
-        } catch (error) {
-            Logger.error('Public chat conversation error', { error });
-            res.status(500).json({ error: 'Failed to start conversation' });
-        }
-    });
+                const conversation = await prisma.conversation.findUnique({ where: { id: conversationId } });
+                if (!conversation || conversation.visitorToken !== visitorToken) {
+                    return reply.code(403).send({ error: 'Unauthorized access to conversation' });
+                }
 
-    // POST /api/chat/public/:id/messages
-    // Send a message as a guest
-    router.post('/:id/messages', async (req, res) => {
-        try {
-            const { content, visitorToken } = req.body;
-            const conversationId = req.params.id;
-
-            // Verify ownership via token
-            const conversation = await prisma.conversation.findUnique({
-                where: { id: conversationId }
-            });
-
-            if (!conversation || conversation.visitorToken !== visitorToken) {
-                return res.status(403).json({ error: 'Unauthorized access to conversation' });
+                const msg = await chatService.addMessage(conversationId, content, 'CUSTOMER');
+                return msg;
+            } catch (error) {
+                Logger.error('Public message error', { error });
+                return reply.code(500).send({ error: 'Failed to send message' });
             }
+        });
 
-            const msg = await chatService.addMessage(
-                conversationId,
-                content,
-                'CUSTOMER'
-            );
+        // GET /:id/messages - Poll for updates
+        fastify.get<{ Params: { id: string } }>('/:id/messages', async (request, reply) => {
+            try {
+                const query = request.query as { visitorToken?: string; after?: string };
+                const conversationId = request.params.id;
 
-            res.json(msg);
+                const conversation = await prisma.conversation.findUnique({ where: { id: conversationId } });
+                if (!conversation || conversation.visitorToken !== query.visitorToken) {
+                    return reply.code(403).send({ error: 'Unauthorized' });
+                }
 
-        } catch (error) {
-            Logger.error('Public message error', { error });
-            res.status(500).json({ error: 'Failed to send message' });
-        }
-    });
+                const whereClause: any = { conversationId };
+                if (query.after) {
+                    whereClause.createdAt = { gt: new Date(query.after) };
+                }
 
-    // GET /api/chat/public/:id/messages
-    // Poll for updates (since we can't easily do socket auth for guests without more work)
-    router.get('/:id/messages', async (req, res) => {
-        try {
-            const { visitorToken, after } = req.query;
-            const conversationId = req.params.id;
+                const messages = await prisma.message.findMany({
+                    where: whereClause,
+                    orderBy: { createdAt: 'asc' }
+                });
 
-            // Verify ownership
-            const conversation = await prisma.conversation.findUnique({
-                where: { id: conversationId }
-            });
-
-            if (!conversation || conversation.visitorToken !== String(visitorToken)) {
-                return res.status(403).json({ error: 'Unauthorized' });
+                return messages;
+            } catch (error) {
+                Logger.error('Public poll error', { error });
+                return reply.code(500).send({ error: 'Failed to fetch messages' });
             }
-
-            const whereClause: any = {
-                conversationId
-            };
-
-            if (after) {
-                whereClause.createdAt = { gt: new Date(String(after)) };
-            }
-
-            const messages = await prisma.message.findMany({
-                where: whereClause,
-                orderBy: { createdAt: 'asc' }
-            });
-
-            res.json(messages);
-
-        } catch (error) {
-            Logger.error('Public poll error', { error });
-            res.status(500).json({ error: 'Failed to fetch messages' });
-        }
-    });
-
-    return router;
+        });
+    };
 };
+
+// Legacy export for backward compatibility
+export { createPublicChatRoutes as createPublicChatRouter };

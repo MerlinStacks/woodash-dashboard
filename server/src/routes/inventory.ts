@@ -1,284 +1,255 @@
-import { Router, Request, Response } from 'express';
-import { AuthenticatedRequest } from '../types/express';
+/**
+ * Inventory Route - Fastify Plugin
+ */
+
+import { FastifyPluginAsync } from 'fastify';
 import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
-import { requireAuth } from '../middleware/auth';
+import { requireAuthFastify } from '../middleware/auth';
 import { PurchaseOrderService } from '../services/PurchaseOrderService';
 import { PicklistService } from '../services/PicklistService';
+import { InventoryService } from '../services/InventoryService';
 
-const router = Router();
 const poService = new PurchaseOrderService();
 const picklistService = new PicklistService();
 
-router.use(requireAuth);
+const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
+    fastify.addHook('preHandler', requireAuthFastify);
 
-// --- Settings & Alerts ---
+    // --- Settings & Alerts ---
 
-// GET /settings
-router.get('/settings', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    try {
-        const settings = await prisma.inventorySettings.findUnique({
-            where: { accountId }
-        });
-        res.json(settings || {});
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch settings' });
-    }
-});
+    // GET /settings
+    fastify.get('/settings', async (request, reply) => {
+        const accountId = request.accountId;
+        try {
+            const settings = await prisma.inventorySettings.findUnique({
+                where: { accountId }
+            });
+            return settings || {};
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to fetch settings' });
+        }
+    });
 
-// POST /settings
-router.post('/settings', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    const { isEnabled, lowStockThresholdDays, alertEmails } = req.body;
-    try {
-        const settings = await prisma.inventorySettings.upsert({
-            where: { accountId },
-            create: {
-                accountId,
-                isEnabled,
-                lowStockThresholdDays,
-                alertEmails
-            },
-            update: {
-                isEnabled,
-                lowStockThresholdDays,
-                alertEmails
-            }
-        });
-        res.json(settings);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to save settings' });
-    }
-});
+    // POST /settings
+    fastify.post<{ Body: { isEnabled?: boolean; lowStockThresholdDays?: number; alertEmails?: string[] } }>('/settings', async (request, reply) => {
+        const accountId = request.accountId!;
+        const { isEnabled, lowStockThresholdDays, alertEmails } = request.body;
+        try {
+            const settings = await prisma.inventorySettings.upsert({
+                where: { accountId },
+                create: { accountId, isEnabled, lowStockThresholdDays, alertEmails },
+                update: { isEnabled, lowStockThresholdDays, alertEmails }
+            });
+            return settings;
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to save settings' });
+        }
+    });
 
-// GET /health
-import { InventoryService } from '../services/InventoryService';
+    // GET /health
+    fastify.get('/health', async (request, reply) => {
+        const accountId = request.accountId;
+        try {
+            const risks = await InventoryService.checkInventoryHealth(accountId!);
+            return risks;
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to check inventory health' });
+        }
+    });
 
-router.get('/health', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    try {
-        const risks = await InventoryService.checkInventoryHealth(accountId);
-        res.json(risks);
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to check inventory health' });
-    }
-});
+    // --- Suppliers ---
 
+    fastify.get('/suppliers', async (request, reply) => {
+        const accountId = request.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'No account' });
 
-// --- Suppliers ---
+        try {
+            const suppliers = await prisma.supplier.findMany({
+                where: { accountId },
+                include: { items: true },
+                orderBy: { name: 'asc' }
+            });
+            return suppliers;
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to fetch suppliers' });
+        }
+    });
 
-// GET /suppliers
-router.get('/suppliers', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    if (!accountId) return res.status(400).json({ error: 'No account' });
+    fastify.post('/suppliers', async (request, reply) => {
+        const accountId = request.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'No account' });
 
-    try {
-        const suppliers = await prisma.supplier.findMany({
-            where: { accountId },
-            include: { items: true },
-            orderBy: { name: 'asc' }
-        });
-        res.json(suppliers);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch suppliers' });
-    }
-});
-
-// POST /suppliers
-router.post('/suppliers', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    if (!accountId) return res.status(400).json({ error: 'No account' });
-
-    try {
-        const { name, contactName, email, phone, currency, leadTimeDefault, leadTimeMin, leadTimeMax, paymentTerms } = req.body;
-        const supplier = await prisma.supplier.create({
-            data: {
-                accountId,
-                name,
-                contactName,
-                email,
-                phone,
-                currency: currency || 'USD',
-                leadTimeDefault: leadTimeDefault ? parseInt(leadTimeDefault) : null,
-                leadTimeMin: leadTimeMin ? parseInt(leadTimeMin) : null,
-                leadTimeMax: leadTimeMax ? parseInt(leadTimeMax) : null,
-                paymentTerms
-            }
-        });
-        res.json(supplier);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to create supplier' });
-    }
-});
-
-// POST /suppliers/:id/items
-router.post('/suppliers/:id/items', async (req: AuthenticatedRequest, res: Response) => {
-    const { id } = req.params;
-    try {
-        const { name, sku, cost, leadTime, moq } = req.body;
-        const item = await prisma.supplierItem.create({
-            data: {
-                supplierId: id,
-                name,
-                sku,
-                cost: parseFloat(cost),
-                leadTime: leadTime ? parseInt(leadTime) : null,
-                moq: moq ? parseInt(moq) : 1
-            }
-        });
-        res.json(item);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to add item' });
-    }
-});
-
-// --- BOM ---
-
-// GET /products/:productId/bom
-router.get('/products/:productId/bom', async (req: AuthenticatedRequest, res: Response) => {
-    const { productId } = req.params;
-    const variationId = parseInt(req.query.variationId as string) || 0;
-
-    try {
-        const bom = await prisma.bOM.findUnique({
-            where: {
-                productId_variationId: {
-                    productId,
-                    variationId
+        try {
+            const { name, contactName, email, phone, currency, leadTimeDefault, leadTimeMin, leadTimeMax, paymentTerms } = request.body as any;
+            const supplier = await prisma.supplier.create({
+                data: {
+                    accountId,
+                    name,
+                    contactName,
+                    email,
+                    phone,
+                    currency: currency || 'USD',
+                    leadTimeDefault: leadTimeDefault ? parseInt(leadTimeDefault) : null,
+                    leadTimeMin: leadTimeMin ? parseInt(leadTimeMin) : null,
+                    leadTimeMax: leadTimeMax ? parseInt(leadTimeMax) : null,
+                    paymentTerms
                 }
-            },
-            include: {
-                items: {
-                    include: { supplierItem: { include: { supplier: true } } }
+            });
+            return supplier;
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to create supplier' });
+        }
+    });
+
+    fastify.post<{ Params: { id: string } }>('/suppliers/:id/items', async (request, reply) => {
+        const { id } = request.params;
+        try {
+            const { name, sku, cost, leadTime, moq } = request.body as any;
+            const item = await prisma.supplierItem.create({
+                data: {
+                    supplierId: id,
+                    name,
+                    sku,
+                    cost: parseFloat(cost),
+                    leadTime: leadTime ? parseInt(leadTime) : null,
+                    moq: moq ? parseInt(moq) : 1
                 }
-            }
-        });
-        res.json(bom || { items: [] });
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to fetch BOM' });
-    }
-});
+            });
+            return item;
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to add item' });
+        }
+    });
 
-// POST /products/:productId/bom
-router.post('/products/:productId/bom', async (req: AuthenticatedRequest, res: Response) => {
-    const { productId } = req.params;
-    const { items, variationId = 0 } = req.body; // variationId from body, default 0
+    // --- BOM ---
 
-    try {
-        // Upsert BOM
-        const bom = await prisma.bOM.upsert({
-            where: {
-                productId_variationId: {
-                    productId,
-                    variationId: Number(variationId)
+    fastify.get<{ Params: { productId: string } }>('/products/:productId/bom', async (request, reply) => {
+        const { productId } = request.params;
+        const query = request.query as { variationId?: string };
+        const variationId = parseInt(query.variationId || '0');
+
+        try {
+            const bom = await prisma.bOM.findUnique({
+                where: {
+                    productId_variationId: { productId, variationId }
+                },
+                include: {
+                    items: {
+                        include: { supplierItem: { include: { supplier: true } } }
+                    }
                 }
-            },
-            create: {
-                productId,
-                variationId: Number(variationId)
-            },
-            update: {}
-        });
+            });
+            return bom || { items: [] };
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to fetch BOM' });
+        }
+    });
 
-        // Replace items (Transaction)
-        await prisma.$transaction([
-            prisma.bOMItem.deleteMany({ where: { bomId: bom.id } }),
-            prisma.bOMItem.createMany({
-                data: items.map((item: any) => ({
-                    bomId: bom.id,
-                    supplierItemId: item.supplierItemId,
-                    childProductId: item.childProductId, // Ensure childProductId is passed
-                    quantity: item.quantity,
-                    wasteFactor: item.wasteFactor || 0
-                }))
-            })
-        ]);
+    fastify.post<{ Params: { productId: string } }>('/products/:productId/bom', async (request, reply) => {
+        const { productId } = request.params;
+        const { items, variationId = 0 } = request.body as any;
 
-        const updated = await prisma.bOM.findUnique({
-            where: { id: bom.id },
-            include: { items: { include: { supplierItem: true, childProduct: true } } }
-        });
+        try {
+            const bom = await prisma.bOM.upsert({
+                where: {
+                    productId_variationId: { productId, variationId: Number(variationId) }
+                },
+                create: { productId, variationId: Number(variationId) },
+                update: {}
+            });
 
-        res.json(updated);
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to save BOM' });
-    }
-});
+            await prisma.$transaction([
+                prisma.bOMItem.deleteMany({ where: { bomId: bom.id } }),
+                prisma.bOMItem.createMany({
+                    data: items.map((item: any) => ({
+                        bomId: bom.id,
+                        supplierItemId: item.supplierItemId,
+                        childProductId: item.childProductId,
+                        quantity: item.quantity,
+                        wasteFactor: item.wasteFactor || 0
+                    }))
+                })
+            ]);
 
-// export default router; // Moved to end
+            const updated = await prisma.bOM.findUnique({
+                where: { id: bom.id },
+                include: { items: { include: { supplierItem: true, childProduct: true } } }
+            });
 
-// --- Purchase Orders ---
+            return updated;
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to save BOM' });
+        }
+    });
 
-// GET /purchase-orders
-router.get('/purchase-orders', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    const { status } = req.query;
-    try {
-        const orders = await poService.listPurchaseOrders(accountId, status as string);
-        res.json(orders);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch POs' });
-    }
-});
+    // --- Purchase Orders ---
 
-// GET /purchase-orders/:id
-router.get('/purchase-orders/:id', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    const { id } = req.params;
-    try {
-        const po = await poService.getPurchaseOrder(accountId, id);
-        if (!po) return res.status(404).json({ error: 'PO not found' });
-        res.json(po);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch PO' });
-    }
-});
+    fastify.get('/purchase-orders', async (request, reply) => {
+        const accountId = request.accountId!;
+        const { status } = request.query as { status?: string };
+        try {
+            const orders = await poService.listPurchaseOrders(accountId, status);
+            return orders;
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to fetch POs' });
+        }
+    });
 
-// POST /purchase-orders
-router.post('/purchase-orders', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    try {
-        const po = await poService.createPurchaseOrder(accountId, req.body);
-        res.json(po);
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to create PO' });
-    }
-});
+    fastify.get<{ Params: { id: string } }>('/purchase-orders/:id', async (request, reply) => {
+        const accountId = request.accountId!;
+        const { id } = request.params;
+        try {
+            const po = await poService.getPurchaseOrder(accountId, id);
+            if (!po) return reply.code(404).send({ error: 'PO not found' });
+            return po;
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to fetch PO' });
+        }
+    });
 
-// PUT /purchase-orders/:id
-router.put('/purchase-orders/:id', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    const { id } = req.params;
-    try {
-        await poService.updatePurchaseOrder(accountId, id, req.body);
-        const updated = await poService.getPurchaseOrder(accountId, id);
-        res.json(updated);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update PO' });
-    }
-});
+    fastify.post('/purchase-orders', async (request, reply) => {
+        const accountId = request.accountId!;
+        try {
+            const po = await poService.createPurchaseOrder(accountId, request.body as any);
+            return po;
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to create PO' });
+        }
+    });
 
-// --- Picklist ---
+    fastify.put<{ Params: { id: string } }>('/purchase-orders/:id', async (request, reply) => {
+        const accountId = request.accountId!;
+        const { id } = request.params;
+        try {
+            await poService.updatePurchaseOrder(accountId, id, request.body as any);
+            const updated = await poService.getPurchaseOrder(accountId, id);
+            return updated;
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to update PO' });
+        }
+    });
 
-// GET /picklist
-router.get('/picklist', async (req: AuthenticatedRequest, res: Response) => {
-    const accountId = (req as any).accountId;
-    const { status, limit } = req.query;
-    try {
-        const picklist = await picklistService.generatePicklist(accountId, {
-            status: status as string,
-            limit: limit ? Number(limit) : undefined
-        });
-        res.json(picklist);
-    } catch (error) {
-        Logger.error('Error', { error });
-        res.status(500).json({ error: 'Failed to generate picklist' });
-    }
-});
+    // --- Picklist ---
 
-export default router;
+    fastify.get('/picklist', async (request, reply) => {
+        const accountId = request.accountId!;
+        const { status, limit } = request.query as { status?: string; limit?: string };
+        try {
+            const picklist = await picklistService.generatePicklist(accountId, {
+                status,
+                limit: limit ? Number(limit) : undefined
+            });
+            return picklist;
+        } catch (error) {
+            Logger.error('Error', { error });
+            return reply.code(500).send({ error: 'Failed to generate picklist' });
+        }
+    });
+};
+
+export default inventoryRoutes;

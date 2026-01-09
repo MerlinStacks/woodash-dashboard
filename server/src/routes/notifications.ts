@@ -1,210 +1,203 @@
-import { Router, Request, Response } from 'express';
-import { AuthenticatedRequest } from '../types/express';
+/**
+ * Notifications Route - Fastify Plugin
+ */
+
+import { FastifyPluginAsync } from 'fastify';
 import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
-
-import { requireAuth } from '../middleware/auth';
-
-const router = Router();
-
-router.use(requireAuth);
-
-// GET / - List notifications for account
-router.get('/', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.headers['x-account-id'] as string;
-        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
-
-        const limit = parseInt(req.query.limit as string) || 20;
-
-        const notifications = await prisma.notification.findMany({
-            where: { accountId },
-            orderBy: { createdAt: 'desc' },
-            take: limit
-        });
-
-        // Count unread
-        const unreadCount = await prisma.notification.count({
-            where: { accountId, isRead: false }
-        });
-
-        res.json({ notifications, unreadCount });
-    } catch (error) {
-        Logger.error('Fetch notifications error', { error });
-        res.status(500).json({ error: 'Failed to fetch notifications' });
-    }
-});
-
-// POST /read-all - Mark all as read
-router.post('/read-all', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.headers['x-account-id'] as string;
-        if (!accountId) return res.status(400).json({ error: 'Account ID required' });
-
-        await prisma.notification.updateMany({
-            where: { accountId, isRead: false },
-            data: { isRead: true }
-        });
-
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to mark all read' });
-    }
-});
-
-// POST /:id/read - Mark single as read
-router.post('/:id/read', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const accountId = req.headers['x-account-id'] as string;
-
-        await prisma.notification.updateMany({
-            where: { id, accountId }, // Ensure ownership
-            data: { isRead: true }
-        });
-
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed' });
-    }
-});
-
-// --------------------------------------
-// Web Push Notifications
-// --------------------------------------
-
+import { requireAuthFastify } from '../middleware/auth';
 import { PushNotificationService } from '../services/PushNotificationService';
 
-/**
- * GET /vapid-public-key - Returns the public VAPID key for client subscription.
- */
-router.get('/vapid-public-key', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const publicKey = await PushNotificationService.getVapidPublicKey();
-        if (!publicKey) {
-            return res.status(503).json({ error: 'Push notifications not configured' });
+interface SubscribeBody {
+    subscription: {
+        endpoint: string;
+        keys: { p256dh: string; auth: string };
+    };
+    preferences?: Record<string, boolean>;
+}
+
+const notificationsRoutes: FastifyPluginAsync = async (fastify) => {
+    fastify.addHook('preHandler', requireAuthFastify);
+
+    // GET / - List notifications for account
+    fastify.get('/', async (request, reply) => {
+        try {
+            const accountId = request.headers['x-account-id'] as string;
+            if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
+
+            const query = request.query as { limit?: string };
+            const limit = parseInt(query.limit || '20');
+
+            const notifications = await prisma.notification.findMany({
+                where: { accountId },
+                orderBy: { createdAt: 'desc' },
+                take: limit
+            });
+
+            const unreadCount = await prisma.notification.count({
+                where: { accountId, isRead: false }
+            });
+
+            return { notifications, unreadCount };
+        } catch (error) {
+            Logger.error('Fetch notifications error', { error });
+            return reply.code(500).send({ error: 'Failed to fetch notifications' });
         }
-        res.json({ publicKey });
-    } catch (error) {
-        Logger.error('[notifications] Failed to get VAPID key', { error });
-        res.status(500).json({ error: 'Failed to get VAPID key' });
-    }
-});
+    });
 
-/**
- * GET /push/subscription - Get current subscription status for user.
- */
-router.get('/push/subscription', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.headers['x-account-id'] as string;
-        const userId = req.user?.id;
-        if (!accountId || !userId) {
-            return res.status(400).json({ error: 'Account ID and user required' });
+    // POST /read-all - Mark all as read
+    fastify.post('/read-all', async (request, reply) => {
+        try {
+            const accountId = request.headers['x-account-id'] as string;
+            if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
+
+            await prisma.notification.updateMany({
+                where: { accountId, isRead: false },
+                data: { isRead: true }
+            });
+
+            return { success: true };
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed to mark all read' });
         }
+    });
 
-        const status = await PushNotificationService.getSubscription(userId, accountId);
-        res.json(status);
-    } catch (error) {
-        Logger.error('[notifications] Failed to get subscription', { error });
-        res.status(500).json({ error: 'Failed to get subscription status' });
-    }
-});
+    // POST /:id/read - Mark single as read
+    fastify.post<{ Params: { id: string } }>('/:id/read', async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const accountId = request.headers['x-account-id'] as string;
 
-/**
- * POST /push/subscribe - Register a push subscription for the current user/device.
- */
-router.post('/push/subscribe', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.headers['x-account-id'] as string;
-        const userId = req.user?.id;
-        if (!accountId || !userId) {
-            return res.status(400).json({ error: 'Account ID and user required' });
+            await prisma.notification.updateMany({
+                where: { id, accountId },
+                data: { isRead: true }
+            });
+
+            return { success: true };
+        } catch (error) {
+            return reply.code(500).send({ error: 'Failed' });
         }
+    });
 
-        const { subscription, preferences } = req.body;
-        if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
-            return res.status(400).json({ error: 'Invalid subscription format' });
+    // GET /vapid-public-key
+    fastify.get('/vapid-public-key', async (request, reply) => {
+        try {
+            const publicKey = await PushNotificationService.getVapidPublicKey();
+            if (!publicKey) {
+                return reply.code(503).send({ error: 'Push notifications not configured' });
+            }
+            return { publicKey };
+        } catch (error) {
+            Logger.error('[notifications] Failed to get VAPID key', { error });
+            return reply.code(500).send({ error: 'Failed to get VAPID key' });
         }
+    });
 
-        const result = await PushNotificationService.subscribe(userId, accountId, subscription, preferences);
-        if (!result.success) {
-            return res.status(500).json({ error: result.error });
+    // GET /push/subscription
+    fastify.get('/push/subscription', async (request, reply) => {
+        try {
+            const accountId = request.headers['x-account-id'] as string;
+            const userId = request.user?.id;
+            if (!accountId || !userId) {
+                return reply.code(400).send({ error: 'Account ID and user required' });
+            }
+
+            const status = await PushNotificationService.getSubscription(userId, accountId);
+            return status;
+        } catch (error) {
+            Logger.error('[notifications] Failed to get subscription', { error });
+            return reply.code(500).send({ error: 'Failed to get subscription status' });
         }
+    });
 
-        res.json({ success: true, id: result.id });
-    } catch (error) {
-        Logger.error('[notifications] Subscribe failed', { error });
-        res.status(500).json({ error: 'Failed to subscribe' });
-    }
-});
+    // POST /push/subscribe
+    fastify.post<{ Body: SubscribeBody }>('/push/subscribe', async (request, reply) => {
+        try {
+            const accountId = request.headers['x-account-id'] as string;
+            const userId = request.user?.id;
+            if (!accountId || !userId) {
+                return reply.code(400).send({ error: 'Account ID and user required' });
+            }
 
-/**
- * DELETE /push/subscribe - Unsubscribe from push notifications.
- */
-router.delete('/push/subscribe', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id;
-        if (!userId) {
-            return res.status(400).json({ error: 'User required' });
+            const { subscription, preferences } = request.body;
+            if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+                return reply.code(400).send({ error: 'Invalid subscription format' });
+            }
+
+            const result = await PushNotificationService.subscribe(userId, accountId, subscription, preferences);
+            if (!result.success) {
+                return reply.code(500).send({ error: result.error });
+            }
+
+            return { success: true, id: result.id };
+        } catch (error) {
+            Logger.error('[notifications] Subscribe failed', { error });
+            return reply.code(500).send({ error: 'Failed to subscribe' });
         }
+    });
 
-        const { endpoint } = req.body;
-        if (!endpoint) {
-            return res.status(400).json({ error: 'Endpoint required' });
+    // DELETE /push/subscribe
+    fastify.delete<{ Body: { endpoint: string } }>('/push/subscribe', async (request, reply) => {
+        try {
+            const userId = request.user?.id;
+            if (!userId) {
+                return reply.code(400).send({ error: 'User required' });
+            }
+
+            const { endpoint } = request.body;
+            if (!endpoint) {
+                return reply.code(400).send({ error: 'Endpoint required' });
+            }
+
+            const success = await PushNotificationService.unsubscribe(userId, endpoint);
+            return { success };
+        } catch (error) {
+            Logger.error('[notifications] Unsubscribe failed', { error });
+            return reply.code(500).send({ error: 'Failed to unsubscribe' });
         }
+    });
 
-        const success = await PushNotificationService.unsubscribe(userId, endpoint);
-        res.json({ success });
-    } catch (error) {
-        Logger.error('[notifications] Unsubscribe failed', { error });
-        res.status(500).json({ error: 'Failed to unsubscribe' });
-    }
-});
+    // PATCH /push/preferences
+    fastify.patch<{ Body: { endpoint: string; preferences: Record<string, boolean> } }>('/push/preferences', async (request, reply) => {
+        try {
+            const userId = request.user?.id;
+            if (!userId) {
+                return reply.code(400).send({ error: 'User required' });
+            }
 
-/**
- * PATCH /push/preferences - Update notification preferences for a subscription.
- */
-router.patch('/push/preferences', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id;
-        if (!userId) {
-            return res.status(400).json({ error: 'User required' });
+            const { endpoint, preferences } = request.body;
+            if (!endpoint) {
+                return reply.code(400).send({ error: 'Endpoint required' });
+            }
+
+            const success = await PushNotificationService.updatePreferences(userId, endpoint, preferences);
+            return { success };
+        } catch (error) {
+            Logger.error('[notifications] Update preferences failed', { error });
+            return reply.code(500).send({ error: 'Failed to update preferences' });
         }
+    });
 
-        const { endpoint, preferences } = req.body;
-        if (!endpoint) {
-            return res.status(400).json({ error: 'Endpoint required' });
+    // POST /push/test
+    fastify.post('/push/test', async (request, reply) => {
+        try {
+            const accountId = request.headers['x-account-id'] as string;
+            const userId = request.user?.id;
+            if (!accountId || !userId) {
+                return reply.code(400).send({ error: 'Account ID and user required' });
+            }
+
+            const result = await PushNotificationService.sendTestNotification(userId, accountId);
+            if (!result.success) {
+                return reply.code(400).send({ error: result.error || 'Failed to send test notification' });
+            }
+
+            return { success: true, sent: result.sent, failed: result.failed };
+        } catch (error) {
+            Logger.error('[notifications] Test notification failed', { error });
+            return reply.code(500).send({ error: 'Failed to send test notification' });
         }
+    });
+};
 
-        const success = await PushNotificationService.updatePreferences(userId, endpoint, preferences);
-        res.json({ success });
-    } catch (error) {
-        Logger.error('[notifications] Update preferences failed', { error });
-        res.status(500).json({ error: 'Failed to update preferences' });
-    }
-});
-
-/**
- * POST /push/test - Send a test notification to verify setup.
- */
-router.post('/push/test', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const accountId = req.headers['x-account-id'] as string;
-        const userId = req.user?.id;
-        if (!accountId || !userId) {
-            return res.status(400).json({ error: 'Account ID and user required' });
-        }
-
-        const result = await PushNotificationService.sendTestNotification(userId, accountId);
-        if (!result.success) {
-            return res.status(400).json({ error: result.error || 'Failed to send test notification' });
-        }
-
-        res.json({ success: true, sent: result.sent, failed: result.failed });
-    } catch (error) {
-        Logger.error('[notifications] Test notification failed', { error });
-        res.status(500).json({ error: 'Failed to send test notification' });
-    }
-});
-
-export default router;
+export default notificationsRoutes;

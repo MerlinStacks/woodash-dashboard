@@ -66,9 +66,13 @@ export function AdsView({ onSelectAccount }: AdsViewProps = {}) {
             const data = await res.json();
             setAccounts(data);
 
-            // Lazy fetch insights for each
+            // Lazy fetch insights for each (skip pending accounts)
             if (Array.isArray(data)) {
-                data.forEach((acc: AdAccount) => fetchInsights(acc.id));
+                data.forEach((acc: AdAccount) => {
+                    if (acc.externalId !== 'PENDING_SETUP') {
+                        fetchInsights(acc.id);
+                    }
+                });
             }
         } catch (err) {
             console.error(err);

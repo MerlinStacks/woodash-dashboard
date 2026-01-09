@@ -1,99 +1,99 @@
-import { Router, Response } from 'express';
-import { AuthenticatedRequest } from '../types/express';
-import { requireAuth } from '../middleware/auth';
+/**
+ * Sessions Route - Fastify Plugin
+ */
+
+import { FastifyPluginAsync } from 'fastify';
+import { requireAuthFastify } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
 
-const router = Router();
+const sessionsRoutes: FastifyPluginAsync = async (fastify) => {
+    fastify.addHook('preHandler', requireAuthFastify);
 
-router.use(requireAuth);
+    // GET /api/sessions - List all active sessions for current user
+    fastify.get('/', async (request, reply) => {
+        try {
+            const userId = request.user?.id;
+            if (!userId) return reply.code(401).send({ error: 'Unauthorized' });
 
-// GET /api/sessions - List all active sessions for current user
-router.get('/', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id;
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+            const sessions = await prisma.refreshToken.findMany({
+                where: {
+                    userId,
+                    revokedAt: null,
+                    expiresAt: { gt: new Date() }
+                },
+                select: {
+                    id: true,
+                    createdAt: true,
+                    expiresAt: true,
+                    ipAddress: true,
+                    userAgent: true
+                },
+                orderBy: { createdAt: 'desc' }
+            });
 
-        const sessions = await prisma.refreshToken.findMany({
-            where: {
-                userId,
-                revokedAt: null,
-                expiresAt: { gt: new Date() }
-            },
-            select: {
-                id: true,
-                createdAt: true,
-                expiresAt: true,
-                ipAddress: true,
-                userAgent: true
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+            const sessionsWithCurrent = sessions.map(s => ({
+                ...s,
+                isCurrent: false
+            }));
 
-        // Mark current session
-        const currentToken = req.headers.authorization?.replace('Bearer ', '');
-        const sessionsWithCurrent = sessions.map(s => ({
-            ...s,
-            isCurrent: false // We can't easily match JWT to refresh token, so just show all
-        }));
-
-        res.json(sessionsWithCurrent);
-    } catch (error) {
-        Logger.error('Failed to fetch sessions', { error });
-        res.status(500).json({ error: 'Failed to fetch sessions' });
-    }
-});
-
-// DELETE /api/sessions/:id - Revoke specific session
-router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id;
-        const { id } = req.params;
-
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-        // Verify ownership
-        const token = await prisma.refreshToken.findFirst({
-            where: { id, userId }
-        });
-
-        if (!token) {
-            return res.status(404).json({ error: 'Session not found' });
+            return sessionsWithCurrent;
+        } catch (error) {
+            Logger.error('Failed to fetch sessions', { error });
+            return reply.code(500).send({ error: 'Failed to fetch sessions' });
         }
+    });
 
-        await prisma.refreshToken.update({
-            where: { id },
-            data: { revokedAt: new Date() }
-        });
+    // DELETE /api/sessions/:id - Revoke specific session
+    fastify.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
+        try {
+            const userId = request.user?.id;
+            const { id } = request.params;
 
-        Logger.info('Session revoked', { userId, sessionId: id });
-        res.json({ success: true });
-    } catch (error) {
-        Logger.error('Failed to revoke session', { error });
-        res.status(500).json({ error: 'Failed to revoke session' });
-    }
-});
+            if (!userId) return reply.code(401).send({ error: 'Unauthorized' });
 
-// DELETE /api/sessions - Revoke all sessions except current
-router.delete('/', async (req: AuthenticatedRequest, res: Response) => {
-    try {
-        const userId = req.user?.id;
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+            const token = await prisma.refreshToken.findFirst({
+                where: { id, userId }
+            });
 
-        const result = await prisma.refreshToken.updateMany({
-            where: {
-                userId,
-                revokedAt: null
-            },
-            data: { revokedAt: new Date() }
-        });
+            if (!token) {
+                return reply.code(404).send({ error: 'Session not found' });
+            }
 
-        Logger.info('All sessions revoked', { userId, count: result.count });
-        res.json({ success: true, revokedCount: result.count });
-    } catch (error) {
-        Logger.error('Failed to revoke all sessions', { error });
-        res.status(500).json({ error: 'Failed to revoke sessions' });
-    }
-});
+            await prisma.refreshToken.update({
+                where: { id },
+                data: { revokedAt: new Date() }
+            });
 
-export default router;
+            Logger.info('Session revoked', { userId, sessionId: id });
+            return { success: true };
+        } catch (error) {
+            Logger.error('Failed to revoke session', { error });
+            return reply.code(500).send({ error: 'Failed to revoke session' });
+        }
+    });
+
+    // DELETE /api/sessions - Revoke all sessions except current
+    fastify.delete('/', async (request, reply) => {
+        try {
+            const userId = request.user?.id;
+            if (!userId) return reply.code(401).send({ error: 'Unauthorized' });
+
+            const result = await prisma.refreshToken.updateMany({
+                where: {
+                    userId,
+                    revokedAt: null
+                },
+                data: { revokedAt: new Date() }
+            });
+
+            Logger.info('All sessions revoked', { userId, count: result.count });
+            return { success: true, revokedCount: result.count };
+        } catch (error) {
+            Logger.error('Failed to revoke all sessions', { error });
+            return reply.code(500).send({ error: 'Failed to revoke sessions' });
+        }
+    });
+};
+
+export default sessionsRoutes;

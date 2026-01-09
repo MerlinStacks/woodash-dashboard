@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { User, Mail, Shield, Building, LogOut, Camera, Clock, Save, X, FileSignature } from 'lucide-react';
 import SessionManager from '../components/settings/SessionManager';
+import { RichTextEditor } from '../components/common/RichTextEditor';
 
 export function UserProfilePage() {
     const { user, logout, updateUser, token } = useAuth();
@@ -292,15 +293,15 @@ export function UserProfilePage() {
 
                         {isEditing ? (
                             <div className="space-y-3">
-                                <div
-                                    contentEditable
-                                    className="min-h-[120px] p-4 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white text-sm"
-                                    onBlur={(e) => setFormData({ ...formData, emailSignature: e.currentTarget.innerHTML })}
-                                    dangerouslySetInnerHTML={{ __html: formData.emailSignature }}
-                                    style={{ whiteSpace: 'pre-wrap' }}
+                                <RichTextEditor
+                                    variant="standard"
+                                    value={formData.emailSignature}
+                                    onChange={(val) => setFormData({ ...formData, emailSignature: val })}
+                                    features={['bold', 'italic', 'link']}
+                                    placeholder="Add your email signature..."
                                 />
                                 <p className="text-xs text-gray-400">
-                                    Tip: You can paste formatted text and images directly into the editor above.
+                                    Tip: Format your signature with bold, italic, and links.
                                 </p>
                             </div>
                         ) : (

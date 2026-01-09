@@ -6,7 +6,7 @@
  */
 
 import { prisma } from '../../utils/prisma';
-import geoip from 'geoip-lite';
+import { geoipLookupSync } from './GeoIPService';
 import { parseTrafficSource, isBot, maskIpAddress } from './TrafficAnalyzer';
 
 const UAParser = require('ua-parser-js');
@@ -98,7 +98,7 @@ export async function processEvent(data: TrackingEventPayload) {
     let region: string | null = null;
 
     if (data.ipAddress) {
-        const geo = geoip.lookup(data.ipAddress);
+        const geo = geoipLookupSync(data.ipAddress);
         if (geo) {
             country = geo.country;
             city = geo.city;

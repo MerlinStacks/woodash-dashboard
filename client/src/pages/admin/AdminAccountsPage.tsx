@@ -21,7 +21,7 @@ interface AccountFeature {
     isEnabled: boolean;
 }
 
-const KNOWN_FEATURES = ['META_ADS', 'GOOGLE_ADS', 'ADVANCED_REPORTS', 'AI_WRITER', 'GOLD_PRICE_CALCULATOR'];
+const KNOWN_FEATURES = ['META_ADS', 'GOOGLE_ADS', 'ADVANCED_REPORTS', 'AI_WRITER', 'GOLD_PRICE_CALCULATOR', 'AD_TRACKING'];
 
 export function AdminAccountsPage() {
     const { token, login } = useAuth();
