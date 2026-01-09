@@ -1,4 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
+/**
+ * Authentication Middleware - Fastify Native
+ */
+
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyToken } from '../utils/auth';
 import { prisma } from '../utils/prisma';
@@ -10,17 +13,7 @@ interface JwtPayload {
     exp: number;
 }
 
-// Express-style interface (for bridge compatibility)
-export interface AuthRequest extends Request {
-    user?: {
-        id: string;
-        accountId?: string;
-        isSuperAdmin?: boolean;
-    };
-    accountId?: string; // Legacy support
-}
-
-// Fastify-style interface
+// Fastify request augmentation
 declare module 'fastify' {
     interface FastifyRequest {
         user?: {
@@ -48,56 +41,11 @@ const STRICT_ACCOUNT_ROUTES = [
 ];
 
 /**
- * Express middleware for authentication (legacy - via bridge)
- */
-export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
-    // Support query param token for Bull Board (opened in new tab)
-    const queryToken = req.query.token as string | undefined;
-
-    let token: string | undefined;
-
-    if (authHeader) {
-        token = authHeader.split(' ')[1];
-    } else if (queryToken && req.originalUrl.startsWith('/admin/queues')) {
-        // Only allow query token for Bull Board route
-        token = queryToken;
-    }
-
-    if (!token) {
-        return res.status(401).json({ error: 'No token provided' });
-    }
-
-    try {
-        const decoded = verifyToken(token) as JwtPayload;
-        const accountId = req.headers['x-account-id'] as string;
-
-        req.user = {
-            id: decoded.userId,
-            accountId: accountId
-        };
-
-        // Backwards compatibility
-        req.accountId = accountId;
-
-        const isStrictRoute = STRICT_ACCOUNT_ROUTES.some(route => req.originalUrl.includes(route));
-
-        if (!accountId && isStrictRoute) {
-            return res.status(400).json({ error: 'No account selected' });
-        }
-
-        next();
-    } catch (error) {
-        return res.status(401).json({ error: 'Invalid token' });
-    }
-};
-
-/**
- * Fastify preHandler for authentication (native)
+ * Fastify authentication preHandler
  */
 export const requireAuthFastify = async (request: FastifyRequest, reply: FastifyReply) => {
     const authHeader = request.headers.authorization;
-    const queryToken = (request.query as any)?.token as string | undefined;
+    const queryToken = (request.query as any)?.token;
 
     let token: string | undefined;
 
@@ -121,63 +69,50 @@ export const requireAuthFastify = async (request: FastifyRequest, reply: Fastify
         };
         request.accountId = accountId;
 
-        const isStrictRoute = STRICT_ACCOUNT_ROUTES.some(route => request.url.includes(route));
+        // Check if route requires strict accountId
+        const path = request.url;
+        const requiresAccount = STRICT_ACCOUNT_ROUTES.some(prefix => path.startsWith(`/api${prefix}`));
 
-        if (!accountId && isStrictRoute) {
-            return reply.code(400).send({ error: 'No account selected' });
+        if (requiresAccount && !accountId) {
+            return reply.code(400).send({ error: 'Account ID required for this resource' });
         }
-    } catch (error) {
+
+    } catch (err: any) {
+        if (err.name === 'TokenExpiredError') {
+            return reply.code(401).send({ error: 'Token expired' });
+        }
+        Logger.warn('Auth failed', { error: err.message });
         return reply.code(401).send({ error: 'Invalid token' });
     }
 };
 
 /**
- * Express middleware for super admin check (legacy - via bridge)
- */
-export const requireSuperAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    try {
-        if (!req.user?.id) {
-            return res.status(401).json({ error: 'Authentication required for admin access' });
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { id: req.user.id }
-        });
-
-        if (!user || !user.isSuperAdmin) {
-            return res.status(403).json({ error: 'Access denied: Super Admin only' });
-        }
-
-        // Attach isSuperAdmin to the request for downstream use if needed
-        req.user.isSuperAdmin = true;
-
-        next();
-    } catch (error) {
-        Logger.error('SuperAdmin check failed', { error });
-        res.status(500).json({ error: 'Internal server error during authorization' });
-    }
-};
-
-/**
- * Fastify preHandler for super admin check (native)
+ * Fastify super admin authorization preHandler
  */
 export const requireSuperAdminFastify = async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-        if (!request.user?.id) {
-            return reply.code(401).send({ error: 'Authentication required for admin access' });
-        }
+    // First run normal auth
+    await requireAuthFastify(request, reply);
 
+    // Check if reply was already sent (auth failed)
+    if (reply.sent) return;
+
+    if (!request.user?.id) {
+        return reply.code(401).send({ error: 'Authentication required' });
+    }
+
+    try {
         const user = await prisma.user.findUnique({
-            where: { id: request.user.id }
+            where: { id: request.user.id },
+            select: { isSuperAdmin: true }
         });
 
-        if (!user || !user.isSuperAdmin) {
-            return reply.code(403).send({ error: 'Access denied: Super Admin only' });
+        if (!user?.isSuperAdmin) {
+            return reply.code(403).send({ error: 'Super admin access required' });
         }
 
         request.user.isSuperAdmin = true;
-    } catch (error) {
-        Logger.error('SuperAdmin check failed', { error });
-        return reply.code(500).send({ error: 'Internal server error during authorization' });
+    } catch (err) {
+        Logger.error('Super admin check failed', { error: err });
+        return reply.code(500).send({ error: 'Authorization check failed' });
     }
 };
