@@ -59,6 +59,16 @@ const PLATFORMS: PlatformConfig[] = [
         ]
     },
     {
+        id: 'META_MESSAGING',
+        name: 'Meta Messaging',
+        description: 'API credentials for Facebook Messenger & Instagram DMs integration',
+        icon: Facebook,
+        fields: [
+            { key: 'appId', label: 'App ID', placeholder: '123456789' },
+            { key: 'appSecret', label: 'App Secret', placeholder: 'abc123...' }
+        ]
+    },
+    {
         id: 'WEB_PUSH_VAPID',
         name: 'Push Notifications',
         description: 'VAPID keys for Web Push notifications. Generate with: npx web-push generate-vapid-keys',
@@ -70,7 +80,7 @@ const PLATFORMS: PlatformConfig[] = [
     }
 ];
 
-type PlatformId = 'PLATFORM_SMTP' | 'GOOGLE_ADS' | 'META_ADS' | 'WEB_PUSH_VAPID';
+type PlatformId = 'PLATFORM_SMTP' | 'GOOGLE_ADS' | 'META_ADS' | 'META_MESSAGING' | 'WEB_PUSH_VAPID';
 
 /**
  * Super Admin page for managing platform API credentials.
