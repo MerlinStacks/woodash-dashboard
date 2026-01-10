@@ -47,13 +47,19 @@ const trackingIngestionRoutes: FastifyPluginAsync = async (fastify) => {
             let ip = request.headers['x-forwarded-for'] || request.ip;
             if (Array.isArray(ip)) ip = ip[0];
 
-            await TrackingService.processEvent({
+            const session = await TrackingService.processEvent({
                 accountId, visitorId, type, url, payload, pageTitle,
                 ipAddress: ip as string,
                 userAgent: request.headers['user-agent'] as string,
                 referrer, utmSource, utmMedium, utmCampaign, is404,
                 clickId, clickPlatform, landingReferrer
             });
+
+            if (session) {
+                // Logger.debug('Tracking processed', { type, visitorId, sessionId: session.id });
+            } else {
+                Logger.info('Tracking filtered (bot/static)', { type, visitorId, userAgent: request.headers['user-agent'] });
+            }
 
             return { success: true };
         } catch (error) {
@@ -86,13 +92,19 @@ const trackingIngestionRoutes: FastifyPluginAsync = async (fastify) => {
             if (Array.isArray(ip)) ip = ip[0];
             if (typeof ip === 'string' && ip.includes(',')) ip = ip.split(',')[0].trim();
 
-            await TrackingService.processEvent({
+            const session = await TrackingService.processEvent({
                 accountId, visitorId, type, url, payload, pageTitle,
                 ipAddress: ip as string,
                 userAgent: bodyUserAgent || request.headers['user-agent'] as string,
                 referrer, utmSource, utmMedium, utmCampaign, is404,
                 clickId, clickPlatform, landingReferrer
             });
+
+            if (session) {
+                // Logger.debug('Tracking processed', { type, visitorId, sessionId: session.id });
+            } else {
+                Logger.info('Tracking filtered (bot/static)', { type, visitorId, userAgent: bodyUserAgent || request.headers['user-agent'] });
+            }
 
             const ecommerceTypes = ['add_to_cart', 'remove_from_cart', 'cart_view', 'checkout_view', 'checkout_start', 'purchase'];
             if (ecommerceTypes.includes(type)) {
