@@ -35,7 +35,7 @@ interface GeoIPReader {
 }
 
 // Database paths
-const DATA_DIR = path.join(__dirname, '../../../../data');
+const DATA_DIR = path.join(__dirname, '../../../data');
 const MANUAL_DB_PATH = path.join(DATA_DIR, 'GeoLite2-City.mmdb');
 const AUTO_DB_PATH = path.join(DATA_DIR, 'dbip-city-lite.mmdb');
 
