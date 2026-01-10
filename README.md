@@ -5,12 +5,12 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.0-brightgreen" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.0.0-brightgreen" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   <img src="https://img.shields.io/badge/stack-PERN-blueviolet" alt="Stack">
   <img src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker Ready">
   <img src="https://img.shields.io/badge/AI-powered-ff6b6b?logo=openai&logoColor=white" alt="AI Powered">
-  <img src="https://img.shields.io/badge/PWA-ready-5A0FC8?logo=pwa&logoColor=white" alt="PWA Ready">
+  <img src="https://img.shields.io/badge/Fastify-000000?logo=fastify&logoColor=white" alt="Fastify Powered">
 </p>
 
 ---
@@ -33,109 +33,66 @@ OverSeek is your **open-source command center**—a self-hosted, privacy-first p
 
 ## ✨ Feature Highlights
 
-### 🤖 AI-Powered Intelligence
+### 🤖 "Iron Core" Architecture (v2.0)
+- **High-Performance Backend**: Migrated to **Fastify 5** for maximum throughput and low latency.
+- **Modern Frontend**: Built with **React 19** and **Tailwind CSS v4** for a cutting-edge UX.
+- **Security First**: **Argon2id** hashing, **Pino** secure logging, and rigorous input validation.
+- **Scalable Infrastructure**: Powered by **Elasticsearch 9**, **Redis 7**, and **PostgreSQL 16**.
+
+### 🧠 AI-Powered Intelligence
 - **Data-Aware AI Assistant**: Chat with your store data—ask questions about sales, customers, and ads.
-- **AI Draft Replies (NEW)**: Generative AI suggestions in the inbox with full conversation context.
+- **AI Draft Replies**: Generative AI suggestions in the inbox with full conversation context.
 - **AI Product Rewriting**: One-click AI-powered product description generation.
-- **Configurable AI Prompts**: Customize AI behavior via the Super Admin panel.
 - **Multi-Model Support**: Connect to any OpenRouter-compatible model (GPT-4, Claude, etc.).
 
 ### 📊 Analytics & Visitor Intelligence
-- **Live Visitor Tracking**: See who's on your site right now with geographic mapping.
-- **E-Commerce Stream**: Real-time feed of add-to-cart, checkout, and purchase events with purchase values.
-- **Visitor Journey History (NEW)**: Sessionized browsing history with 30-minute inactivity detection.
-- **Search Term Analysis**: Understand what customers are searching for.
-- **UTM/MTM Attribution**: First-click and last-click attribution with Matomo Marketing parity.
+- **Live Visitor Tracking**: Real-time geographic mapping of active visitors.
+- **E-Commerce Stream**: Live feed of add-to-cart, checkout, and purchase events.
+- **Visitor Journey History**: Sessionized browsing history with interactivity tracking.
+- **UTM/MTM Attribution**: First-click and last-click attribution models.
 - **Abandoned Cart Detection**: Automatic identification and recovery flows.
-
-
 
 ### 👤 Customer 360 Profiles
 - **Unified Timeline**: Orders, emails, chats, and site visits in one view.
 - **LTV & AOV Metrics**: Lifetime value calculated automatically.
 - **Behavioral Insights**: Entry/exit pages, time on site, and journey mapping.
-- **Product Sales History**: Track which orders contain specific products.
-
-
 
 ### 🛒 WooCommerce Sync Engine
 - **Deep Integration**: Bi-directional sync of orders, products, customers, and reviews.
 - **Webhook Support**: Instant updates via `order.created`, `product.updated`, etc.
 - **Delta Sync**: Only fetch what's changed to save bandwidth.
-- **Historical Import**: Full backfill with "New Order" spam prevention.
-- **Manual Sync Settings**: One-click refresh of measurement units and store config.
-- **Rich Product Data**: Categories, tags, and inventory status pulled automatically.
 
-### 📣 Google Ads Integration (NEW)
+### 📣 Google Ads Integration
 - **OAuth Connection**: Securely link your Google Ads account.
 - **Campaign Monitoring**: Track spend, impressions, clicks, and conversions.
 - **ROAS Tracking**: Automatic Return on Ad Spend calculations.
-- **AI-Powered Insights**: Ask your AI assistant about ad performance.
-- **Shopping Campaign Context**: Understand which products are active in campaigns.
 
 ### 📦 Inventory & Supply Chain
 - **Stock Velocity Reports**: Identify fast/slow movers with days-of-inventory projections.
 - **Bill of Materials (BOM)**: Track raw materials for manufactured goods.
 - **Purchase Orders**: Manage inbound inventory with ETA tracking.
-- **Picklist Generation**: Bin-location optimized PDFs for warehouse picking.
-- **Supplier Management**: Track sources and shadow inventory.
 
 ### 🧾 Visual Invoice & Email Designer
-- **Drag-and-Drop Builder**: Create beautiful invoice templates with `react-grid-layout`.
+- **Drag-and-Drop Builder**: Create beautiful invoice templates.
 - **Dynamic Variables**: Use `{{customer.name}}`, `{{order.total}}`, and more.
 - **PDF Generation**: Print-ready invoices with full tax breakdowns.
-- **Automation Ready**: Attach invoices to email sequences automatically.
-- **Fullscreen Email Editor**: Distraction-free template editing.
-
-
 
 ### ⚡ Marketing Automation
-- **Visual Flow Builder**: Drag-and-drop node canvas powered by React Flow.
-- **Smart Triggers**: Abandoned cart, post-purchase, welcome series, and more.
-- **Condition Logic**: If/else branching based on order value, segments, etc.
-- **Email Templates**: MJML-powered responsive designs with rich HTML support.
-- **Customer Segmentation**: Target groups by spend, order count, behavior.
+- **Visual Flow Builder**: Drag-and-drop node canvas.
+- **Smart Triggers**: Abandoned cart, post-purchase, welcome series.
+- **Email Templates**: MJML-powered responsive designs.
 
 ### 💬 Unified Inbox & Chat
 - **Live Chat Widget**: Embeddable widget with business hours detection.
 - **IMAP Integration**: Pull emails directly into the dashboard.
-- **Email Threading (NEW)**: Bi-directional threading with `In-Reply-To` and `References` headers.
-- **Canned Responses**: Quick templates for common queries.
-- **Presence Indicators**: See who else is viewing a conversation.
-- **AI Draft Suggestions**: Context-aware reply drafts powered by LLMs.
-
-### 📱 Social Messaging (NEW)
-- **Facebook & Instagram DMs**: Respond to Messenger and Instagram Direct via Meta Graph API.
-- **TikTok Business Messaging**: Native 48-hour response window support.
-- **Unified OAuth**: Connect multi-platform accounts with a single OAuth flow.
-- **Channel Management**: Dedicated UI to manage, connect, and disconnect messaging streams.
-
-### 📲 Mobile PWA & Push Notifications (NEW)
-- **Web Push Notifications**: Real-time alerts for new messages and orders on mobile.
-- **Notification Preferences**: Granular control over mobile vs. desktop alerts.
-- **Mobile Deep-Linking**: Notifications navigate directly to relevant conversations.
-- **Dashboard Widget Lock**: Prevent accidental drag on touch devices.
-
-### 📈 Advanced Reporting
-- **Report Builder**: Custom metrics with drag-and-drop dimensions.
-- **Forecasting**: Linear regression-based revenue projections.
-- **YoY Comparisons**: Period-over-period analysis.
-- **Scheduled Reports**: Automated PDF/CSV delivery via email.
-- **Export Engine**: One-click CSV and PDF downloads.
-
-### 🔍 Global Search (OmniSearch)
-- **Command Palette**: Press `Cmd+K` to search anything.
-- **Elasticsearch Powered**: Sub-second queries across orders, products, customers.
-- **Semantic Search**: AI-powered meaning-based search with pgvector.
+- **Email Threading**: Bi-directional threading with `In-Reply-To` support.
+- **Social Messaging**: Respond to standard communication channels.
 
 ### 🛠️ Developer & Admin Tools
 - **Audit Logs**: Track who changed what, when.
 - **Session Management**: View and revoke active sessions.
 - **Two-Factor Auth**: TOTP-based 2FA support.
-- **Bull Board**: Visual queue management for background jobs.
 - **Health Dashboard**: System status, logs, and diagnostics.
-- **Platform SMTP**: Super Admin configurable system-wide email settings.
-- **AI Prompt Manager**: Centralized management of AI prompt templates.
 
 ---
 
@@ -145,11 +102,11 @@ Built with modern, battle-tested technologies:
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | React 18, Vite, TypeScript 5.7+, Tailwind CSS |
+| **Frontend** | React 19, Vite, TypeScript 5.8+, Tailwind CSS v4 |
 | **State** | React Query, Zustand |
-| **Backend** | Node.js 22+, Express 5, TypeScript (ESM) |
+| **Backend** | Node.js 22+, Fastify 5, TypeScript (ESM) |
 | **Database** | PostgreSQL 16 + Prisma 7 (Driver Adapter) |
-| **Search** | Elasticsearch 7.17 |
+| **Search** | Elasticsearch 9.x |
 | **Cache/Queue** | Redis 7 + BullMQ |
 | **Real-Time** | Socket.io |
 | **AI/Embeddings** | OpenRouter API + pgvector |
@@ -197,16 +154,16 @@ npm run dev
 
 ```
 overseek/
-├── client/                    # React (Vite) Frontend
+├── client/                    # React 19 (Vite) Frontend
 │   ├── src/
-│   │   ├── components/        # UI Components (Tailwind)
+│   │   ├── components/        # UI Components (Tailwind v4)
 │   │   ├── hooks/             # Custom React Hooks
 │   │   ├── pages/             # Dashboard Views
 │   │   └── services/          # API Integration Layer
 │   └── package.json
-├── server/                    # Node.js (Express) Backend
+├── server/                    # Node.js (Fastify) Backend
 │   ├── src/
-│   │   ├── routes/            # API Endpoints
+│   │   ├── routes/            # Fastify Routes
 │   │   ├── services/          # Business Logic
 │   │   ├── workers/           # BullMQ Background Jobs
 │   │   └── prisma/            # Database Schema & Migrations
@@ -223,31 +180,20 @@ overseek/
 OverSeek uses a **dual-protocol** approach for maximum flexibility:
 
 ### Protocol A: Live Analytics (Zero-Config)
-Paste a simple JSON config into the WordPress plugin to start tracking immediately:
-```json
-{
-  "apiUrl": "https://your-overseek-instance.com",
-  "accountId": "acc_123456789"
-}
-```
+Paste a simple JSON config into the WordPress plugin to start tracking immediately.
 
 ### Protocol B: Core Sync (Full Power)
-Connect via WooCommerce REST API keys for bi-directional sync:
-- **Read Access**: Analytics, reports, dashboards
-- **Read/Write Access**: + Inventory updates, order management, tracking numbers
+Connect via WooCommerce REST API keys for bi-directional sync of orders, inventory, and products.
 
 ---
 
 ## 🔒 Security
 
-- **JWT Authentication** with SHA-256 hashed refresh token rotation
-- **Timing-Safe HMAC-SHA256** webhook verification
-- **AES-256-GCM** encryption for credentials at rest
-- **Rate Limiting** (5 login attempts/hour, 2000 API requests/15min)
-- **Content Security Policy** via Helmet
-- **Two-Factor Authentication** (TOTP)
-- **Session Management** with revocation
-- **GDPR Consent Integration**: WP Consent API support for visitor privacy
+- **Argon2id Hashing**: State-of-the-art password security.
+- **Fastify Helmet**: Secure HTTP headers.
+- **JWT Authentication**: With rotation and session revocation.
+- **Rate Limiting**: Built-in protection against abuse.
+- **Two-Factor Authentication**: TOTP support.
 
 ---
 

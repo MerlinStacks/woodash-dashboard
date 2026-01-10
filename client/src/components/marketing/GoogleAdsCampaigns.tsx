@@ -145,11 +145,11 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
     });
 
     const totals = campaigns.reduce((acc, c) => ({
-        spend: acc.spend + c.spend,
-        impressions: acc.impressions + c.impressions,
-        clicks: acc.clicks + c.clicks,
-        conversions: acc.conversions + c.conversions,
-        conversionsValue: acc.conversionsValue + c.conversionsValue
+        spend: acc.spend + (c.spend || 0),
+        impressions: acc.impressions + (c.impressions || 0),
+        clicks: acc.clicks + (c.clicks || 0),
+        conversions: acc.conversions + (c.conversions || 0),
+        conversionsValue: acc.conversionsValue + (c.conversionsValue || 0)
     }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionsValue: 0 });
 
     const formatCurrency = (v: number, currency = 'USD') =>
@@ -380,20 +380,20 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
                                         {formatNumber(campaign.clicks)}
                                     </td>
                                     <td className="px-4 py-3 text-gray-600">
-                                        {campaign.ctr.toFixed(2)}%
+                                        {(campaign.ctr || 0).toFixed(2)}%
                                     </td>
                                     <td className="px-4 py-3 text-gray-600">
-                                        {formatCurrency(campaign.cpc, campaign.currency)}
+                                        {formatCurrency(campaign.cpc || 0, campaign.currency)}
                                     </td>
                                     <td className="px-4 py-3 text-gray-600">
-                                        {campaign.conversions.toFixed(0)}
+                                        {(campaign.conversions || 0).toFixed(0)}
                                     </td>
                                     <td className="px-4 py-3">
-                                        <span className={`font-medium ${campaign.roas >= 3 ? 'text-green-600' :
-                                            campaign.roas >= 1 ? 'text-yellow-600' :
+                                        <span className={`font-medium ${(campaign.roas || 0) >= 3 ? 'text-green-600' :
+                                            (campaign.roas || 0) >= 1 ? 'text-yellow-600' :
                                                 'text-red-600'
                                             }`}>
-                                            {campaign.roas.toFixed(2)}x
+                                            {(campaign.roas || 0).toFixed(2)}x
                                         </span>
                                     </td>
                                 </tr>

@@ -53,7 +53,7 @@ export class AdOptimizer {
                 suggestions,
                 summary: combinedSummary,
                 action_items: suggestions.length > 1
-                    ? suggestions.slice(0, 3).map((s, i) => `${i + 1}. ${s.split(':')[0].replace(/[🔴🟢📊💰🚀📁✅🛒🔍⭐]/g, '').trim()}`)
+                    ? suggestions.slice(0, 3).map((s, i) => `${i + 1}. ${s.split(':')[0].replace(/[🔴🟢📊💰🚀📁✅🛒🔍⭐]/gu, '').trim()}`)
                     : ['Monitor campaign performance', 'Review conversion tracking', 'Test new ad variations']
             };
 

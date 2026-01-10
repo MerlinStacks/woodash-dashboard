@@ -71,17 +71,22 @@ export default defineConfig(({ mode }) => {
             },
             rollupOptions: {
                 output: {
-                    manualChunks: {
-                        // Heavy charting library
-                        'echarts': ['echarts', 'echarts-for-react'],
-                        // PDF generation
-                        'pdf': ['jspdf', 'jspdf-autotable'],
-                        // Dashboard grid
-                        'grid': ['react-grid-layout', 'react-resizable'],
-                        // Flow builder
-                        'flow': ['@xyflow/react'],
-                        // React core (vendor chunk)
-                        'vendor': ['react', 'react-dom', 'react-router-dom'],
+                    manualChunks: (id) => {
+                        if (id.includes('node_modules')) {
+                            if (id.includes('echarts')) return 'echarts';
+                            if (id.includes('jspdf')) return 'pdf';
+                            if (id.includes('react-grid-layout') || id.includes('react-resizable')) return 'grid';
+                            if (id.includes('@xyflow')) return 'flow';
+                            if (id.includes('lexical') || id.includes('@lexical')) return 'editor';
+                            if (id.includes('react-email-editor')) return 'email-editor';
+                            if (id.includes('react-markdown') || id.includes('remark-gfm')) return 'markdown';
+                            if (id.includes('lucide-react')) return 'icons';
+
+                            // Vendor chunk for React core
+                            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router-dom/')) {
+                                return 'vendor';
+                            }
+                        }
                     }
                 }
             }

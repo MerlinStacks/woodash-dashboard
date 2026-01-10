@@ -1,6 +1,6 @@
 
 import { prisma } from '../utils/prisma';
-import { WooService } from './woo';
+
 
 
 export class ReviewService {
@@ -51,7 +51,7 @@ export class ReviewService {
 
 
 
-    async replyToReview(accountId: string, reviewId: string, reply: string) {
+    async replyToReview(accountId: string, reviewId: string, _reply: string) {
         // 1. Get the local review to find the Woo ID
         const review = await prisma.wooReview.findUnique({
             where: { id: reviewId },
@@ -104,7 +104,7 @@ export class ReviewService {
 
         for (const review of reviews) {
             const reviewerEmail = review.reviewerEmail;
-            let wooCustomerId = review.wooCustomerId;
+            const wooCustomerId = review.wooCustomerId;
             const productId = review.productId;
             const reviewDate = review.dateCreated;
 

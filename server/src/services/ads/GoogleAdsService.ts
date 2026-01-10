@@ -56,7 +56,17 @@ export class GoogleAdsService {
         } catch (error: any) {
             const adAccount = await prisma.adAccount.findUnique({ where: { id: adAccountId } });
             const userMessage = parseGoogleAdsError(error, adAccount?.externalId || '');
-            Logger.error('Failed to fetch Google Ads Insights', { error: error.message, adAccountId, userMessage });
+
+            // Log full error for internal debugging but throw clean message
+            Logger.error('Failed to fetch Google Ads Insights', { error: error.message, fullError: error, adAccountId });
+
+            // If it's a permission/auth error, throw object with statusCode for Fastify
+            if (userMessage.includes('Permission denied') || userMessage.includes('Authentication expired')) {
+                const err: any = new Error(userMessage);
+                err.statusCode = 403;
+                throw err;
+            }
+
             throw new Error(userMessage);
         }
     }

@@ -22,7 +22,7 @@ export class ChatService {
 
     // --- Conversations ---
 
-    async listConversations(accountId: String, status?: string, assignedTo?: string) {
+    async listConversations(accountId: string, status?: string, assignedTo?: string) {
         return prisma.conversation.findMany({
             where: {
                 accountId: String(accountId),
@@ -40,7 +40,7 @@ export class ChatService {
         });
     }
 
-    async createConversation(accountId: String, wooCustomerId?: string, visitorToken?: string) {
+    async createConversation(accountId: string, wooCustomerId?: string, visitorToken?: string) {
         const existing = await prisma.conversation.findFirst({
             where: {
                 accountId: String(accountId),

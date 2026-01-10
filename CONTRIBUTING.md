@@ -11,6 +11,7 @@ All types of contributions are encouraged and valued. See the [Table of Contents
   - [Reporting Bugs](#reporting-bugs)
   - [Suggesting Enhancements](#suggesting-enhancements)
   - [Your First Code Contribution](#your-first-code-contribution)
+- [Development Environment](#development-environment)
 
 ## I Have a Question
 
@@ -46,6 +47,18 @@ This section guides you through submitting an enhancement suggestion for OverSee
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
 4. Push to the branch (`git push origin feature/AmazingFeature`).
 5. Open a Pull Request.
+
+## Development Environment
+
+To contribute code, please ensure your environment matches our "Iron Core" stack:
+
+- **Node.js**: v22.x or higher (Required for Prisma 7)
+- **Database**: PostgreSQL 16+
+- **Search**: Elasticsearch 9.x
+- **Backend Framework**: Fastify 5.x (We no longer use Express)
+- **Frontend Framework**: React 19.x with Vite
+
+Please run `npm run lint` before submitting PRs to ensure your code follows our ESLint 9 Flat Config standards.
 
 ## Styleguides
 

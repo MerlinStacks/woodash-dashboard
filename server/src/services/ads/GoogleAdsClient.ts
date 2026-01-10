@@ -48,6 +48,7 @@ export async function createGoogleAdsClient(adAccountId: string): Promise<Google
     };
 
     if (loginCustomerId) {
+        // Only add if explicitly set in credentials
         customerConfig.login_customer_id = loginCustomerId.replace(/-/g, '');
     }
 
@@ -73,7 +74,7 @@ export function parseGoogleAdsError(error: any, customerId: string): string {
     // GRPC error code 7 = PERMISSION_DENIED
     if (errorCode === 7 || errorMessage.includes('PERMISSION_DENIED')) {
         return 'Permission denied. Ensure the connected Google account has access to this Google Ads account (Customer ID: ' +
-            customerId + '). The user must be linked to this account in Google Ads.';
+            customerId + '). If this account is managed by a Manager Account (MCC), you MUST configure the "Manager Account ID" in Super Admin > Credentials > Google Ads.';
     }
     // GRPC error code 16 = UNAUTHENTICATED
     if (errorCode === 16 || errorMessage.includes('UNAUTHENTICATED') || errorMessage.includes('invalid_grant')) {

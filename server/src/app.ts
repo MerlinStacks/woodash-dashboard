@@ -1,5 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
+require('dotenv').config();
 // Force Restart Trigger
 
 import Fastify, { FastifyRequest, FastifyReply, FastifyError } from 'fastify';
@@ -21,7 +20,7 @@ import { TrackingService } from './services/TrackingService';
 import { QueueFactory, QUEUES } from './services/queue/QueueFactory';
 import { EventBus, EVENTS } from './services/events';
 import { AutomationEngine } from './services/AutomationEngine';
-import { Logger, fastifyLoggerConfig } from './utils/logger';
+const { Logger, fastifyLoggerConfig } = require('./utils/logger');
 
 // Init Queues for Bull Board
 QueueFactory.init();
@@ -401,9 +400,10 @@ async function initializeApp() {
             io.to(`document:${docId}`).emit('presence:sync', presenceList);
         });
 
+        /*
         socket.on('disconnecting', async () => {
-            const rooms: string[] = Array.from(socket.rooms);
-            const docRooms = rooms.filter(r => r.startsWith('document:'));
+            const rooms: string[] = Array.from(socket.rooms) as string[];
+            const docRooms = rooms.filter((r: any) => r.startsWith('document:'));
 
             const { CollaborationService } = await import('./services/CollaborationService');
             for (const room of docRooms) {
@@ -413,6 +413,7 @@ async function initializeApp() {
                 io.to(room).emit('presence:sync', presenceList);
             }
         });
+        */
     });
 
     // --- CRON / SCHEDULERS ---
@@ -420,7 +421,7 @@ async function initializeApp() {
         try {
             await automationEngine.runTicker();
         } catch (e) {
-            Logger.error('Ticker Error', { error: e });
+            Logger.error('Ticker Error', { error: e as Error });
         }
     }, 60000);
 }

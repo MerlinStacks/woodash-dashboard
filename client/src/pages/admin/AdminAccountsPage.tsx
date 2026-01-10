@@ -29,7 +29,6 @@ export function AdminAccountsPage() {
     const navigate = useNavigate();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedAccount, setSelectedAccount] = useState<Account | null>(null); // For feature modal
     const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
     const [confirmName, setConfirmName] = useState('');
     const [deleting, setDeleting] = useState(false);

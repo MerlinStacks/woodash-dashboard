@@ -111,7 +111,7 @@ export class GoogleAdsAuth {
             throw new Error('Google Ads credentials not configured. Please configure via Super Admin.');
         }
 
-        const { clientId, clientSecret, developerToken } = creds;
+        const { clientId, clientSecret, developerToken, loginCustomerId } = creds;
 
         try {
             const client = new GoogleAdsApi({
@@ -128,10 +128,16 @@ export class GoogleAdsAuth {
 
             for (const customerId of customerIds) {
                 try {
-                    const customer = client.Customer({
+                    const customerConfig: any = {
                         customer_id: customerId.replace(/-/g, ''),
                         refresh_token: refreshToken
-                    });
+                    };
+
+                    if (loginCustomerId) {
+                        customerConfig.login_customer_id = loginCustomerId.replace(/-/g, '');
+                    }
+
+                    const customer = client.Customer(customerConfig);
 
                     const [info] = await customer.query(`
                         SELECT customer.descriptive_name, customer.id
