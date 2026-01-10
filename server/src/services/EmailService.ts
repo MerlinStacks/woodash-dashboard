@@ -2,6 +2,7 @@
 import { PrismaClient, EmailAccount } from '@prisma/client';
 import nodemailer from 'nodemailer';
 import { ImapFlow } from 'imapflow';
+import { simpleParser, ParsedMail, Attachment } from 'mailparser';
 import { prisma } from '../utils/prisma';
 import { EventBus, EVENTS } from './events';
 import { Logger } from '../utils/logger';
@@ -151,6 +152,7 @@ export class EmailService {
 
             try {
                 // Fetch unseen messages using async iterator
+                // We need 'source' to parse the full email
                 for await (const message of client.fetch({ seen: false }, {
                     envelope: true,
                     bodyStructure: true,
@@ -158,21 +160,51 @@ export class EmailService {
                 })) {
                     messageCount++;
                     try {
-                        const envelope = message.envelope;
-                        const subject = envelope.subject || '(No Subject)';
-                        const fromAddress = envelope.from?.[0];
+                        const source = message.source;
+                        if (!source) {
+                            Logger.warn('[checkEmails] Message has no source', { uid: message.uid });
+                            continue;
+                        }
+
+                        // Parse the email using mailparser
+                        const parsed: ParsedMail = await simpleParser(source, { skipImageLinks: true });
+
+                        const subject = parsed.subject || '(No Subject)';
+                        const fromAddress = parsed.from?.value[0];
                         const fromEmail = fromAddress?.address || '';
                         const fromName = fromAddress?.name || '';
-                        const messageId = envelope.messageId || `local-${Date.now()}`;
-                        const inReplyTo = envelope.inReplyTo || null;
+                        // Use parsed messageId, fallback to envelope, fallback to generated
+                        const messageId = parsed.messageId || message.envelope.messageId || `local-${Date.now()}`;
+                        const inReplyTo = parsed.inReplyTo || message.envelope.inReplyTo || undefined;
 
-                        // References not directly on envelope, parse from source if needed
-                        const references = null; // Can be extracted from source if required
+                        // Handle references (can be string or array)
+                        let references: string | undefined;
+                        if (typeof parsed.references === 'string') {
+                            references = parsed.references;
+                        } else if (Array.isArray(parsed.references)) {
+                            references = parsed.references.join(' ');
+                        }
 
-                        // Get body from source (raw email)
-                        const body = message.source?.toString() || '[Content cannot be displayed]';
+                        // Get HTML or Text body
+                        let html = parsed.html || false;
+                        const text = parsed.text || '';
 
-                        Logger.info(`[checkEmails] Processing email`, { fromEmail, subject, inReplyTo: !!inReplyTo });
+                        // Process inline images (cid:) -> Base64
+                        if (html && parsed.attachments && parsed.attachments.length > 0) {
+                            for (const attachment of parsed.attachments) {
+                                if (attachment.contentId && attachment.content && attachment.contentType) {
+                                    const cid = attachment.contentId.replace(/^<|>$/g, ''); // Remove < > wrappers
+                                    const base64 = attachment.content.toString('base64');
+                                    const dataUri = `data:${attachment.contentType};base64,${base64}`;
+
+                                    // Replace cid: CID with data URI globally
+                                    const regex = new RegExp(`cid:${cid}`, 'g');
+                                    html = html.replace(regex, dataUri);
+                                }
+                            }
+                        }
+
+                        Logger.info(`[checkEmails] Processing email`, { fromEmail, subject, hasHtml: !!html });
 
                         // Mark as seen
                         await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
@@ -182,7 +214,8 @@ export class EmailService {
                             fromEmail,
                             fromName,
                             subject,
-                            body,
+                            body: text, // Fallback / plain text representation
+                            html: html || undefined, // The processed HTML
                             messageId,
                             inReplyTo,
                             references

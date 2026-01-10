@@ -165,6 +165,7 @@ export const MessageBubble = memo(function MessageBubble({
             ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li', 'blockquote', 'div', 'span', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
             ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'width', 'height', 'style', 'class'],
             ALLOW_DATA_ATTR: false,
+            ADD_URI_SCHEME: ['data'],
         });
     }, [mainContent]);
 

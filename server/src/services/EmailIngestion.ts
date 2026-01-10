@@ -16,6 +16,7 @@ export interface IncomingEmailData {
     fromName?: string;
     subject: string;
     body: string;
+    html?: string;
     messageId: string;
     inReplyTo?: string | null;
     references?: string | null;
@@ -34,7 +35,7 @@ export class EmailIngestion {
      * Handle incoming email from IMAP ingestion.
      */
     async handleIncomingEmail(emailData: IncomingEmailData) {
-        const { emailAccountId, fromEmail, fromName, subject, body, messageId, inReplyTo, references } = emailData;
+        const { emailAccountId, fromEmail, fromName, subject, body, html, messageId, inReplyTo, references } = emailData;
 
         // Find Account ID
         const emailVars = await prisma.emailAccount.findUnique({
@@ -55,10 +56,13 @@ export class EmailIngestion {
         let conversation = await this.resolveConversation(accountId, fromEmail, fromName, inReplyTo, references);
 
         // Add message with emailMessageId (even for blocked contacts, for audit trail)
+        // Prefer HTML if available, otherwise use text body
+        const contentBody = html || body;
+
         const message = await prisma.message.create({
             data: {
                 conversationId: conversation.id,
-                content: `Subject: ${subject}\n\n${body}`,
+                content: `Subject: ${subject}\n\n${contentBody}`,
                 senderType: 'CUSTOMER',
                 emailMessageId: messageId
             }
