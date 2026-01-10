@@ -89,24 +89,32 @@ export class ProductSync extends BaseSync {
             // Execute batch transaction - pool size increased in prisma.ts to handle concurrency
             await prisma.$transaction(upsertOperations);
 
+            // Batch-fetch all upserted products once (avoids N+1 queries)
+            const upsertedProducts = await prisma.wooProduct.findMany({
+                where: {
+                    accountId,
+                    wooId: { in: products.map(p => p.id) }
+                }
+            });
+            const productMap = new Map(upsertedProducts.map(p => [p.wooId, p]));
+
             // Process scoring and indexing
             const indexPromises: Promise<any>[] = [];
-            const scoringPromises: Promise<any>[] = [];
+            const scoringResults: { seoScore: number; merchantCenterScore: number }[] = [];
 
+            // Score products and batch-collect update operations
+            const scoreUpdateOperations = [];
             for (const p of products) {
-                scoringPromises.push((async () => {
-                    const upsertedProduct = await prisma.wooProduct.findUnique({
-                        where: { accountId_wooId: { accountId, wooId: p.id } }
-                    });
+                const upsertedProduct = productMap.get(p.id);
+                if (upsertedProduct) {
+                    const currentSeoData = (upsertedProduct.seoData as any) || {};
+                    const focusKeyword = currentSeoData.focusKeyword || '';
 
-                    if (upsertedProduct) {
-                        const currentSeoData = (upsertedProduct.seoData as any) || {};
-                        const focusKeyword = currentSeoData.focusKeyword || '';
+                    const seoResult = SeoScoringService.calculateScore(upsertedProduct, focusKeyword);
+                    const mcResult = MerchantCenterService.validateCompliance(upsertedProduct);
 
-                        const seoResult = SeoScoringService.calculateScore(upsertedProduct, focusKeyword);
-                        const mcResult = MerchantCenterService.validateCompliance(upsertedProduct);
-
-                        await prisma.wooProduct.update({
+                    scoreUpdateOperations.push(
+                        prisma.wooProduct.update({
                             where: { id: upsertedProduct.id },
                             data: {
                                 seoScore: seoResult.score,
@@ -114,18 +122,22 @@ export class ProductSync extends BaseSync {
                                 merchantCenterScore: mcResult.score,
                                 merchantCenterIssues: mcResult.issues as any
                             }
-                        });
+                        })
+                    );
 
-                        EmbeddingService.updateProductEmbedding(upsertedProduct.id, accountId)
-                            .catch((err: any) => Logger.debug('Embedding generation skipped', { productId: upsertedProduct.id, reason: err.message }));
+                    EmbeddingService.updateProductEmbedding(upsertedProduct.id, accountId)
+                        .catch((err: any) => Logger.debug('Embedding generation skipped', { productId: upsertedProduct.id, reason: err.message }));
 
-                        return { seoScore: seoResult.score, merchantCenterScore: mcResult.score };
-                    }
-                    return { seoScore: 0, merchantCenterScore: 0 };
-                })());
+                    scoringResults.push({ seoScore: seoResult.score, merchantCenterScore: mcResult.score });
+                } else {
+                    scoringResults.push({ seoScore: 0, merchantCenterScore: 0 });
+                }
             }
 
-            const scoringResults = await Promise.all(scoringPromises);
+            // Execute all score updates in a single batch transaction
+            if (scoreUpdateOperations.length > 0) {
+                await prisma.$transaction(scoreUpdateOperations);
+            }
 
             for (let i = 0; i < products.length; i++) {
                 const p = products[i];

@@ -20,7 +20,8 @@ const pool = new Pool({
     connectionString,
     // Increase pool size to handle concurrent sync operations
     // Default is 10, which is too low for parallel batch transactions
-    max: parseInt(process.env.DATABASE_POOL_SIZE || '25', 10),
+    // 50 connections supports multiple concurrent account syncs
+    max: parseInt(process.env.DATABASE_POOL_SIZE || '50', 10),
     // Connection idle timeout (10 seconds)
     idleTimeoutMillis: 10000,
     // Connection timeout (30 seconds - matches Prisma's default transaction timeout)

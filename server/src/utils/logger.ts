@@ -1,4 +1,4 @@
-import pino, { DestinationStream } from 'pino';
+import pino from 'pino';
 
 
 // Custom levels matching Winston's original config
@@ -15,13 +15,9 @@ const level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn';
 // Human-readable timestamp function (ISO format for JSON logs)
 const timestampFn = () => `,"time":"${new Date().toISOString()}"`;
 
-// Production: Create a synchronous destination to prevent interleaved output
-const productionDestination: DestinationStream = pino.destination({
-    dest: 1, // stdout file descriptor
-    sync: true, // Synchronous writes to prevent corruption
-});
-
 // Create the raw pino logger for our Logger wrapper
+// Note: Async writes (default) are required for Docker compatibility.
+// Sync writes cause buffer corruption with high log volume in containers.
 const createPinoLogger = () => {
     return pino({
         level,
@@ -33,7 +29,7 @@ const createPinoLogger = () => {
             pid: process.pid,
             hostname: require('os').hostname(),
         },
-    }, productionDestination);
+    });
 };
 
 const pinoInstance = createPinoLogger();
