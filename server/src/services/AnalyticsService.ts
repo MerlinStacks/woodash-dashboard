@@ -257,7 +257,7 @@ export class AnalyticsService {
                 const termCounts: Record<string, number> = {};
 
                 events.forEach(e => {
-                    const term = (e.payload as any)?.term;
+                    const term = (e.payload as any)?.query || (e.payload as any)?.term;
                     if (term) {
                         const lower = String(term).toLowerCase().trim();
                         termCounts[lower] = (termCounts[lower] || 0) + 1;

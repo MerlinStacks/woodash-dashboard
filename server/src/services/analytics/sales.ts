@@ -71,7 +71,7 @@ export class SalesAnalytics {
     /**
      * Get Sales Over Time (Date Histogram)
      */
-    static async getSalesOverTime(accountId: string, startDate?: string, endDate?: string, interval: 'day' | 'week' | 'month' = 'day') {
+    static async getSalesOverTime(accountId: string, startDate?: string, endDate?: string, interval: 'day' | 'week' | 'month' = 'day', timezone: string = 'UTC') {
         const must: any[] = [
             { term: { accountId } },
             { terms: { 'status': ['completed', 'processing', 'on-hold'] } }
@@ -103,7 +103,8 @@ export class SalesAnalytics {
                         date_histogram: {
                             field: 'date_created',
                             calendar_interval: interval,
-                            format: 'yyyy-MM-dd'
+                            format: 'yyyy-MM-dd',
+                            time_zone: timezone
                         },
                         aggs: {
                             total_sales: { sum: { field: 'total' } },

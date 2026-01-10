@@ -130,6 +130,12 @@ export function LoginPage() {
                             </button>
                         </div>
                     </form>
+
+                    <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+                        <Link to="/privacy-policy" className="text-sm text-gray-600 hover:text-blue-600 underline transition-colors">
+                            Privacy Policy
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

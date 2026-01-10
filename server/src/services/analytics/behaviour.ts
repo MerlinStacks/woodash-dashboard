@@ -45,7 +45,7 @@ export class BehaviourAnalytics {
             const end = endDate ? new Date(endDate) : new Date();
 
             const terms = await prisma.$queryRaw`
-                SELECT (payload->>'query') as term, COUNT(e.id) as searches
+                SELECT COALESCE(payload->>'query', payload->>'term') as term, COUNT(e.id) as searches
                 FROM "AnalyticsEvent" e
                 JOIN "AnalyticsSession" s ON e."sessionId" = s.id
                 WHERE s."accountId" = ${accountId}

@@ -35,6 +35,7 @@ import { ProductEditPage } from './pages/ProductEditPage';
 import { PurchaseOrderEditPage } from './pages/PurchaseOrderEditPage';
 import { InvoiceDesigner } from './pages/InvoiceDesigner';
 import { PoliciesPage } from './pages/PoliciesPage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 
 // Analytics Sub-Pages
 import { AnalyticsOverviewPage } from './pages/analytics/AnalyticsOverviewPage';
@@ -78,6 +79,7 @@ function App() {
                                 {/* Public Routes */}
                                 <Route path="/login" element={<LoginPage />} />
                                 <Route path="/register" element={<RegisterPage />} />
+                                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
 
                                 {/* Protected Routes */}
                                 <Route element={<ProtectedRoute />}>

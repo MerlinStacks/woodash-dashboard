@@ -83,7 +83,11 @@ export function DashboardPage() {
         setIsLoading(true);
         try {
             const res = await fetch('/api/dashboard', {
-                headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id,
+                    'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone
+                }
             });
             const data = await res.json();
 
@@ -146,7 +150,8 @@ export function DashboardPage() {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
-                    'X-Account-ID': currentAccount!.id
+                    'X-Account-ID': currentAccount!.id,
+                    'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone
                 },
                 body: JSON.stringify({
                     widgets: newWidgets.map(w => ({

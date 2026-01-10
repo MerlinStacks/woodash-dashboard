@@ -87,7 +87,8 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/sales-chart', async (request, reply) => {
         try {
             const query = request.query as { startDate?: string; endDate?: string; interval?: string };
-            return await SalesAnalytics.getSalesOverTime(request.accountId!, query.startDate, query.endDate, query.interval as any);
+            const timezone = request.headers['x-timezone'] as string || 'UTC';
+            return await SalesAnalytics.getSalesOverTime(request.accountId!, query.startDate, query.endDate, query.interval as any, timezone);
         } catch (e) { Logger.error('Sales Chart Error', { error: e }); return reply.code(500).send({ error: 'Failed' }); }
     });
 

@@ -39,35 +39,31 @@ export const getDateRange = (option: DateRangeOption | string): DateRange => {
             break;
     }
 
-    // Helper to get start/end of day in LOCAL time string format (YYYY-MM-DDTHH:mm:ss.SSS)
-    // We avoid standard toISOString() because it converts to UTC.
-    const getLocalISOString = (d: Date) => {
-        const pad = (n: number, z = 2) => String(n).padStart(z, '0');
+    // Helper to get start/end of day in UTC, but respecting the LOCAL calendar day.
+    // E.g. If local is Jan 10 (UTC+11), Start is Jan 9 13:00 UTC, End is Jan 10 12:59:59.999 UTC.
+
+    // We construct a new Date object for the "Start" by setting time to 00:00:00 LOCAL
+    const getStartOfDayUTC = (d: Date) => {
         const year = d.getFullYear();
-        const month = pad(d.getMonth() + 1);
-        const day = pad(d.getDate());
-        const hours = pad(d.getHours());
-        const minutes = pad(d.getMinutes());
-        const seconds = pad(d.getSeconds());
-        const ms = pad(d.getMilliseconds(), 3);
-        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}`;
+        const month = d.getMonth();
+        const day = d.getDate();
+        // Create date at 00:00:00 local time
+        const localStart = new Date(year, month, day, 0, 0, 0, 0);
+        return localStart.toISOString();
     };
 
-    const getStartOfDay = (d: Date) => {
-        const copy = new Date(d);
-        copy.setHours(0, 0, 0, 0);
-        return getLocalISOString(copy);
-    };
-
-    const getEndOfDay = (d: Date) => {
-        const copy = new Date(d);
-        copy.setHours(23, 59, 59, 999);
-        return getLocalISOString(copy);
+    const getEndOfDayUTC = (d: Date) => {
+        const year = d.getFullYear();
+        const month = d.getMonth();
+        const day = d.getDate();
+        // Create date at 23:59:59.999 local time
+        const localEnd = new Date(year, month, day, 23, 59, 59, 999);
+        return localEnd.toISOString();
     };
 
     return {
-        startDate: getStartOfDay(start),
-        endDate: getEndOfDay(end)
+        startDate: getStartOfDayUTC(start),
+        endDate: getEndOfDayUTC(end)
     };
 };
 
