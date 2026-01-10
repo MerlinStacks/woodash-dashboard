@@ -2,7 +2,13 @@ import { prisma } from '../../utils/prisma';
 import { WooService } from '../woo';
 import { Logger } from '../../utils/logger';
 import { SyncJobData } from '../queue/SyncQueue';
+import { randomUUID } from 'crypto';
 
+/** Result returned from sync operations for observability */
+export interface SyncResult {
+    itemsProcessed: number;
+    itemsDeleted?: number;
+}
 
 export abstract class BaseSync {
 
@@ -10,26 +16,34 @@ export abstract class BaseSync {
 
     async perform(jobData: SyncJobData, job?: any): Promise<void> {
         const { accountId, incremental } = jobData;
+        const syncId = randomUUID().slice(0, 8); // Short correlation ID
 
-        Logger.info(`Starting ${this.entityType} sync`, { accountId, incremental });
+        Logger.info(`Starting ${this.entityType} sync`, { accountId, incremental, syncId });
 
         const log = await this.createLog(accountId, this.entityType);
 
         try {
             const woo = await WooService.forAccount(accountId);
-            await this.sync(woo, accountId, incremental || false, job);
+            const result = await this.sync(woo, accountId, incremental || false, job, syncId);
 
-            await this.updateLog(log.id, 'SUCCESS');
+            await this.updateLog(log.id, 'SUCCESS', undefined, result.itemsProcessed);
             await this.updateState(accountId, this.entityType);
 
+            Logger.info(`Sync Complete: ${this.entityType}`, {
+                accountId,
+                syncId,
+                itemsProcessed: result.itemsProcessed,
+                itemsDeleted: result.itemsDeleted || 0
+            });
+
         } catch (error: any) {
-            Logger.error(`Sync Failed: ${this.entityType}`, { accountId, error: error.message });
+            Logger.error(`Sync Failed: ${this.entityType}`, { accountId, syncId, error: error.message });
             await this.updateLog(log.id, 'FAILED', error.message);
             throw error; // Bubble up to BullMQ for retry
         }
     }
 
-    protected abstract sync(woo: WooService, accountId: string, incremental: boolean, job?: any): Promise<void>;
+    protected abstract sync(woo: WooService, accountId: string, incremental: boolean, job?: any, syncId?: string): Promise<SyncResult>;
 
     // --- Helpers ---
 
@@ -39,14 +53,14 @@ export abstract class BaseSync {
         });
     }
 
-    private async updateLog(logId: string, status: 'SUCCESS' | 'FAILED', error?: string) {
+    private async updateLog(logId: string, status: 'SUCCESS' | 'FAILED', error?: string, itemsProcessed?: number) {
         await prisma.syncLog.update({
             where: { id: logId },
             data: {
                 status,
                 errorMessage: error,
                 completedAt: new Date(),
-                // We'd ideally track itemsProcessed too, can add to BaseSync state if needed
+                itemsProcessed: itemsProcessed || 0
             }
         });
     }
@@ -63,6 +77,10 @@ export abstract class BaseSync {
         const state = await prisma.syncState.findUnique({
             where: { accountId_entityType: { accountId, entityType: this.entityType } }
         });
-        return state?.lastSyncedAt?.toISOString();
+        if (!state?.lastSyncedAt) return undefined;
+
+        // Add 5-minute buffer for incremental syncs to handle clock skew/API delays
+        const bufferedDate = new Date(state.lastSyncedAt.getTime() - 5 * 60 * 1000);
+        return bufferedDate.toISOString();
     }
 }

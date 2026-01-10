@@ -1,33 +1,55 @@
-import { BaseSync } from './BaseSync';
+import { BaseSync, SyncResult } from './BaseSync';
 import { WooService } from '../woo';
 import { prisma } from '../../utils/prisma';
 import { IndexingService } from '../search/IndexingService';
 import { Logger } from '../../utils/logger';
+import { WooCustomerSchema, WooCustomer } from './wooSchemas';
 
 
 export class CustomerSync extends BaseSync {
     protected entityType = 'customers';
 
-    protected async sync(woo: WooService, accountId: string, incremental: boolean, job?: any): Promise<void> {
+    protected async sync(woo: WooService, accountId: string, incremental: boolean, job?: any, syncId?: string): Promise<SyncResult> {
         const after = incremental ? await this.getLastSync(accountId) : undefined;
         let page = 1;
         let hasMore = true;
         let totalProcessed = 0;
+        let totalDeleted = 0;
+        let totalSkipped = 0;
 
-        // Collect all WooCommerce customer IDs for reconciliation
         const wooCustomerIds = new Set<number>();
 
         while (hasMore) {
-            const { data: customers, totalPages } = await woo.getCustomers({ page, after, per_page: 50 });
-            if (!customers.length) {
+            const { data: rawCustomers, totalPages } = await woo.getCustomers({ page, after, per_page: 50 });
+            if (!rawCustomers.length) {
                 hasMore = false;
                 break;
             }
 
-            for (const c of customers) {
-                wooCustomerIds.add(c.id);
+            // Validate customers with Zod schema
+            const customers: WooCustomer[] = [];
+            for (const raw of rawCustomers) {
+                const result = WooCustomerSchema.safeParse(raw);
+                if (result.success) {
+                    customers.push(result.data);
+                } else {
+                    totalSkipped++;
+                    Logger.warn(`Skipping invalid customer`, {
+                        accountId, syncId, customerId: raw?.id,
+                        errors: result.error.issues.map(i => i.message).slice(0, 3)
+                    });
+                }
+            }
 
-                await prisma.wooCustomer.upsert({
+            if (!customers.length) {
+                page++;
+                continue;
+            }
+
+            // Batch prepare upsert operations
+            const upsertOperations = customers.map((c) => {
+                wooCustomerIds.add(c.id);
+                return prisma.wooCustomer.upsert({
                     where: { accountId_wooId: { accountId, wooId: c.id } },
                     update: {
                         totalSpent: c.total_spent ?? 0,
@@ -45,19 +67,22 @@ export class CustomerSync extends BaseSync {
                         rawData: c as any
                     }
                 });
+            });
 
-                // Index
-                // Index
-                try {
-                    await IndexingService.indexCustomer(accountId, c);
-                } catch (error: any) {
-                    Logger.warn(`Failed to index customer ${c.id}`, { accountId, error: error.message });
-                }
+            await prisma.$transaction(upsertOperations);
 
-                totalProcessed++;
-            }
+            // Index customers in parallel
+            const indexPromises = customers.map((c) =>
+                IndexingService.indexCustomer(accountId, c)
+                    .catch((error: any) => {
+                        Logger.warn(`Failed to index customer ${c.id}`, { accountId, syncId, error: error.message });
+                    })
+            );
 
-            Logger.info(`Synced batch of ${customers.length} customers`, { accountId, page, totalPages });
+            await Promise.allSettled(indexPromises);
+            totalProcessed += customers.length;
+
+            Logger.info(`Synced batch of ${customers.length} customers`, { accountId, syncId, page, totalPages });
             if (customers.length < 50) hasMore = false;
 
             if (job) {
@@ -77,21 +102,25 @@ export class CustomerSync extends BaseSync {
                 select: { id: true, wooId: true }
             });
 
-            let deletedCount = 0;
+            const deletePromises: Promise<any>[] = [];
             for (const local of localCustomers) {
                 if (!wooCustomerIds.has(local.wooId)) {
                     // Customer exists locally but not in WooCommerce - delete it
-                    await prisma.wooCustomer.delete({ where: { id: local.id } });
-                    await IndexingService.deleteCustomer(accountId, local.wooId);
-                    deletedCount++;
+                    deletePromises.push(
+                        prisma.wooCustomer.delete({ where: { id: local.id } })
+                            .then(() => IndexingService.deleteCustomer(accountId, local.wooId))
+                    );
+                    totalDeleted++;
                 }
             }
 
-            if (deletedCount > 0) {
-                Logger.info(`Reconciliation: Deleted ${deletedCount} orphaned customers`, { accountId });
+            if (deletePromises.length > 0) {
+                await Promise.allSettled(deletePromises);
+                Logger.info(`Reconciliation: Deleted ${totalDeleted} orphaned customers`, { accountId, syncId });
             }
         }
 
-        Logger.info(`Customer Sync Complete. Total: ${totalProcessed}`, { accountId });
+        return { itemsProcessed: totalProcessed, itemsDeleted: totalDeleted };
     }
 }
+

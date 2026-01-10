@@ -16,8 +16,9 @@ class TestReviewSync extends ReviewSync {
         const woo = await WooService.forAccount(accountId);
 
         console.log("Starting Sync Logic...");
-        await this.sync(woo, accountId, false); // Full sync, not incremental
-        console.log("Sync Logic Complete.");
+        const result = await this.sync(woo, accountId, false); // Full sync, not incremental
+        console.log("Sync Logic Complete.", result);
+        return result;
     }
 }
 

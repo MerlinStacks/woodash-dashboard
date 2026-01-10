@@ -1,34 +1,67 @@
-import { BaseSync } from './BaseSync';
+import { BaseSync, SyncResult } from './BaseSync';
 import { WooService } from '../woo';
 import { prisma } from '../../utils/prisma';
 import { IndexingService } from '../search/IndexingService';
 import { OrderTaggingService } from '../OrderTaggingService';
 import { EventBus, EVENTS } from '../events';
 import { Logger } from '../../utils/logger';
+import { WooOrderSchema, WooOrder } from './wooSchemas';
 
 
 export class OrderSync extends BaseSync {
     protected entityType = 'orders';
 
-    protected async sync(woo: WooService, accountId: string, incremental: boolean, job?: any): Promise<void> {
+    protected async sync(woo: WooService, accountId: string, incremental: boolean, job?: any, syncId?: string): Promise<SyncResult> {
         const after = incremental ? await this.getLastSync(accountId) : undefined;
         let page = 1;
         let hasMore = true;
         let totalProcessed = 0;
+        let totalDeleted = 0;
+        let totalSkipped = 0;
+
+        const wooOrderIds = new Set<number>();
 
         while (hasMore) {
-            const { data: orders, totalPages } = await woo.getOrders({ page, after, per_page: 50 });
-            if (!orders.length) {
+            const { data: rawOrders, totalPages } = await woo.getOrders({ page, after, per_page: 50 });
+            if (!rawOrders.length) {
                 hasMore = false;
                 break;
             }
 
-            for (const order of orders) {
-                const existing = await prisma.wooOrder.findUnique({
-                    where: { accountId_wooId: { accountId, wooId: order.id } }
-                });
+            // Validate orders with Zod schema
+            const orders: WooOrder[] = [];
+            for (const raw of rawOrders) {
+                const result = WooOrderSchema.safeParse(raw);
+                if (result.success) {
+                    orders.push(result.data);
+                } else {
+                    totalSkipped++;
+                    Logger.warn(`Skipping invalid order`, {
+                        accountId, syncId, orderId: raw?.id,
+                        errors: result.error.issues.map(i => i.message).slice(0, 3)
+                    });
+                }
+            }
 
-                await prisma.wooOrder.upsert({
+            if (!orders.length) {
+                page++;
+                continue;
+            }
+
+            // Get existing orders for change detection
+            const existingOrders = await prisma.wooOrder.findMany({
+                where: {
+                    accountId,
+                    wooId: { in: orders.map((o) => o.id) }
+                },
+                select: { wooId: true, status: true }
+            });
+            const existingMap = new Map(existingOrders.map(o => [o.wooId, o.status]));
+
+            // Batch prepare upsert operations
+            const upsertOperations = orders.map((order) => {
+                wooOrderIds.add(order.id);
+                return prisma.wooOrder.upsert({
                     where: { accountId_wooId: { accountId, wooId: order.id } },
                     update: {
                         status: order.status,
@@ -49,74 +82,90 @@ export class OrderSync extends BaseSync {
                         rawData: order as any
                     }
                 });
+            });
 
-                // Detect Changes for Automation
-                const isNew = !existing;
-                const isStatusChanged = existing && existing.status !== order.status;
+            await prisma.$transaction(upsertOperations);
 
-                // 1. Order Created (Recent check needed to avoid spamming on full sync?)
-                // If it's new, it's created. We can trust isNew.
-                // But if we sync old orders, we don't want to trigger "New Order" emails.
-                // So check date_created.
-                const orderDate = new Date(order.date_created);
+            // Process events and indexing
+            const indexPromises: Promise<any>[] = [];
+
+            for (const order of orders) {
+                const existingStatus = existingMap.get(order.id);
+                const isNew = !existingStatus;
+                const isStatusChanged = existingStatus && existingStatus !== order.status;
+
+                const orderDate = new Date(order.date_created || new Date());
                 const isRecent = (new Date().getTime() - orderDate.getTime()) < 24 * 60 * 60 * 1000;
 
                 if (isNew && isRecent) {
                     EventBus.emit(EVENTS.ORDER.CREATED, { accountId, order });
                 }
 
-                // 2. Order Completed
                 if (order.status === 'completed' && (isNew || isStatusChanged)) {
-                    // We define a new event or reuse?
-                    // Let's add ORDER.COMPLETED to events potentially, or just use SYNCED with metadata?
-                    // Better to emit specific event.
-                    // For now, let's emit a generic Status Changed event or assume Listener filters?
-                    // Let's add COMPLETED to EVENTS in a separate step or just emit 'order:completed' string.
                     EventBus.emit('order:completed', { accountId, order });
                 }
 
-                // Generic Synced Event
                 EventBus.emit(EVENTS.ORDER.SYNCED, { accountId, order });
 
-                // Index into Elasticsearch (with tags)
-                try {
-                    const tags = await OrderTaggingService.extractTagsFromOrder(accountId, order);
-                    await IndexingService.indexOrder(accountId, order, tags);
-                } catch (error: any) {
-                    Logger.warn(`Failed to index order ${order.id}`, { accountId, error: error.message });
-                }
-
-                totalProcessed++;
+                indexPromises.push((async () => {
+                    try {
+                        const tags = await OrderTaggingService.extractTagsFromOrder(accountId, order);
+                        await IndexingService.indexOrder(accountId, order, tags);
+                    } catch (error: any) {
+                        Logger.warn(`Failed to index order ${order.id}`, { accountId, syncId, error: error.message });
+                    }
+                })());
             }
 
-            Logger.info(`Synced batch of ${orders.length} orders`, { accountId, page, totalPages });
+            await Promise.allSettled(indexPromises);
+            totalProcessed += orders.length;
+
+            Logger.info(`Synced batch of ${orders.length} orders`, { accountId, syncId, page, totalPages, skipped: totalSkipped });
             if (orders.length < 50) hasMore = false;
 
-            // Progress Update
             if (job) {
                 const progress = totalPages > 0 ? Math.round((page / totalPages) * 100) : 100;
                 await job.updateProgress(progress);
-
-                // Cancellation Check
-                const isActive = await job.isActive();
-                if (!isActive) {
-                    throw new Error('Cancelled');
-                }
+                if (!(await job.isActive())) throw new Error('Cancelled');
             }
 
             page++;
         }
 
+        // --- Reconciliation: Remove deleted orders ---
+        // Only run on full sync (non-incremental) to ensure we have all WooCommerce IDs
+        if (!incremental && wooOrderIds.size > 0) {
+            const localOrders = await prisma.wooOrder.findMany({
+                where: { accountId },
+                select: { id: true, wooId: true }
+            });
+
+            const deletePromises: Promise<any>[] = [];
+            for (const local of localOrders) {
+                if (!wooOrderIds.has(local.wooId)) {
+                    // Order exists locally but not in WooCommerce - delete it
+                    deletePromises.push(
+                        prisma.wooOrder.delete({ where: { id: local.id } })
+                            .then(() => IndexingService.deleteOrder(accountId, local.wooId))
+                    );
+                    totalDeleted++;
+                }
+            }
+
+            if (deletePromises.length > 0) {
+                await Promise.allSettled(deletePromises);
+                Logger.info(`Reconciliation: Deleted ${totalDeleted} orphaned orders`, { accountId, syncId });
+            }
+        }
+
         // After all orders are synced, recalculate customer order counts from local data
-        Logger.info('Recalculating customer order counts from local orders...', { accountId });
+        Logger.info('Recalculating customer order counts from local orders...', { accountId, syncId });
         try {
-            // Get all distinct customer_ids from orders
             const ordersWithCustomers = await prisma.wooOrder.findMany({
                 where: { accountId },
                 select: { rawData: true }
             });
 
-            // Count orders per customer_id
             const customerOrderCounts = new Map<number, number>();
             for (const order of ordersWithCustomers) {
                 const customerId = (order.rawData as any)?.customer_id;
@@ -125,35 +174,24 @@ export class OrderSync extends BaseSync {
                 }
             }
 
-            // Update each customer's ordersCount in DB and ES
+            // Batch update customer order counts
+            const updatePromises: Promise<any>[] = [];
             for (const [wooId, count] of customerOrderCounts) {
-                // Update Prisma
-                await prisma.wooCustomer.updateMany({
-                    where: { accountId, wooId },
-                    data: { ordersCount: count }
-                });
-
-                // Update Elasticsearch
-                try {
-                    const { esClient } = await import('../../utils/elastic');
-                    await esClient.update({
-                        index: 'customers',
-                        id: `${accountId}_${wooId}`,
-                        doc: { ordersCount: count },
-                        refresh: true
-                    }).catch(() => {
-                        // Document may not exist, that's OK
-                    });
-                } catch (e) {
-                    // ES update failure is non-fatal
-                }
+                updatePromises.push(
+                    prisma.wooCustomer.updateMany({
+                        where: { accountId, wooId },
+                        data: { ordersCount: count }
+                    })
+                );
             }
 
-            Logger.info(`Updated order counts for ${customerOrderCounts.size} customers`, { accountId });
+            await Promise.allSettled(updatePromises);
+            Logger.info(`Updated order counts for ${customerOrderCounts.size} customers`, { accountId, syncId });
         } catch (error: any) {
-            Logger.warn('Failed to recalculate customer order counts', { accountId, error: error.message });
+            Logger.warn('Failed to recalculate customer order counts', { accountId, syncId, error: error.message });
         }
 
-        Logger.info(`Order Sync Complete. Total: ${totalProcessed}`, { accountId });
+        return { itemsProcessed: totalProcessed, itemsDeleted: totalDeleted };
     }
 }
+

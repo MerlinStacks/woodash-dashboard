@@ -1,4 +1,4 @@
-import { BaseSync } from './BaseSync';
+import { BaseSync, SyncResult } from './BaseSync';
 import { WooService } from '../woo';
 import { prisma } from '../../utils/prisma';
 import { IndexingService } from '../search/IndexingService';
@@ -7,33 +7,53 @@ import { MerchantCenterService } from '../MerchantCenterService';
 import { EmbeddingService } from '../EmbeddingService';
 import { EventBus, EVENTS } from '../events';
 import { Logger } from '../../utils/logger';
+import { WooProductSchema, WooProduct } from './wooSchemas';
 
 
 export class ProductSync extends BaseSync {
     protected entityType = 'products';
 
-    protected async sync(woo: WooService, accountId: string, incremental: boolean, job?: any): Promise<void> {
-        // Products don't reliably support 'after' in all Woo versions via this wrapper, but we'll try
-        // or just fetch key pages.
+    protected async sync(woo: WooService, accountId: string, incremental: boolean, job?: any, syncId?: string): Promise<SyncResult> {
         const after = incremental ? await this.getLastSync(accountId) : undefined;
         let page = 1;
         let hasMore = true;
         let totalProcessed = 0;
+        let totalDeleted = 0;
+        let totalSkipped = 0;
 
-        // Collect all WooCommerce product IDs for reconciliation
         const wooProductIds = new Set<number>();
 
         while (hasMore) {
-            const { data: products, totalPages } = await woo.getProducts({ page, after, per_page: 50 });
-            if (!products.length) {
+            const { data: rawProducts, totalPages } = await woo.getProducts({ page, after, per_page: 50 });
+            if (!rawProducts.length) {
                 hasMore = false;
                 break;
             }
 
-            for (const p of products) {
-                wooProductIds.add(p.id);
+            // Validate products with Zod schema, skip invalid ones
+            const products: WooProduct[] = [];
+            for (const raw of rawProducts) {
+                const result = WooProductSchema.safeParse(raw);
+                if (result.success) {
+                    products.push(result.data);
+                } else {
+                    totalSkipped++;
+                    Logger.warn(`Skipping invalid product`, {
+                        accountId, syncId, productId: raw?.id,
+                        errors: result.error.issues.map(i => i.message).slice(0, 3)
+                    });
+                }
+            }
 
-                await prisma.wooProduct.upsert({
+            if (!products.length) {
+                page++;
+                continue;
+            }
+
+            // Batch prepare upsert operations
+            const upsertOperations = products.map((p) => {
+                wooProductIds.add(p.id);
+                return prisma.wooProduct.upsert({
                     where: { accountId_wooId: { accountId, wooId: p.id } },
                     update: {
                         name: p.name,
@@ -45,7 +65,7 @@ export class ProductSync extends BaseSync {
                         length: p.dimensions?.length ? parseFloat(p.dimensions.length) : null,
                         width: p.dimensions?.width ? parseFloat(p.dimensions.width) : null,
                         height: p.dimensions?.height ? parseFloat(p.dimensions.height) : null,
-                        images: p.images || []
+                        images: (p.images || []) as any
                     },
                     create: {
                         accountId,
@@ -60,59 +80,70 @@ export class ProductSync extends BaseSync {
                         length: p.dimensions?.length ? parseFloat(p.dimensions.length) : null,
                         width: p.dimensions?.width ? parseFloat(p.dimensions.width) : null,
                         height: p.dimensions?.height ? parseFloat(p.dimensions.height) : null,
-                        images: p.images || [],
+                        images: (p.images || []) as any,
                         rawData: p as any
                     }
                 });
+            });
 
-                // --- Scoring Logic ---
-                // Fetch fresh for clean state
-                const upsertedProduct = await prisma.wooProduct.findUnique({
-                    where: { accountId_wooId: { accountId, wooId: p.id } }
-                });
+            await prisma.$transaction(upsertOperations);
 
-                let seoScore = 0;
-                let merchantCenterScore = 0;
+            // Process scoring and indexing
+            const indexPromises: Promise<any>[] = [];
+            const scoringPromises: Promise<any>[] = [];
 
-                if (upsertedProduct) {
-                    const currentSeoData = (upsertedProduct.seoData as any) || {};
-                    const focusKeyword = currentSeoData.focusKeyword || '';
-
-                    const seoResult = SeoScoringService.calculateScore(upsertedProduct, focusKeyword);
-                    const mcResult = MerchantCenterService.validateCompliance(upsertedProduct);
-
-                    seoScore = seoResult.score;
-                    merchantCenterScore = mcResult.score;
-
-                    await prisma.wooProduct.update({
-                        where: { id: upsertedProduct.id },
-                        data: {
-                            seoScore: seoResult.score,
-                            seoData: { ...currentSeoData, analysis: seoResult.tests },
-                            merchantCenterScore: mcResult.score,
-                            merchantCenterIssues: mcResult.issues as any
-                        }
+            for (const p of products) {
+                scoringPromises.push((async () => {
+                    const upsertedProduct = await prisma.wooProduct.findUnique({
+                        where: { accountId_wooId: { accountId, wooId: p.id } }
                     });
 
-                    // Generate embedding for semantic search (async, non-blocking)
-                    EmbeddingService.updateProductEmbedding(upsertedProduct.id, accountId)
-                        .catch((err: any) => Logger.debug('Embedding generation skipped', { productId: upsertedProduct.id, reason: err.message }));
-                }
+                    if (upsertedProduct) {
+                        const currentSeoData = (upsertedProduct.seoData as any) || {};
+                        const focusKeyword = currentSeoData.focusKeyword || '';
 
-                // Index
-                try {
-                    await IndexingService.indexProduct(accountId, { ...p, seoScore, merchantCenterScore });
-                } catch (error: any) {
-                    Logger.warn(`Failed to index product ${p.id}`, { accountId, error: error.message });
-                }
+                        const seoResult = SeoScoringService.calculateScore(upsertedProduct, focusKeyword);
+                        const mcResult = MerchantCenterService.validateCompliance(upsertedProduct);
 
-                // Emit Event
-                EventBus.emit(EVENTS.PRODUCT.SYNCED, { accountId, product: p });
+                        await prisma.wooProduct.update({
+                            where: { id: upsertedProduct.id },
+                            data: {
+                                seoScore: seoResult.score,
+                                seoData: { ...currentSeoData, analysis: seoResult.tests },
+                                merchantCenterScore: mcResult.score,
+                                merchantCenterIssues: mcResult.issues as any
+                            }
+                        });
 
-                totalProcessed++;
+                        EmbeddingService.updateProductEmbedding(upsertedProduct.id, accountId)
+                            .catch((err: any) => Logger.debug('Embedding generation skipped', { productId: upsertedProduct.id, reason: err.message }));
+
+                        return { seoScore: seoResult.score, merchantCenterScore: mcResult.score };
+                    }
+                    return { seoScore: 0, merchantCenterScore: 0 };
+                })());
             }
 
-            Logger.info(`Synced batch of ${products.length} products`, { accountId, page, totalPages });
+            const scoringResults = await Promise.all(scoringPromises);
+
+            for (let i = 0; i < products.length; i++) {
+                const p = products[i];
+                const scores = scoringResults[i] || { seoScore: 0, merchantCenterScore: 0 };
+
+                indexPromises.push(
+                    IndexingService.indexProduct(accountId, { ...p, ...scores })
+                        .catch((error: any) => {
+                            Logger.warn(`Failed to index product ${p.id}`, { accountId, syncId, error: error.message });
+                        })
+                );
+
+                EventBus.emit(EVENTS.PRODUCT.SYNCED, { accountId, product: p });
+            }
+
+            await Promise.allSettled(indexPromises);
+            totalProcessed += products.length;
+
+            Logger.info(`Synced batch of ${products.length} products`, { accountId, syncId, page, totalPages, skipped: totalSkipped });
             if (products.length < 50) hasMore = false;
 
             if (job) {
@@ -124,29 +155,30 @@ export class ProductSync extends BaseSync {
             page++;
         }
 
-        // --- Reconciliation: Remove deleted products ---
-        // Only run on full sync (non-incremental) to ensure we have all WooCommerce IDs
+        // Reconciliation
         if (!incremental && wooProductIds.size > 0) {
             const localProducts = await prisma.wooProduct.findMany({
                 where: { accountId },
                 select: { id: true, wooId: true }
             });
 
-            let deletedCount = 0;
+            const deletePromises: Promise<any>[] = [];
             for (const local of localProducts) {
                 if (!wooProductIds.has(local.wooId)) {
-                    // Product exists locally but not in WooCommerce - delete it
-                    await prisma.wooProduct.delete({ where: { id: local.id } });
-                    await IndexingService.deleteProduct(accountId, local.wooId);
-                    deletedCount++;
+                    deletePromises.push(
+                        prisma.wooProduct.delete({ where: { id: local.id } })
+                            .then(() => IndexingService.deleteProduct(accountId, local.wooId))
+                    );
+                    totalDeleted++;
                 }
             }
 
-            if (deletedCount > 0) {
-                Logger.info(`Reconciliation: Deleted ${deletedCount} orphaned products`, { accountId });
+            if (deletePromises.length > 0) {
+                await Promise.allSettled(deletePromises);
+                Logger.info(`Reconciliation: Deleted ${totalDeleted} orphaned products`, { accountId, syncId });
             }
         }
 
-        Logger.info(`Product Sync Complete. Total: ${totalProcessed}`, { accountId });
+        return { itemsProcessed: totalProcessed, itemsDeleted: totalDeleted };
     }
 }

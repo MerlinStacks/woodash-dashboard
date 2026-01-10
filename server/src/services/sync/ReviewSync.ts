@@ -1,9 +1,10 @@
-import { BaseSync } from './BaseSync';
+import { BaseSync, SyncResult } from './BaseSync';
 import { WooService } from '../woo';
 import { prisma } from '../../utils/prisma';
 import { EventBus, EVENTS } from '../events';
 import { Logger } from '../../utils/logger';
 import { IndexingService } from '../search/IndexingService';
+import { WooReviewSchema, WooReview } from './wooSchemas';
 
 
 interface OrderMatchResult {
@@ -15,12 +16,10 @@ interface OrderMatchResult {
 
 /**
  * Normalizes email for comparison: lowercase, trim, remove + addressing.
- * E.g., "User+test@Gmail.com " → "user@gmail.com"
  */
 function normalizeEmail(email: string | null | undefined): string | null {
     if (!email) return null;
     const trimmed = email.trim().toLowerCase();
-    // Handle + addressing (e.g., user+tag@domain.com → user@domain.com)
     const atIndex = trimmed.indexOf('@');
     if (atIndex === -1) return trimmed;
     const localPart = trimmed.substring(0, atIndex);
@@ -34,24 +33,20 @@ function normalizeEmail(email: string | null | undefined): string | null {
 
 /**
  * Compares reviewer name against order billing name.
- * Returns true if names are similar enough to suggest same person.
  */
 function namesMatch(reviewerName: string, billingFirst: string | undefined, billingLast: string | undefined): boolean {
     if (!reviewerName) return false;
     const normalizedReviewer = reviewerName.toLowerCase().trim();
     const fullBilling = `${billingFirst || ''} ${billingLast || ''}`.toLowerCase().trim();
 
-    // Exact full name match
     if (normalizedReviewer === fullBilling) return true;
 
-    // Reviewer contains both billing parts
     const first = (billingFirst || '').toLowerCase().trim();
     const last = (billingLast || '').toLowerCase().trim();
     if (first && last && normalizedReviewer.includes(first) && normalizedReviewer.includes(last)) {
         return true;
     }
 
-    // Split reviewer name and check if any part matches last name (most reliable)
     const reviewerParts = normalizedReviewer.split(/\s+/);
     if (last && reviewerParts.some(part => part === last)) {
         return true;
@@ -64,31 +59,60 @@ function namesMatch(reviewerName: string, billingFirst: string | undefined, bill
 export class ReviewSync extends BaseSync {
     protected entityType = 'reviews';
 
-    protected async sync(woo: WooService, accountId: string, incremental: boolean, job?: any): Promise<void> {
+    protected async sync(woo: WooService, accountId: string, incremental: boolean, job?: any, syncId?: string): Promise<SyncResult> {
         const after = incremental ? await this.getLastSync(accountId) : undefined;
         let page = 1;
         let hasMore = true;
         let totalProcessed = 0;
+        let totalDeleted = 0;
+        let totalSkipped = 0;
+
+        const wooReviewIds = new Set<number>();
 
         while (hasMore) {
-            const { data: reviews, totalPages } = await woo.getReviews({ page, after, per_page: 50 });
-            if (!reviews.length) {
+            const { data: rawReviews, totalPages } = await woo.getReviews({ page, after, per_page: 50 });
+            if (!rawReviews.length) {
                 hasMore = false;
                 break;
             }
 
+            // Validate reviews with Zod schema
+            const reviews: WooReview[] = [];
+            for (const raw of rawReviews) {
+                const result = WooReviewSchema.safeParse(raw);
+                if (result.success) {
+                    reviews.push(result.data);
+                } else {
+                    totalSkipped++;
+                    Logger.warn(`Skipping invalid review`, {
+                        accountId, syncId, reviewId: raw?.id,
+                        errors: result.error.issues.map(i => i.message).slice(0, 3)
+                    });
+                }
+            }
+
+            if (!reviews.length) {
+                page++;
+                continue;
+            }
+
+            const indexPromises: Promise<any>[] = [];
+
             for (const r of reviews) {
+                wooReviewIds.add(r.id);
 
                 const reviewData = r as any;
                 const reviewerEmail = reviewData.reviewer_email;
 
-                // 1. Find Customer
+                // 1. Find Customer (pre-fetch once, avoiding N+1)
                 let wooCustomerId: string | null = null;
+                let customerData: { id: string; wooId: number; email: string } | null = null;
                 if (reviewerEmail) {
-                    const customer = await prisma.wooCustomer.findFirst({
-                        where: { accountId, email: reviewerEmail }
+                    customerData = await prisma.wooCustomer.findFirst({
+                        where: { accountId, email: reviewerEmail },
+                        select: { id: true, wooId: true, email: true }
                     });
-                    if (customer) wooCustomerId = customer.id;
+                    if (customerData) wooCustomerId = customerData.id;
                 }
 
                 // 2. Find Order - Improved matching algorithm
@@ -96,12 +120,6 @@ export class ReviewSync extends BaseSync {
                 const reviewDate = new Date(r.date_created);
                 const lookbackDate = new Date(reviewDate);
                 lookbackDate.setDate(lookbackDate.getDate() - 180); // 180-day lookback window
-
-                // Get potential matching orders based on date range and product
-                // We'll query orders that:
-                // 1. Were created before the review date
-                // 2. Are within the lookback window
-                // Then filter by customer/email and product match
 
                 const potentialOrders = await prisma.wooOrder.findMany({
                     where: {
@@ -115,9 +133,6 @@ export class ReviewSync extends BaseSync {
                 });
 
                 // Find the best matching order
-                // Priority: Exact customer match > Email match > Guest email match
-                // Secondary: Closest to review date
-
                 const matches: OrderMatchResult[] = [];
 
                 for (const order of potentialOrders) {
@@ -126,12 +141,8 @@ export class ReviewSync extends BaseSync {
 
                     // Check if order contains the reviewed product (or its variation)
                     const hasProduct = lineItems.some((item: any) => {
-                        // Exact product match
                         if (item.product_id === r.product_id) return true;
-                        // Variation match - review on parent, order has variation
                         if (item.variation_id && item.product_id === r.product_id) return true;
-                        // Variation match - review on variation, order has parent
-                        // WooCommerce: variation_id is the actual variation, product_id is parent
                         if (item.variation_id === r.product_id) return true;
                         return false;
                     });
@@ -147,11 +158,11 @@ export class ReviewSync extends BaseSync {
                     const billingLast = data.billing?.last_name;
 
                     // Priority 1: Exact WooCommerce customer ID match (score 100)
-                    if (wooCustomerId) {
-                        const customer = await prisma.wooCustomer.findUnique({ where: { id: wooCustomerId } });
-                        if (customer && orderCustomerId === customer.wooId) {
+                    // Use pre-fetched customerData instead of querying again (N+1 fix)
+                    if (customerData) {
+                        if (orderCustomerId === customerData.wooId) {
                             matchScore = 100;
-                        } else if (customer && normalizedOrderEmail === normalizeEmail(customer.email)) {
+                        } else if (normalizedOrderEmail === normalizeEmail(customerData.email)) {
                             matchScore = 90; // Email match via customer record
                         }
                     }
@@ -167,10 +178,8 @@ export class ReviewSync extends BaseSync {
                     }
 
                     // Priority 4: Product-only match with tight temporal proximity (score 40)
-                    // Useful for gift purchases where reviewer ≠ purchaser
                     if (matchScore === 0) {
                         const daysDiff = (reviewDate.getTime() - new Date(order.dateCreated).getTime()) / (1000 * 60 * 60 * 24);
-                        // Only allow if review is 7-60 days after order (typical usage/shipping time)
                         if (daysDiff >= 7 && daysDiff <= 60) {
                             matchScore = 40;
                         }
@@ -199,6 +208,7 @@ export class ReviewSync extends BaseSync {
                     wooOrderId = matches[0].orderId;
                     Logger.debug(`Matched review ${r.id} to order ${matches[0].orderNumber}`, {
                         accountId,
+                        syncId,
                         matchScore: matches[0].score,
                         daysDiff: matches[0].daysDiff.toFixed(1),
                         totalMatches: matches.length
@@ -247,18 +257,21 @@ export class ReviewSync extends BaseSync {
                     EventBus.emit(EVENTS.REVIEW.LEFT, { accountId, review: r });
                 }
 
-                // Index into Elasticsearch
-                // Index into Elasticsearch
-                try {
-                    await IndexingService.indexReview(accountId, r);
-                } catch (error: any) {
-                    Logger.warn(`Failed to index review ${r.id}`, { accountId, error: error.message });
-                }
+                // Index into Elasticsearch (parallel)
+                indexPromises.push(
+                    IndexingService.indexReview(accountId, r)
+                        .catch((error: any) => {
+                            Logger.warn(`Failed to index review ${r.id}`, { accountId, syncId, error: error.message });
+                        })
+                );
 
                 totalProcessed++;
             }
 
-            Logger.info(`Synced batch of ${reviews.length} reviews`, { accountId, page, totalPages });
+            // Wait for all indexing operations
+            await Promise.allSettled(indexPromises);
+
+            Logger.info(`Synced batch of ${reviews.length} reviews`, { accountId, syncId, page, totalPages });
             if (reviews.length < 50) hasMore = false;
 
             if (job) {
@@ -270,6 +283,32 @@ export class ReviewSync extends BaseSync {
             page++;
         }
 
-        Logger.info(`Review Sync Complete. Total: ${totalProcessed}`, { accountId });
+        // --- Reconciliation: Remove deleted reviews ---
+        // Only run on full sync (non-incremental) to ensure we have all WooCommerce IDs
+        if (!incremental && wooReviewIds.size > 0) {
+            const localReviews = await prisma.wooReview.findMany({
+                where: { accountId },
+                select: { id: true, wooId: true }
+            });
+
+            const deletePromises: Promise<any>[] = [];
+            for (const local of localReviews) {
+                if (!wooReviewIds.has(local.wooId)) {
+                    // Review exists locally but not in WooCommerce - delete it
+                    deletePromises.push(
+                        prisma.wooReview.delete({ where: { id: local.id } })
+                    );
+                    totalDeleted++;
+                }
+            }
+
+            if (deletePromises.length > 0) {
+                await Promise.allSettled(deletePromises);
+                Logger.info(`Reconciliation: Deleted ${totalDeleted} orphaned reviews`, { accountId, syncId });
+            }
+        }
+
+        return { itemsProcessed: totalProcessed, itemsDeleted: totalDeleted };
     }
 }
+
