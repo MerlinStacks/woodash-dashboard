@@ -108,10 +108,84 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
             return conv;
         });
 
+        // GET /:id/available-channels
+        // Returns all channels this conversation's customer can be reached on
+        fastify.get<{ Params: { id: string } }>('/:id/available-channels', async (request, reply) => {
+            try {
+                const conv = await prisma.conversation.findUnique({
+                    where: { id: request.params.id },
+                    include: {
+                        wooCustomer: true,
+                        socialAccount: true,
+                        // Get merged conversations to find all connected channels
+                        mergedFrom: {
+                            include: { socialAccount: true }
+                        }
+                    }
+                });
+
+                if (!conv) return reply.code(404).send({ error: 'Not found' });
+
+                const channels: Array<{ channel: string; identifier: string; available: boolean }> = [];
+
+                // Always add the current conversation's channel
+                if (conv.channel === 'EMAIL' && (conv.wooCustomer?.email || conv.guestEmail)) {
+                    channels.push({
+                        channel: 'EMAIL',
+                        identifier: conv.wooCustomer?.email || conv.guestEmail || 'Unknown',
+                        available: true
+                    });
+                } else if (conv.channel === 'CHAT' && conv.visitorToken) {
+                    channels.push({
+                        channel: 'CHAT',
+                        identifier: conv.guestName || 'Visitor',
+                        available: true
+                    });
+                } else if (['FACEBOOK', 'INSTAGRAM', 'TIKTOK'].includes(conv.channel) && conv.socialAccount) {
+                    channels.push({
+                        channel: conv.channel,
+                        identifier: conv.socialAccount.name,
+                        available: true
+                    });
+                }
+
+                // Add channels from merged conversations
+                for (const merged of conv.mergedFrom) {
+                    if (['FACEBOOK', 'INSTAGRAM', 'TIKTOK'].includes(merged.channel) && merged.socialAccount) {
+                        if (!channels.find(c => c.channel === merged.channel)) {
+                            channels.push({
+                                channel: merged.channel,
+                                identifier: merged.socialAccount.name,
+                                available: true
+                            });
+                        }
+                    } else if (merged.channel === 'EMAIL' && merged.guestEmail) {
+                        if (!channels.find(c => c.channel === 'EMAIL')) {
+                            channels.push({
+                                channel: 'EMAIL',
+                                identifier: merged.guestEmail,
+                                available: true
+                            });
+                        }
+                    }
+                }
+
+                return { channels, currentChannel: conv.channel };
+            } catch (error) {
+                Logger.error('Failed to get available channels', { error });
+                return reply.code(500).send({ error: 'Failed to get available channels' });
+            }
+        });
+
         // POST /:id/messages
         fastify.post<{ Params: { id: string } }>('/:id/messages', async (request, reply) => {
-            const { content, type, isInternal } = request.body as any;
+            const { content, type, isInternal, channel } = request.body as any;
             const userId = request.user?.id;
+
+            // TODO: If channel is specified and differs from conversation's channel,
+            // route to appropriate messaging service (Meta, TikTok, Email)
+            // For now, just store the message - channel routing will be added when social messaging is fully implemented
+
             const msg = await chatService.addMessage(request.params.id, content, type || 'AGENT', userId, isInternal);
             return msg;
         });

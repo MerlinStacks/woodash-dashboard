@@ -7,6 +7,7 @@ import { ConversationList } from '../components/chat/ConversationList';
 import { ChatWindow } from '../components/chat/ChatWindow';
 import { ContactPanel } from '../components/chat/ContactPanel';
 import { MessageSquare } from 'lucide-react';
+import type { ConversationChannel } from '../components/chat/ChannelSelector';
 
 export function InboxPage() {
     const { socket, isConnected } = useSocket();
@@ -17,6 +18,7 @@ export function InboxPage() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [messages, setMessages] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [availableChannels, setAvailableChannels] = useState<Array<{ channel: ConversationChannel; identifier: string; available: boolean }>>([]);
 
     const activeConversation = conversations.find(c => c.id === selectedId);
 
@@ -151,21 +153,42 @@ export function InboxPage() {
         };
         markAsRead();
 
+        // Fetch available channels for this conversation
+        const fetchChannels = async () => {
+            try {
+                const res = await fetch(`/api/chat/${selectedId}/available-channels`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'x-account-id': currentAccount.id
+                    }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setAvailableChannels(data.channels || []);
+                }
+            } catch (error) {
+                console.error('Failed to fetch available channels', error);
+                setAvailableChannels([]);
+            }
+        };
+        fetchChannels();
+
         return () => {
             socket?.emit('leave:conversation', selectedId);
         };
     }, [selectedId, token, socket, currentAccount]);
 
-    const handleSendMessage = async (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean) => {
+    const handleSendMessage = async (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel) => {
         if (!selectedId) return;
 
         const res = await fetch(`/api/chat/${selectedId}/messages`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'x-account-id': currentAccount?.id || ''
             },
-            body: JSON.stringify({ content, type, isInternal })
+            body: JSON.stringify({ content, type, isInternal, channel })
         });
 
         if (!res.ok) {
@@ -202,6 +225,8 @@ export function InboxPage() {
                         recipientName={recipientName}
                         status={activeConversation?.status}
                         assigneeId={activeConversation?.assignedTo}
+                        availableChannels={availableChannels}
+                        currentChannel={activeConversation?.channel || 'CHAT'}
                         onStatusChange={async (newStatus, snoozeUntil) => {
                             const res = await fetch(`/api/chat/${selectedId}`, {
                                 method: 'PUT',

@@ -16,6 +16,7 @@ import { ImageLightbox } from './ImageLightbox';
 import { TypingIndicator } from './TypingIndicator';
 import { ChatHeader } from './ChatHeader';
 import { ChatSearchBar } from './ChatSearchBar';
+import { ChannelSelector, ConversationChannel } from './ChannelSelector';
 
 interface Message {
     id: string;
@@ -35,10 +36,16 @@ interface CannedResponse {
     content: string;
 }
 
+interface ChannelOption {
+    channel: ConversationChannel;
+    identifier: string;
+    available: boolean;
+}
+
 interface ChatWindowProps {
     conversationId: string;
     messages: Message[];
-    onSendMessage: (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean) => Promise<void>;
+    onSendMessage: (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel) => Promise<void>;
     recipientEmail?: string;
     recipientName?: string;
     status?: string;
@@ -47,9 +54,12 @@ interface ChatWindowProps {
     onMerge?: (targetConversationId: string) => Promise<void>;
     onBlock?: () => Promise<void>;
     assigneeId?: string;
+    // Channel selection for merged conversations
+    availableChannels?: ChannelOption[];
+    currentChannel?: ConversationChannel;
 }
 
-export function ChatWindow({ conversationId, messages, onSendMessage, recipientEmail, recipientName, status, onStatusChange, onAssign, onMerge, onBlock, assigneeId }: ChatWindowProps) {
+export function ChatWindow({ conversationId, messages, onSendMessage, recipientEmail, recipientName, status, onStatusChange, onAssign, onMerge, onBlock, assigneeId, availableChannels, currentChannel }: ChatWindowProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [input, setInput] = useState('');
@@ -57,6 +67,9 @@ export function ChatWindow({ conversationId, messages, onSendMessage, recipientE
     const [isSending, setIsSending] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+    // Channel selection for replies
+    const [selectedChannel, setSelectedChannel] = useState<ConversationChannel>(currentChannel || 'CHAT');
 
     // Modal states
     const [showSnoozeModal, setShowSnoozeModal] = useState(false);
@@ -310,7 +323,7 @@ export function ChatWindow({ conversationId, messages, onSendMessage, recipientE
         const timeout = setTimeout(async () => {
             setIsSending(true);
             try {
-                await onSendMessage(finalContent, 'AGENT', isInternal);
+                await onSendMessage(finalContent, 'AGENT', isInternal, selectedChannel);
                 clearDraft(conversationId);
             } finally {
                 setIsSending(false);
@@ -568,8 +581,20 @@ export function ChatWindow({ conversationId, messages, onSendMessage, recipientE
                     </div>
                 )}
 
-                {/* To/CC Fields (for email replies) */}
-                {!isInternal && recipientEmail && (
+                {/* Channel Selector for replies */}
+                {!isInternal && availableChannels && availableChannels.length > 0 && (
+                    <div className="px-4 py-2 border-b border-gray-100">
+                        <ChannelSelector
+                            channels={availableChannels}
+                            selectedChannel={selectedChannel}
+                            onChannelChange={setSelectedChannel}
+                            disabled={isSending}
+                        />
+                    </div>
+                )}
+
+                {/* Fallback: Simple TO field when no channel options */}
+                {!isInternal && (!availableChannels || availableChannels.length === 0) && recipientEmail && (
                     <div className="px-4 py-2 border-b border-gray-100 text-sm">
                         <div className="flex items-center gap-2">
                             <span className="text-gray-400 w-8">TO</span>
