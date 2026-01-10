@@ -56,11 +56,11 @@ export const pinoLogger = pinoInstance;
 
 // Export Fastify-compatible logger config (Fastify 5.x requires a config object, not an instance)
 // In production, we pass the SAME pino instance to Fastify to avoid duplicate loggers
-export const fastifyLoggerConfig = isDev
-    ? {
-        level,
-        customLevels,
-        useOnlyCustomLevels: false,
+export const fastifyLoggerConfig = {
+    level,
+    customLevels,
+    useOnlyCustomLevels: false,
+    ...(isDev && {
         transport: {
             target: 'pino-pretty',
             options: {
@@ -69,8 +69,8 @@ export const fastifyLoggerConfig = isDev
                 ignore: 'pid,hostname',
             },
         },
-    }
-    : pinoInstance; // In production, share the same logger instance to prevent duplicate output
+    }),
+};
 
 /**
  * Winston-compatible Logger wrapper.

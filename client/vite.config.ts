@@ -68,6 +68,22 @@ export default defineConfig(({ mode }) => {
             commonjsOptions: {
                 include: [/react-grid-layout/, /cookie/, /node_modules/],
                 transformMixedEsModules: true
+            },
+            rollupOptions: {
+                output: {
+                    manualChunks: {
+                        // Heavy charting library
+                        'echarts': ['echarts', 'echarts-for-react'],
+                        // PDF generation
+                        'pdf': ['jspdf', 'jspdf-autotable'],
+                        // Dashboard grid
+                        'grid': ['react-grid-layout', 'react-resizable'],
+                        // Flow builder
+                        'flow': ['@xyflow/react'],
+                        // React core (vendor chunk)
+                        'vendor': ['react', 'react-dom', 'react-router-dom'],
+                    }
+                }
             }
         }
     }
