@@ -75,9 +75,10 @@ const navItems = [
         label: 'Growth',
         icon: TrendingUp,
         children: [
-            { icon: Star, label: 'Reviews', path: '/reviews' },
-            { icon: Megaphone, label: 'Marketing', path: '/marketing' },
+            { icon: Megaphone, label: 'Paid Ads', path: '/ads' },
             { icon: Zap, label: 'Flows', path: '/flows' },
+            { icon: Megaphone, label: 'Broadcasts', path: '/broadcasts' },
+            { icon: Star, label: 'Reviews', path: '/reviews' },
         ]
     },
     { type: 'link', icon: PenTool, label: 'Invoice Designer', path: '/invoices/design' },

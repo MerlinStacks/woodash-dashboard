@@ -64,6 +64,21 @@ export function validateEnvironment(): void {
     }
 
     Logger.info('[ENV] Environment validation passed');
+
+    // DEVELOPMENT OVERRIDES
+    // If running in development (outside Docker) but env vars point to Docker containers,
+    // force them to localhost to prevent ENOTFOUND errors.
+    if (process.env.NODE_ENV === 'development') {
+        if (process.env.REDIS_HOST === 'redis') {
+            Logger.warn('[ENV] REDIS_HOST is "redis" but running in development. Forcing to "localhost".');
+            process.env.REDIS_HOST = 'localhost';
+        }
+
+        if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('@postgres:')) {
+            Logger.warn('[ENV] DATABASE_URL points to "postgres" container but running in development. Replacing with "localhost".');
+            process.env.DATABASE_URL = process.env.DATABASE_URL.replace('@postgres:', '@localhost:');
+        }
+    }
 }
 
 /**

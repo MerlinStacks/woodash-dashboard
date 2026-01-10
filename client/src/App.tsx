@@ -25,6 +25,8 @@ import { CustomerDetailsPage } from './pages/CustomerDetailsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { InboxPage } from './pages/InboxPage';
 import { ReviewsPage } from './pages/ReviewsPage';
+import { PaidAdsPage } from './pages/PaidAdsPage';
+import { BroadcastsPage } from './pages/BroadcastsPage';
 import { HelpCenterHome } from './pages/HelpCenter/HelpCenterHome';
 import { HelpArticle } from './pages/HelpCenter/HelpArticle';
 import { LiveAnalyticsPage } from './pages/LiveAnalyticsPage';
@@ -104,6 +106,8 @@ function App() {
                                         <Route path="/customers/segments" element={<AccountGuard><SegmentsPage /></AccountGuard>} />
                                         <Route path="/customers/:id" element={<AccountGuard><CustomerDetailsPage /></AccountGuard>} />
                                         <Route path="/marketing" element={<AccountGuard><MarketingPage /></AccountGuard>} />
+                                        <Route path="/ads" element={<AccountGuard><PaidAdsPage /></AccountGuard>} />
+                                        <Route path="/broadcasts" element={<AccountGuard><BroadcastsPage /></AccountGuard>} />
                                         <Route path="/flows" element={<AccountGuard><FlowsPage /></AccountGuard>} />
                                         <Route path="/inbox" element={<AccountGuard><InboxPage /></AccountGuard>} />
                                         <Route path="/live" element={<AccountGuard><LiveAnalyticsPage /></AccountGuard>} />

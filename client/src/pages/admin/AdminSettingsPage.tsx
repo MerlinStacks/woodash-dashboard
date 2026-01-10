@@ -2,13 +2,17 @@ import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Settings, Upload, Check, AlertCircle, Loader2, Globe, HardDrive, Calendar, RefreshCw } from 'lucide-react';
 
-interface GeoIPStatus {
+interface DatabaseInfo {
+    source: 'manual' | 'auto';
     installed: boolean;
-    stats: {
-        size: number;
-        sizeFormatted: string;
-        lastModified: string;
-    } | null;
+    size: number;
+    sizeFormatted: string;
+    buildDate: string;
+    type: string;
+}
+
+interface GeoIPStatus {
+    databases: DatabaseInfo[];
 }
 
 /**
@@ -17,10 +21,11 @@ interface GeoIPStatus {
  */
 export function AdminSettingsPage() {
     const { token } = useAuth();
-    const [geoipStatus, setGeoipStatus] = useState<GeoIPStatus | null>(null);
+    const [status, setStatus] = useState<GeoIPStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [forcingUpdate, setForcingUpdate] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [dragOver, setDragOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +37,7 @@ export function AdminSettingsPage() {
             });
             if (res.ok) {
                 const data = await res.json();
-                setGeoipStatus(data);
+                setStatus(data);
             }
         } catch (e) {
             console.error('Failed to fetch GeoIP status:', e);
@@ -44,6 +49,28 @@ export function AdminSettingsPage() {
     useEffect(() => {
         fetchStatus();
     }, [token]);
+
+    const handleForceUpdate = async () => {
+        setForcingUpdate(true);
+        setMessage(null);
+        try {
+            const res = await fetch('/api/admin/geoip-force-update', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setMessage({ type: 'success', text: 'Auto-update completed successfully.' });
+                fetchStatus();
+            } else {
+                setMessage({ type: 'error', text: data.error || 'Update failed' });
+            }
+        } catch (e) {
+            setMessage({ type: 'error', text: 'Network request failed' });
+        } finally {
+            setForcingUpdate(false);
+        }
+    };
 
     const handleUpload = async (file: File) => {
         if (!file.name.endsWith('.mmdb')) {
@@ -126,6 +153,9 @@ export function AdminSettingsPage() {
         );
     }
 
+    const manualDB = status?.databases.find(d => d.source === 'manual');
+    const autoDB = status?.databases.find(d => d.source === 'auto');
+
     return (
         <div>
             <h1 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3">
@@ -135,108 +165,137 @@ export function AdminSettingsPage() {
 
             {/* GeoIP Database Section */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-                    <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                        <Globe size={20} className="text-blue-600" />
-                        GeoIP Database
-                    </h2>
-                    <p className="text-sm text-slate-500 mt-1">
-                        MaxMind GeoLite2 database for IP geolocation
-                    </p>
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                            <Globe size={20} className="text-blue-600" />
+                            GeoIP Databases
+                        </h2>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Manage IP geolocation providers. The system automatically uses the newest database.
+                        </p>
+                    </div>
+                    <button
+                        onClick={fetchStatus}
+                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                        title="Refresh status"
+                    >
+                        <RefreshCw size={18} />
+                    </button>
                 </div>
 
-                <div className="p-6">
-                    {/* Status Card */}
-                    <div className={`rounded-lg p-4 mb-6 ${geoipStatus?.installed ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
-                        <div className="flex items-start gap-4">
-                            <div className={`p-2 rounded-lg ${geoipStatus?.installed ? 'bg-emerald-100' : 'bg-amber-100'}`}>
-                                {geoipStatus?.installed ? (
-                                    <Check className="text-emerald-600" size={24} />
-                                ) : (
-                                    <AlertCircle className="text-amber-600" size={24} />
-                                )}
-                            </div>
-                            <div className="flex-1">
-                                <h3 className={`font-medium ${geoipStatus?.installed ? 'text-emerald-800' : 'text-amber-800'}`}>
-                                    {geoipStatus?.installed ? 'Database Installed' : 'Database Not Installed'}
+                <div className="p-6 space-y-6">
+                    {/* Auto DB Card */}
+                    <div className="border border-slate-200 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                                    DB-IP Lite (Auto-Update)
+                                    {autoDB?.installed && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Automated</span>}
                                 </h3>
-                                {geoipStatus?.installed && geoipStatus.stats ? (
-                                    <div className="mt-2 space-y-1 text-sm text-slate-600">
-                                        <p className="flex items-center gap-2">
-                                            <HardDrive size={14} />
-                                            Size: {geoipStatus.stats.sizeFormatted}
-                                        </p>
-                                        <p className="flex items-center gap-2">
-                                            <Calendar size={14} />
-                                            Last updated: {new Date(geoipStatus.stats.lastModified).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-amber-700 mt-1">
-                                        Upload a GeoLite2-City.mmdb file to enable IP geolocation.
-                                    </p>
-                                )}
+                                <p className="text-sm text-slate-500">Automatically fetches monthly updates from db-ip.com</p>
                             </div>
                             <button
-                                onClick={fetchStatus}
-                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                title="Refresh status"
+                                onClick={handleForceUpdate}
+                                disabled={forcingUpdate}
+                                className="text-sm border border-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-50 flex items-center gap-2 disabled:opacity-50"
                             >
-                                <RefreshCw size={18} />
+                                {forcingUpdate ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                Force Update
                             </button>
                         </div>
-                    </div>
 
-                    {/* Upload Area */}
-                    <div
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`
-                            border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
-                            ${dragOver ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'}
-                            ${uploading ? 'pointer-events-none opacity-60' : ''}
-                        `}
-                    >
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".mmdb"
-                            onChange={handleFileSelect}
-                            className="hidden"
-                        />
-
-                        {uploading ? (
-                            <div className="space-y-3">
-                                <Loader2 className="animate-spin mx-auto text-blue-600" size={40} />
-                                <p className="text-slate-600">Uploading... {uploadProgress}%</p>
-                                <div className="w-48 mx-auto h-2 bg-slate-200 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-blue-600 transition-all duration-300"
-                                        style={{ width: `${uploadProgress}%` }}
-                                    />
+                        {autoDB ? (
+                            <div className="bg-slate-50 rounded-md p-3 flex items-center gap-4">
+                                <div className="p-2 bg-emerald-100 rounded-full">
+                                    <Check className="text-emerald-600" size={16} />
+                                </div>
+                                <div className="text-sm text-slate-600">
+                                    <p className="font-medium text-slate-900">Installed</p>
+                                    <p>Build Date: {new Date(autoDB.buildDate).toLocaleDateString()}</p>
+                                    <p>Size: {autoDB.sizeFormatted}</p>
                                 </div>
                             </div>
                         ) : (
-                            <>
-                                <Upload className="mx-auto text-slate-400 mb-3" size={40} />
-                                <p className="text-slate-600 font-medium">
-                                    {geoipStatus?.installed ? 'Upload New Database' : 'Upload GeoIP Database'}
-                                </p>
-                                <p className="text-sm text-slate-500 mt-1">
-                                    Drag & drop a .mmdb file or click to browse
-                                </p>
-                                <p className="text-xs text-slate-400 mt-3">
-                                    Download from <a href="https://www.maxmind.com/en/geolite2/signup" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" onClick={e => e.stopPropagation()}>MaxMind (free account required)</a>
-                                </p>
-                            </>
+                            <div className="bg-amber-50 rounded-md p-3 flex items-center gap-4 text-amber-800">
+                                <AlertCircle size={20} />
+                                <span className="text-sm">Not installed yet. Will fetch automatically or click Force Update.</span>
+                            </div>
                         )}
+                    </div>
+
+                    {/* Manual DB Card */}
+                    <div className="border border-slate-200 rounded-lg p-4">
+                        <div className="mb-4">
+                            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                                MaxMind GeoLite2 (Manual)
+                                {manualDB?.installed && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Uploaded</span>}
+                            </h3>
+                            <p className="text-sm text-slate-500">Manually uploaded .mmdb file</p>
+                        </div>
+
+                        {manualDB ? (
+                            <div className="bg-slate-50 rounded-md p-3 flex items-center gap-4 mb-4">
+                                <div className="p-2 bg-emerald-100 rounded-full">
+                                    <Check className="text-emerald-600" size={16} />
+                                </div>
+                                <div className="text-sm text-slate-600">
+                                    <p className="font-medium text-slate-900">Installed</p>
+                                    <p>Build Date: {new Date(manualDB.buildDate).toLocaleDateString()}</p>
+                                    <p>Size: {manualDB.sizeFormatted}</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-slate-50 rounded-md p-3 flex items-center gap-4 mb-4 text-slate-500">
+                                <div className="p-2 bg-slate-200 rounded-full">
+                                    <HardDrive className="text-slate-500" size={16} />
+                                </div>
+                                <span className="text-sm">No custom database uploaded.</span>
+                            </div>
+                        )}
+
+                        {/* Upload Dropzone */}
+                        <div
+                            onDrop={handleDrop}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onClick={() => fileInputRef.current?.click()}
+                            className={`
+                                border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all
+                                ${dragOver ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'}
+                                ${uploading ? 'pointer-events-none opacity-60' : ''}
+                            `}
+                        >
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".mmdb"
+                                onChange={handleFileSelect}
+                                className="hidden"
+                            />
+
+                            {uploading ? (
+                                <div className="space-y-2">
+                                    <Loader2 className="animate-spin mx-auto text-blue-600" size={24} />
+                                    <p className="text-sm text-slate-600">Uploading... {uploadProgress}%</p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-2">
+                                    <Upload className="text-slate-400" size={24} />
+                                    <p className="text-sm font-medium text-slate-600">
+                                        {manualDB ? 'Replace Manual Database' : 'Upload Manual Database'}
+                                    </p>
+                                    <p className="text-xs text-slate-400">
+                                        Drag & drop .mmdb file
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Message */}
                     {message && (
-                        <div className={`mt-4 p-4 rounded-lg flex items-center gap-3 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>
+                        <div className={`p-4 rounded-lg flex items-center gap-3 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>
                             {message.type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
                             {message.text}
                         </div>

@@ -28,7 +28,7 @@ interface OrderData {
 /**
  * Generates specific invoice PDF based on layout and order data
  */
-export const generateInvoicePDF = (order: OrderData, grid: any[], items: any[], templateName: string = 'Invoice') => {
+export const generateInvoicePDF = (order: OrderData, grid: any[], items: any[], _templateName: string = 'Invoice') => {
     // 1. Initialize PDF
     // A4 size: 210mm x 297mm
     const doc = new jsPDF({
@@ -38,7 +38,7 @@ export const generateInvoicePDF = (order: OrderData, grid: any[], items: any[], 
     });
 
     const pageWidth = doc.internal.pageSize.getWidth(); // 210
-    const pageHeight = doc.internal.pageSize.getHeight(); // 297
+
 
     // Grid System: 12 Cols
     const colWidth = pageWidth / 12;
@@ -118,7 +118,7 @@ export const generateInvoicePDF = (order: OrderData, grid: any[], items: any[], 
         }
         else if (type === 'totals') {
             // Render Totals
-            const startX = x + (w / 2); // Align right-ish side of box
+            // const startX = x + (w / 2); // Align right-ish side of box
             let currentY = y + 5;
 
             doc.setFontSize(10);

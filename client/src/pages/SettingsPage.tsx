@@ -43,6 +43,7 @@ export function SettingsPage() {
     const { currentAccount } = useAccount();
     const isGoldPriceEnabled = useAccountFeature('GOLD_PRICE_CALCULATOR');
     const isAdTrackingEnabled = useAccountFeature('AD_TRACKING');
+    const isAIEnabled = useAccountFeature('AI_WRITER');
     const [activeTab, setActiveTab] = useState<TabId>('general');
 
     // Handle URL-based tab selection (for OAuth callbacks)
@@ -89,7 +90,7 @@ export function SettingsPage() {
             name: 'Intelligence',
             tabs: [
                 { id: 'chat', label: 'Chat Widget', icon: MessageSquare },
-                { id: 'intelligence', label: 'AI Models', icon: Bot },
+                { id: 'intelligence', label: 'AI Models', icon: Bot, hidden: !isAIEnabled },
                 { id: 'analytics', label: 'Analytics', icon: Activity },
                 { id: 'notifications', label: 'Notifications', icon: Bell },
             ]

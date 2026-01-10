@@ -5,7 +5,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { Plus, Facebook, Loader2, Trash2, ExternalLink, AlertCircle, RefreshCw, Pencil, X, Check } from 'lucide-react';
+import { useAccountFeature } from '../../hooks/useAccountFeature';
+import { Plus, Facebook, Loader2, Trash2, ExternalLink, AlertCircle, RefreshCw, Pencil, X, Check, Lock } from 'lucide-react';
 
 interface AdAccount {
     id: string;
@@ -25,6 +26,9 @@ interface AdInsights {
 export function AdAccountSettings() {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
+    const isMetaEnabled = useAccountFeature('META_ADS');
+    const isGoogleEnabled = useAccountFeature('GOOGLE_ADS');
+
     const [accounts, setAccounts] = useState<AdAccount[]>([]);
     const [insights, setInsights] = useState<Record<string, AdInsights>>({});
     const [loadingInsights, setLoadingInsights] = useState<Record<string, boolean>>({});
@@ -84,6 +88,11 @@ export function AdAccountSettings() {
             const res = await fetch(`/api/ads/${adAccountId}/insights`, {
                 headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount?.id || '' }
             });
+
+            if (!res.ok) {
+                throw new Error(`Failed to load insights (${res.status})`);
+            }
+
             const data = await res.json();
             if (!data.error) {
                 setInsights(prev => ({ ...prev, [adAccountId]: data }));
@@ -92,6 +101,12 @@ export function AdAccountSettings() {
             }
         } catch (err: any) {
             setInsightErrors(prev => ({ ...prev, [adAccountId]: err.message || 'Connection error' }));
+            // Clear any potentially stale/invalid insights for this account
+            setInsights(prev => {
+                const newInsights = { ...prev };
+                delete newInsights[adAccountId];
+                return newInsights;
+            });
         } finally {
             setLoadingInsights(prev => ({ ...prev, [adAccountId]: false }));
         }
@@ -426,9 +441,19 @@ export function AdAccountSettings() {
                                 value={formData.platform}
                                 onChange={e => setFormData({ ...formData, platform: e.target.value })}
                             >
-                                <option value="META">Meta Ads (Facebook/Instagram)</option>
-                                <option value="GOOGLE">Google Ads</option>
+                                <option value="META" disabled={!isMetaEnabled}>
+                                    Meta Ads (Facebook/Instagram) {!isMetaEnabled && '(Disabled by Admin)'}
+                                </option>
+                                <option value="GOOGLE" disabled={!isGoogleEnabled}>
+                                    Google Ads {!isGoogleEnabled && '(Disabled by Admin)'}
+                                </option>
                             </select>
+                            {((formData.platform === 'META' && !isMetaEnabled) || (formData.platform === 'GOOGLE' && !isGoogleEnabled)) && (
+                                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                    <Lock size={12} />
+                                    This platform is currently disabled for your account.
+                                </p>
+                            )}
                         </div>
 
                         {formData.platform === 'GOOGLE' ? (
@@ -451,6 +476,11 @@ export function AdAccountSettings() {
                                     </svg>
                                     Connect with Google
                                 </button>
+                                {!isGoogleEnabled && (
+                                    <div className="absolute inset-0 bg-white/50 cursor-not-allowed flex items-center justify-center rounded-lg">
+                                        <span className="bg-white px-3 py-1 rounded-full text-xs font-bold text-gray-500 shadow-sm border">Disabled</span>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <>
@@ -502,7 +532,7 @@ export function AdAccountSettings() {
                                     </button>
                                     <button
                                         type="submit"
-                                        disabled={isConnecting}
+                                        disabled={isConnecting || (formData.platform === 'META' && !isMetaEnabled)}
                                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                                     >
                                         {isConnecting ? <Loader2 className="animate-spin" size={18} /> : 'Save'}
@@ -600,7 +630,7 @@ export function AdAccountSettings() {
                                         </div>
                                         <div>
                                             <p className="text-xs text-gray-500 uppercase">ROAS</p>
-                                            <p className="font-semibold">{ins.roas.toFixed(2)}x</p>
+                                            <p className="font-semibold">{(ins.roas || 0).toFixed(2)}x</p>
                                         </div>
                                         <div>
                                             <p className="text-xs text-gray-500 uppercase">Impressions</p>

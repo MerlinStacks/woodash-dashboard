@@ -1,6 +1,5 @@
 import pino, { DestinationStream } from 'pino';
-import fs from 'fs';
-import path from 'path';
+
 
 // Custom levels matching Winston's original config
 const customLevels = {
@@ -90,14 +89,14 @@ export const Logger = {
         }
     },
     // Child logger support for contextual logging
-    child: (bindings: Record<string, any>) => {
+    child: (bindings: Record<string, unknown>) => {
         const childPino = pinoInstance.child(bindings);
         return {
-            error: (message: string, meta?: Record<string, any>) => meta ? childPino.error(meta, message) : childPino.error(message),
-            warn: (message: string, meta?: Record<string, any>) => meta ? childPino.warn(meta, message) : childPino.warn(message),
-            info: (message: string, meta?: Record<string, any>) => meta ? childPino.info(meta, message) : childPino.info(message),
+            error: (message: string, meta?: Record<string, unknown>) => meta ? childPino.error(meta, message) : childPino.error(message),
+            warn: (message: string, meta?: Record<string, unknown>) => meta ? childPino.warn(meta, message) : childPino.warn(message),
+            info: (message: string, meta?: Record<string, unknown>) => meta ? childPino.info(meta, message) : childPino.info(message),
             http: (message: string, meta?: Record<string, any>) => meta ? (childPino as any).http(meta, message) : (childPino as any).http(message),
-            debug: (message: string, meta?: Record<string, any>) => meta ? childPino.debug(meta, message) : childPino.debug(message),
+            debug: (message: string, meta?: Record<string, unknown>) => meta ? childPino.debug(meta, message) : childPino.debug(message),
         };
     },
 };

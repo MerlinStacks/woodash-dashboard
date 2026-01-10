@@ -299,16 +299,36 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     // GeoIP Status
     fastify.get('/geoip-status', async (request, reply) => {
         try {
-            const dbPath = path.join(__dirname, '../../data/GeoLite2-City.mmdb');
-            const exists = fs.existsSync(dbPath);
-            let stats = null;
-            if (exists) {
-                const fileStat = fs.statSync(dbPath);
-                stats = { size: fileStat.size, sizeFormatted: `${(fileStat.size / 1024 / 1024).toFixed(1)} MB`, lastModified: fileStat.mtime.toISOString() };
-            }
-            return { installed: exists, stats };
+            const { getDatabaseStatus } = await import('../services/tracking/GeoIPService');
+            const databases = getDatabaseStatus();
+
+            return {
+                databases: databases.map(db => ({
+                    source: db.source,
+                    installed: true,
+                    size: db.size,
+                    sizeFormatted: `${(db.size / 1024 / 1024).toFixed(1)} MB`,
+                    buildDate: db.buildDate.toISOString(),
+                    type: db.dbType
+                }))
+            };
         } catch (e) {
             return reply.code(500).send({ error: 'Failed to check GeoIP status' });
+        }
+    });
+
+    // Force GeoIP Update
+    fastify.post('/geoip-force-update', async (request, reply) => {
+        try {
+            const { updateGeoLiteDB } = await import('../services/tracking/GeoIPService');
+            const success = await updateGeoLiteDB();
+            if (success) {
+                return { success: true, message: 'GeoIP database updated successfully' };
+            } else {
+                return reply.code(400).send({ error: 'Update failed or already in progress' });
+            }
+        } catch (e: any) {
+            return reply.code(500).send({ error: e.message || 'Failed to update GeoIP database' });
         }
     });
 

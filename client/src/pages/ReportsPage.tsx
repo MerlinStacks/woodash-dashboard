@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, TrendingUp, DollarSign, Users, Package, BarChart3, PieChart, FileText, LayoutGrid } from 'lucide-react';
+import { useAccountFeature } from '../hooks/useAccountFeature';
+import { Loader2, TrendingUp, DollarSign, Users, Package, BarChart3, PieChart, FileText, LayoutGrid, Lock } from 'lucide-react';
 import { ForecastChart } from '../components/ForecastChart';
 import { ReportBuilder } from '../components/ReportBuilder';
 
@@ -30,6 +30,7 @@ interface CustomerGrowth {
 export function ReportsPage() {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
+    const isAdvancedReportsEnabled = useAccountFeature('ADVANCED_REPORTS');
     const [isLoading, setIsLoading] = useState(true);
 
     // Date Logic
@@ -163,7 +164,15 @@ export function ReportsPage() {
                         className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'custom' ? 'bg-linear-to-r from-green-500 to-green-600 text-white shadow-md shadow-green-500/20' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
                     >
                         Custom Builder
+                        {!isAdvancedReportsEnabled && <Lock size={12} className="ml-1 inline-block" />}
                     </button>
+                    {!isAdvancedReportsEnabled && (activeTab === 'premade' || activeTab === 'custom' || activeTab === 'forecast' || activeTab === 'stock_velocity') && (
+                        <div className="absolute inset-x-0 -bottom-12 flex justify-center pointer-events-none">
+                            <div className="bg-gray-900 text-white text-xs py-1 px-3 rounded-full shadow-lg opacity-0 transition-opacity peer-hover:opacity-100">
+                                This feature requires the Advanced Reports addon.
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -300,42 +309,67 @@ export function ReportsPage() {
 
             {
                 activeTab === 'premade' && (
-                    <div className="flex gap-6 items-start h-[calc(100vh-14rem)]">
-                        <ReportsSidebar
-                            templates={templates}
-                            selectedTemplateId={undefined} // We could track selected ID state if we wanted to highlight logic
-                            onSelect={handleSelectTemplate}
-                            onDelete={handleDeleteTemplate}
-                        />
-                        <div className="flex-1 h-full min-h-0 overflow-hidden">
-                            {customReportConfig ? (
-                                <ReportBuilder
-                                    initialConfig={customReportConfig}
-                                    autoRun={shouldAutoRun}
-                                    viewMode={true}
-                                    onTemplateSaved={handleTemplateSaved}
-                                />
-                            ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-gray-400 border border-gray-200/60 rounded-2xl bg-gray-50/30">
-                                    <div className="p-4 bg-white rounded-2xl shadow-xs mb-4">
-                                        <FileText size={48} className="text-gray-300" />
-                                    </div>
-                                    <p className="text-lg font-medium text-gray-500">Select a report to view details</p>
-                                    <p className="text-sm text-gray-400 mt-1 max-w-xs text-center">Choose from the system templates or your saved reports on the left.</p>
-                                </div>
-                            )}
+                    !isAdvancedReportsEnabled ? (
+                        <div className="flex flex-col items-center justify-center py-20 bg-gray-50 border border-gray-200 rounded-xl border-dashed">
+                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                                <Lock size={32} className="text-blue-600" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900">Advanced Reports Required</h3>
+                            <p className="text-gray-500 max-w-md text-center mt-2">
+                                The Report Library contains powerful pre-built analysis templates.
+                                Enable the Advanced Reports feature to access this library.
+                            </p>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="flex gap-6 items-start h-[calc(100vh-14rem)]">
+                            <ReportsSidebar
+                                templates={templates}
+                                selectedTemplateId={undefined} // We could track selected ID state if we wanted to highlight logic
+                                onSelect={handleSelectTemplate}
+                                onDelete={handleDeleteTemplate}
+                            />
+                            <div className="flex-1 h-full min-h-0 overflow-hidden">
+                                {customReportConfig ? (
+                                    <ReportBuilder
+                                        initialConfig={customReportConfig}
+                                        autoRun={shouldAutoRun}
+                                        viewMode={true}
+                                        onTemplateSaved={handleTemplateSaved}
+                                    />
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center text-gray-400 border border-gray-200/60 rounded-2xl bg-gray-50/30">
+                                        <div className="p-4 bg-white rounded-2xl shadow-xs mb-4">
+                                            <FileText size={48} className="text-gray-300" />
+                                        </div>
+                                        <p className="text-lg font-medium text-gray-500">Select a report to view details</p>
+                                        <p className="text-sm text-gray-400 mt-1 max-w-xs text-center">Choose from the system templates or your saved reports on the left.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )
                 )
             }
 
             {
                 activeTab === 'custom' && (
-                    <ReportBuilder
-                        initialConfig={customReportConfig}
-                        autoRun={shouldAutoRun}
-                        onTemplateSaved={handleTemplateSaved}
-                    />
+                    !isAdvancedReportsEnabled ? (
+                        <div className="flex flex-col items-center justify-center py-20 bg-gray-50 border border-gray-200 rounded-xl border-dashed">
+                            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
+                                <Lock size={32} className="text-purple-600" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900">Custom Builder Locked</h3>
+                            <p className="text-gray-500 max-w-md text-center mt-2">
+                                Build your own custom reports and dashboards with the Advanced Reports addon.
+                            </p>
+                        </div>
+                    ) : (
+                        <ReportBuilder
+                            initialConfig={customReportConfig}
+                            autoRun={shouldAutoRun}
+                            onTemplateSaved={handleTemplateSaved}
+                        />
+                    )
                 )
             }
         </div >

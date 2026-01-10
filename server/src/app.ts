@@ -99,7 +99,7 @@ async function build() {
     // Multipart file uploads (replaces multer)
     await fastify.register(fastifyMultipart, {
         limits: {
-            fileSize: 10 * 1024 * 1024, // 10MB max
+            fileSize: 100 * 1024 * 1024, // 100MB max
         },
     });
 
