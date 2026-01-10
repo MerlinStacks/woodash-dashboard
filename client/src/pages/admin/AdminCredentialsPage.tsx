@@ -65,7 +65,8 @@ const PLATFORMS: PlatformConfig[] = [
         icon: Facebook,
         fields: [
             { key: 'appId', label: 'App ID', placeholder: '123456789' },
-            { key: 'appSecret', label: 'App Secret', placeholder: 'abc123...' }
+            { key: 'appSecret', label: 'App Secret', placeholder: 'abc123...' },
+            { key: 'webhookVerifyToken', label: 'Webhook Verify Token', placeholder: 'your_secret_token (same as in Facebook Dev Console)' }
         ]
     },
     {
