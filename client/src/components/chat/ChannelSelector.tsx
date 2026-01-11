@@ -65,8 +65,8 @@ export function ChannelSelector({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Don't show selector if only one channel available
-    if (availableChannels.length <= 1) {
+    // Only show static display if no channels available (fallback)
+    if (availableChannels.length === 0) {
         const Icon = config.icon;
         return (
             <div className="flex items-center gap-2 text-sm text-gray-600">

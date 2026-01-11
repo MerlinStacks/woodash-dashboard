@@ -19,6 +19,9 @@ export class EmailService {
         // Port 465 uses implicit TLS, port 587 uses STARTTLS
         const useImplicitTLS = account.port === 465;
 
+        // Decrypt the stored password (same as checkEmails does for IMAP)
+        const decryptedPassword = decrypt(account.password);
+
         return nodemailer.createTransport({
             host: account.host,
             port: account.port,
@@ -26,7 +29,7 @@ export class EmailService {
             requireTLS: !useImplicitTLS && account.isSecure, // Force STARTTLS for 587 when secure is wanted
             auth: {
                 user: account.username,
-                pass: account.password,
+                pass: decryptedPassword,
             },
             tls: {
                 // Allow connections to servers with mismatched certificates
@@ -44,7 +47,7 @@ export class EmailService {
         subject: string,
         html: string,
         attachments?: any[],
-        options?: { source?: string; sourceId?: string }
+        options?: { source?: string; sourceId?: string; inReplyTo?: string; references?: string }
     ) {
         const emailAccount = await prisma.emailAccount.findFirst({
             where: { id: emailAccountId, accountId }
@@ -70,13 +73,24 @@ export class EmailService {
         try {
             const transporter = await this.createTransporter(emailAccount);
 
-            const info = await transporter.sendMail({
+            // Build mail options with threading headers
+            const mailOptions: any = {
                 from: `"${emailAccount.name}" <${emailAccount.email}>`,
                 to,
                 subject,
                 html,
                 attachments
-            });
+            };
+
+            // Add threading headers for proper email thread display
+            if (options?.inReplyTo) {
+                mailOptions.inReplyTo = options.inReplyTo;
+            }
+            if (options?.references) {
+                mailOptions.references = options.references;
+            }
+
+            const info = await transporter.sendMail(mailOptions);
 
             // Log success
             await prisma.emailLog.create({

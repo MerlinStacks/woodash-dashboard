@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
@@ -7,6 +7,8 @@ import { ConversationList } from '../components/chat/ConversationList';
 import { ChatWindow } from '../components/chat/ChatWindow';
 import { ContactPanel } from '../components/chat/ContactPanel';
 import { NewEmailModal } from '../components/chat/NewEmailModal';
+import { KeyboardShortcutsHelp } from '../components/chat/KeyboardShortcutsHelp';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { MessageSquare } from 'lucide-react';
 import type { ConversationChannel } from '../components/chat/ChannelSelector';
 
@@ -20,6 +22,7 @@ export function InboxPage() {
     const [messages, setMessages] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isComposeOpen, setIsComposeOpen] = useState(false);
+    const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
     const [availableChannels, setAvailableChannels] = useState<Array<{ channel: ConversationChannel; identifier: string; available: boolean }>>([]);
 
     const activeConversation = conversations.find(c => c.id === selectedId);
@@ -198,6 +201,39 @@ export function InboxPage() {
         }
     };
 
+    // Update conversation status (for keyboard shortcuts)
+    const updateConversationStatus = useCallback(async (status: 'OPEN' | 'CLOSED') => {
+        if (!selectedId || !token || !currentAccount) return;
+        try {
+            await fetch(`/api/chat/${selectedId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
+                },
+                body: JSON.stringify({ status })
+            });
+            // Update local state
+            setConversations(prev => prev.map(c =>
+                c.id === selectedId ? { ...c, status } : c
+            ));
+        } catch (e) {
+            console.error('Failed to update status', e);
+        }
+    }, [selectedId, token, currentAccount]);
+
+    // Keyboard shortcuts
+    useKeyboardShortcuts({
+        conversations,
+        selectedId,
+        onSelect: setSelectedId,
+        onClose: () => updateConversationStatus('CLOSED'),
+        onReopen: () => updateConversationStatus('OPEN'),
+        onShowHelp: () => setIsShortcutsHelpOpen(true),
+        enabled: !isComposeOpen && !isShortcutsHelpOpen
+    });
+
     if (isLoading) {
         return (
             <div className="h-full flex items-center justify-center">
@@ -356,6 +392,12 @@ export function InboxPage() {
                     }}
                 />
             )}
+
+            {/* Keyboard Shortcuts Help Modal */}
+            <KeyboardShortcutsHelp
+                isOpen={isShortcutsHelpOpen}
+                onClose={() => setIsShortcutsHelpOpen(false)}
+            />
         </div>
     );
 }

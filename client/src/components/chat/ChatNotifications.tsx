@@ -42,10 +42,11 @@ export function ChatNotifications() {
             // Let's assume we want to notify for Customer messages.
 
             const isCustomerMessage = msg.type === 'CUSTOMER' || msg.senderType === 'CUSTOMER';
-            const isAssignedToMe = true; // TODO: Check if assigned to current user? For now notify all agents.
+            // Only notify if message is assigned to current user, or unassigned (notify all)
+            const isAssignedToMe = !msg.assignedTo || msg.assignedTo === user?.id;
 
-            // Logic: Notify if it's a customer message.
-            if (isCustomerMessage) {
+            // Logic: Notify if it's a customer message AND (assigned to me OR unassigned)
+            if (isCustomerMessage && isAssignedToMe) {
                 // If we are currently ON the inbox page AND looking at this specific conversation, maybe don't notify?
                 // Or simply always notify if window is blurred? 
                 // Let's rely on standard browser behavior (sometimes they mute notification if focused).

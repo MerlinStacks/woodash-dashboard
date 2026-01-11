@@ -1,9 +1,11 @@
 
 import { formatDistanceToNow } from 'date-fns';
-import { Mail, User, MessageSquare, Filter, ChevronDown, Pencil, Eye, EyeOff, Plus } from 'lucide-react';
+import { Mail, User, MessageSquare, Filter, ChevronDown, Pencil, Eye, EyeOff, Plus, Search, X, Loader2 } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDrafts } from '../../hooks/useDrafts';
+import { useAuth } from '../../context/AuthContext';
+import { useAccount } from '../../context/AccountContext';
 
 interface Conversation {
     id: string;
@@ -41,9 +43,47 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
     const [showFilterMenu, setShowFilterMenu] = useState(false);
     const [showResolved, setShowResolved] = useState(false);
     const { hasDraft } = useDrafts();
+    const { token } = useAuth();
+    const { currentAccount } = useAccount();
 
-    // Filter conversations - by default only show OPEN unless showResolved is true
-    const filteredConversations = conversations.filter(conv => {
+    // Search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<Conversation[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const isSearchMode = searchQuery.trim().length >= 2;
+
+    // Debounced search
+    useEffect(() => {
+        if (!isSearchMode || !token || !currentAccount) {
+            setSearchResults([]);
+            return;
+        }
+
+        const timeout = setTimeout(async () => {
+            setIsSearching(true);
+            try {
+                const res = await fetch(`/api/chat/conversations/search?q=${encodeURIComponent(searchQuery)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'x-account-id': currentAccount.id
+                    }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setSearchResults(data.results || []);
+                }
+            } catch (e) {
+                console.error('Search failed', e);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(timeout);
+    }, [searchQuery, token, currentAccount, isSearchMode]);
+
+    // Use search results when searching, otherwise normal filtered list
+    const filteredConversations = isSearchMode ? searchResults : conversations.filter(conv => {
         // Status filter: only show OPEN by default
         if (!showResolved && conv.status !== 'OPEN') return false;
 
@@ -104,16 +144,15 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
             <div className="p-3 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-3">
                     <h2 className="font-semibold text-gray-800 text-lg">Conversations</h2>
-                    <div className="flex items-center gap-1">
-                        {onCompose && (
-                            <button
-                                onClick={onCompose}
-                                className="p-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                                title="Compose new email"
-                            >
-                                <Plus size={16} />
-                            </button>
-                        )}
+                    <div className="flex items-center gap-1">{onCompose && (
+                        <button
+                            onClick={onCompose}
+                            className="p-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                            title="Compose new email"
+                        >
+                            <Plus size={16} />
+                        </button>
+                    )}
                         <div className="relative">
                             <button
                                 onClick={() => setShowFilterMenu(!showFilterMenu)}
@@ -125,50 +164,85 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                     </div>
                 </div>
 
-                {/* Filter Tabs */}
-                <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-                    <button
-                        onClick={() => setFilter('mine')}
-                        className={cn(
-                            "flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors",
-                            filter === 'mine' ? "bg-white text-blue-600 shadow-xs" : "text-gray-600 hover:text-gray-900"
-                        )}
-                    >
-                        Mine {counts.mine > 0 && <span className="ml-1 text-gray-400">{counts.mine}</span>}
-                    </button>
-                    <button
-                        onClick={() => setFilter('unassigned')}
-                        className={cn(
-                            "flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors",
-                            filter === 'unassigned' ? "bg-white text-blue-600 shadow-xs" : "text-gray-600 hover:text-gray-900"
-                        )}
-                    >
-                        Unassigned {counts.unassigned > 0 && <span className="ml-1 text-gray-400">{counts.unassigned}</span>}
-                    </button>
-                    <button
-                        onClick={() => setFilter('all')}
-                        className={cn(
-                            "flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors",
-                            filter === 'all' ? "bg-white text-blue-600 shadow-xs" : "text-gray-600 hover:text-gray-900"
-                        )}
-                    >
-                        All {counts.all > 0 && <span className="ml-1 text-gray-400">{counts.all}</span>}
-                    </button>
+                {/* Search Input */}
+                <div className="relative mb-3">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search conversations..."
+                        className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {isSearching && (
+                        <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
+                    )}
+                    {searchQuery && !isSearching && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
                 </div>
 
-                {/* Show Resolved Toggle */}
-                <button
-                    onClick={() => setShowResolved(!showResolved)}
-                    className={cn(
-                        "flex items-center justify-center gap-1.5 w-full mt-2 py-1.5 text-xs rounded-md transition-colors",
-                        showResolved
-                            ? "bg-gray-200 text-gray-700"
-                            : "text-gray-500 hover:bg-gray-100"
-                    )}
-                >
-                    {showResolved ? <EyeOff size={12} /> : <Eye size={12} />}
-                    {showResolved ? 'Hide Resolved' : 'Show Resolved'}
-                </button>
+                {/* Search mode indicator */}
+                {isSearchMode && (
+                    <div className="mb-2 text-xs text-gray-500 flex items-center gap-1">
+                        <Search size={12} />
+                        {isSearching ? 'Searching...' : `${filteredConversations.length} results for "${searchQuery}"`}
+                    </div>
+                )}
+
+                {/* Filter Tabs - hide when searching */}
+                {!isSearchMode && (
+                    <>
+                        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+                            <button
+                                onClick={() => setFilter('mine')}
+                                className={cn(
+                                    "flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors",
+                                    filter === 'mine' ? "bg-white text-blue-600 shadow-xs" : "text-gray-600 hover:text-gray-900"
+                                )}
+                            >
+                                Mine {counts.mine > 0 && <span className="ml-1 text-gray-400">{counts.mine}</span>}
+                            </button>
+                            <button
+                                onClick={() => setFilter('unassigned')}
+                                className={cn(
+                                    "flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors",
+                                    filter === 'unassigned' ? "bg-white text-blue-600 shadow-xs" : "text-gray-600 hover:text-gray-900"
+                                )}
+                            >
+                                Unassigned {counts.unassigned > 0 && <span className="ml-1 text-gray-400">{counts.unassigned}</span>}
+                            </button>
+                            <button
+                                onClick={() => setFilter('all')}
+                                className={cn(
+                                    "flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors",
+                                    filter === 'all' ? "bg-white text-blue-600 shadow-xs" : "text-gray-600 hover:text-gray-900"
+                                )}
+                            >
+                                All {counts.all > 0 && <span className="ml-1 text-gray-400">{counts.all}</span>}
+                            </button>
+                        </div>
+
+                        {/* Show Resolved Toggle */}
+                        <button
+                            onClick={() => setShowResolved(!showResolved)}
+                            className={cn(
+                                "flex items-center justify-center gap-1.5 w-full mt-2 py-1.5 text-xs rounded-md transition-colors",
+                                showResolved
+                                    ? "bg-gray-200 text-gray-700"
+                                    : "text-gray-500 hover:bg-gray-100"
+                            )}
+                        >
+                            {showResolved ? <EyeOff size={12} /> : <Eye size={12} />}
+                            {showResolved ? 'Hide Resolved' : 'Show Resolved'}
+                        </button>
+                    </>
+                )}
             </div>
 
             {/* Conversations List */}
@@ -266,6 +340,6 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                     })
                 )}
             </div>
-        </div>
+        </div >
     );
 }
