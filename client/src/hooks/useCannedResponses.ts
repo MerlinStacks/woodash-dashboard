@@ -1,0 +1,149 @@
+/**
+ * Hook for managing canned responses in the inbox.
+ * Handles fetching, filtering, and selection of pre-saved reply templates.
+ */
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useAccount } from '../context/AccountContext';
+
+export interface CannedResponse {
+    id: string;
+    shortcut: string;
+    content: string;
+    category: string | null;
+}
+
+
+interface CustomerContext {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+}
+
+interface UseCannedResponsesReturn {
+    /** All available canned responses */
+    cannedResponses: CannedResponse[];
+    /** Filtered responses based on current filter text */
+    filteredCanned: CannedResponse[];
+    /** Whether the canned dropdown is visible */
+    showCanned: boolean;
+    /** Current filter text (without leading /) */
+    cannedFilter: string;
+    /** Show/hide the canned responses manager modal */
+    showCannedManager: boolean;
+    /** Set dropdown visibility */
+    setShowCanned: (show: boolean) => void;
+    /** Set manager modal visibility */
+    setShowCannedManager: (show: boolean) => void;
+    /** Handle input change to detect / trigger */
+    handleInputForCanned: (input: string) => void;
+    /** Select a canned response and replace placeholders */
+    selectCanned: (response: CannedResponse, context?: CustomerContext) => string;
+    /** Refetch canned responses (after manager updates) */
+    refetchCanned: () => Promise<void>;
+}
+
+/**
+ * Replaces placeholders in content with actual customer values.
+ * Supports: {{customer.firstName}}, {{customer.lastName}}, {{customer.email}}
+ */
+function replacePlaceholders(content: string, context?: CustomerContext): string {
+    if (!context) return content;
+
+    return content
+        .replace(/\{\{customer\.firstName\}\}/gi, context.firstName || 'there')
+        .replace(/\{\{customer\.lastName\}\}/gi, context.lastName || '')
+        .replace(/\{\{customer\.email\}\}/gi, context.email || '')
+        .replace(/\{\{customer\.name\}\}/gi,
+            [context.firstName, context.lastName].filter(Boolean).join(' ') || 'there'
+        );
+}
+
+/**
+ * Manages canned response state and logic.
+ * Detects '/' prefix in input to show dropdown, filters by shortcut/content.
+ */
+export function useCannedResponses(): UseCannedResponsesReturn {
+    const { token } = useAuth();
+    const { currentAccount } = useAccount();
+
+    const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([]);
+    const [showCanned, setShowCanned] = useState(false);
+    const [cannedFilter, setCannedFilter] = useState('');
+    const [showCannedManager, setShowCannedManager] = useState(false);
+
+    // Fetch canned responses on mount
+    const fetchCanned = useCallback(async () => {
+        if (!currentAccount || !token) return;
+
+        try {
+            const res = await fetch('/api/chat/canned-responses', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setCannedResponses(data);
+            }
+        } catch {
+            // Silently fail - non-critical feature
+        }
+    }, [currentAccount, token]);
+
+    useEffect(() => {
+        fetchCanned();
+    }, [fetchCanned]);
+
+    // Filter by shortcut, content, or category
+    const filteredCanned = useMemo(() => {
+        if (!cannedFilter) return cannedResponses;
+        const filter = cannedFilter.toLowerCase();
+        return cannedResponses.filter(r =>
+            r.shortcut.toLowerCase().includes(filter) ||
+            r.content.toLowerCase().includes(filter) ||
+            (r.category && r.category.toLowerCase().includes(filter))
+        );
+    }, [cannedResponses, cannedFilter]);
+
+    /**
+     * Detects '/' prefix in input to trigger canned dropdown.
+     * Call this from onChange handler with the current input value.
+     */
+    const handleInputForCanned = useCallback((input: string) => {
+        // Strip HTML tags to get plain text
+        const plainText = input.replace(/<[^>]*>/g, '').trim();
+        if (plainText.startsWith('/')) {
+            setShowCanned(true);
+            setCannedFilter(plainText.slice(1).toLowerCase());
+        } else {
+            setShowCanned(false);
+            setCannedFilter('');
+        }
+    }, []);
+
+    /**
+     * Selects a canned response and replaces placeholders.
+     * Returns the content with placeholders replaced.
+     */
+    const selectCanned = useCallback((response: CannedResponse, context?: CustomerContext): string => {
+        setShowCanned(false);
+        setCannedFilter('');
+        return replacePlaceholders(response.content, context);
+    }, []);
+
+    return {
+        cannedResponses,
+        filteredCanned,
+        showCanned,
+        cannedFilter,
+        showCannedManager,
+        setShowCanned,
+        setShowCannedManager,
+        handleInputForCanned,
+        selectCanned,
+        refetchCanned: fetchCanned
+    };
+}
+

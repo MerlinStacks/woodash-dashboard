@@ -38,9 +38,9 @@ export class QueueFactory {
                     type: 'exponential',
                     delay: 2000,
                 },
-                removeOnComplete: 100, // Keep last 100
-                removeOnFail: 500,     // Keep last 500 for debugging
-            }
+                removeOnComplete: { count: 100 },    // Keep last 100 completed
+                removeOnFail: { age: 86400 },        // Remove failed after 24 hours (prevents bloat)
+            },
         });
 
         queues.set(name, queue);

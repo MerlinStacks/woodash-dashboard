@@ -99,6 +99,56 @@ const ordersRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: 'Failed to fetch order details' });
         }
     });
+
+    // Get Fraud Score for an Order
+    fastify.get<{ Params: { id: string } }>('/:id/fraud-score', async (request, reply) => {
+        const { id } = orderIdParamSchema.parse(request.params);
+        const accountId = request.user?.accountId;
+
+        if (!accountId) {
+            return reply.code(400).send({ error: 'accountId header is required' });
+        }
+
+        try {
+            let order;
+
+            // Try finding by internal UUID first
+            order = await prisma.wooOrder.findUnique({ where: { id } });
+
+            // If not found and ID is numeric, try finding by WooID
+            if (!order && !isNaN(Number(id))) {
+                order = await prisma.wooOrder.findUnique({
+                    where: { accountId_wooId: { accountId, wooId: Number(id) } }
+                });
+            }
+
+            if (!order || order.accountId !== accountId) {
+                return reply.code(404).send({ error: 'Order not found' });
+            }
+
+            // Get customer meta for order count
+            const rawData = order.rawData as any;
+            let customerMeta = null;
+
+            if (rawData.customer_id && rawData.customer_id > 0) {
+                const customer = await prisma.wooCustomer.findUnique({
+                    where: { accountId_wooId: { accountId, wooId: rawData.customer_id } },
+                    select: { ordersCount: true }
+                });
+                if (customer) {
+                    customerMeta = { ordersCount: customer.ordersCount };
+                }
+            }
+
+            const { FraudService } = await import('../services/FraudService');
+            const result = FraudService.calculateScore({ ...rawData, _customerMeta: customerMeta });
+
+            return result;
+        } catch (error) {
+            Logger.error('Failed to calculate fraud score', { error });
+            return reply.code(500).send({ error: 'Failed to calculate fraud score' });
+        }
+    });
 };
 
 export default ordersRoutes;

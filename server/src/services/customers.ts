@@ -202,4 +202,124 @@ export class CustomersService {
             activity: activitySessions
         };
     }
+
+    /**
+     * Find potential duplicate customers by email or phone.
+     */
+    static async findDuplicates(accountId: string, customerId: string) {
+        // Get the target customer first
+        const isWooId = !isNaN(Number(customerId));
+        const whereClause = isWooId
+            ? { accountId, wooId: Number(customerId) }
+            : { accountId, id: customerId };
+
+        const customer = await prisma.wooCustomer.findFirst({ where: whereClause });
+        if (!customer) return { duplicates: [] };
+
+        const email = customer.email;
+
+        // Find other customers with matching email
+        const duplicates = await prisma.wooCustomer.findMany({
+            where: {
+                accountId,
+                id: { not: customer.id },
+                email: email
+            },
+            select: {
+                id: true,
+                wooId: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                ordersCount: true,
+                totalSpent: true
+            }
+        });
+
+        return {
+            target: {
+                id: customer.id,
+                wooId: customer.wooId,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                email: customer.email,
+                ordersCount: customer.ordersCount,
+                totalSpent: customer.totalSpent
+            },
+            duplicates
+        };
+    }
+
+    /**
+     * Merge source customer into target customer.
+     * Transfers orders, conversations, automation enrollments, then deletes source.
+     */
+    static async mergeCustomers(accountId: string, targetId: string, sourceId: string) {
+        Logger.info(`Merging customer ${sourceId} into ${targetId}`, { accountId });
+
+        // Get both customers
+        const target = await prisma.wooCustomer.findFirst({ where: { accountId, id: targetId } });
+        const source = await prisma.wooCustomer.findFirst({ where: { accountId, id: sourceId } });
+
+        if (!target || !source) {
+            throw new Error('Customer not found');
+        }
+
+        // 1. Transfer Orders - find orders by iterating (simpler than JSON path query)
+        const allOrders = await prisma.wooOrder.findMany({
+            where: { accountId },
+            select: { id: true, rawData: true }
+        });
+
+        let ordersTransferred = 0;
+        for (const order of allOrders) {
+            const rawData = order.rawData as any;
+            if (rawData?.customer_id === source.wooId) {
+                rawData.customer_id = target.wooId;
+                await prisma.wooOrder.update({
+                    where: { id: order.id },
+                    data: { rawData }
+                });
+                ordersTransferred++;
+            }
+        }
+
+        // 2. Transfer Conversations
+        await prisma.conversation.updateMany({
+            where: { accountId, wooCustomerId: source.id },
+            data: { wooCustomerId: target.id }
+        });
+
+        // 3. Transfer Automation Enrollments
+        await prisma.automationEnrollment.updateMany({
+            where: { email: source.email },
+            data: { email: target.email }
+        });
+
+        // 4. Update target totals (convert Decimal to number for arithmetic)
+        const newTotalSpent = Number(target.totalSpent) + Number(source.totalSpent);
+        await prisma.wooCustomer.update({
+            where: { id: target.id },
+            data: {
+                ordersCount: target.ordersCount + source.ordersCount,
+                totalSpent: newTotalSpent
+            }
+        });
+
+        // 5. Delete source customer
+        await prisma.wooCustomer.delete({ where: { id: source.id } });
+
+        Logger.info(`Customer merge complete`, {
+            targetId,
+            sourceId,
+            ordersTransferred
+        });
+
+        return {
+            success: true,
+            ordersTransferred,
+            targetId
+        };
+    }
 }
+

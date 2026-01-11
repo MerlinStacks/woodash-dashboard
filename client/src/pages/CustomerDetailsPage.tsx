@@ -1,10 +1,11 @@
 
 import { useEffect, useState } from 'react';
 // Force reload
-import { ArrowLeft, Mail, ShoppingBag, Calendar, Activity, Zap, ExternalLink, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Mail, ShoppingBag, Calendar, Activity, Zap, ExternalLink, MessageCircle, Users } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
+import { MergeCustomerModal } from '../components/customers/MergeCustomerModal';
 
 interface CustomerDetails {
     customer: {
@@ -29,6 +30,7 @@ export function CustomerDetailsPage() {
     const [data, setData] = useState<CustomerDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'automations' | 'activity'>('overview');
+    const [showMergeModal, setShowMergeModal] = useState(false);
 
     useEffect(() => {
         if (id && currentAccount && token) {
@@ -86,7 +88,13 @@ export function CustomerDetailsPage() {
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        {/* Placeholder generic actions */}
+                        <button
+                            onClick={() => setShowMergeModal(true)}
+                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center gap-2"
+                        >
+                            <Users size={16} />
+                            Merge Duplicates
+                        </button>
                         <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">Edit Profile</button>
                     </div>
                 </div>
@@ -273,6 +281,14 @@ export function CustomerDetailsPage() {
                     )}
                 </div>
             </div>
+
+            {/* Merge Modal */}
+            <MergeCustomerModal
+                isOpen={showMergeModal}
+                onClose={() => setShowMergeModal(false)}
+                customerId={id || ''}
+                onMergeComplete={fetchCustomerDetails}
+            />
         </div>
     );
 }

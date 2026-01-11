@@ -20,6 +20,7 @@ import { TrackingService } from './services/TrackingService';
 import { QueueFactory, QUEUES } from './services/queue/QueueFactory';
 import { EventBus, EVENTS } from './services/events';
 import { AutomationEngine } from './services/AutomationEngine';
+import { setIO } from './socket';
 const { Logger, fastifyLoggerConfig } = require('./utils/logger');
 
 // Init Queues for Bull Board
@@ -182,6 +183,8 @@ async function build() {
     await fastify.register(marketingRoutes, { prefix: '/api/marketing' });
     const emailRoutes = (await import('./routes/email')).default;
     await fastify.register(emailRoutes, { prefix: '/api/email' });
+    const emailTrackingRoutes = (await import('./routes/email-tracking')).default;
+    await fastify.register(emailTrackingRoutes, { prefix: '/api/email' });
     const widgetRoutes = (await import('./routes/widget')).default;
     await fastify.register(widgetRoutes, { prefix: '/api/chat' });
     const productsRoutes = (await import('./routes/products')).default;
@@ -208,6 +211,10 @@ async function build() {
     await fastify.register(analyticsRoutes, { prefix: '/api/analytics' });
     const trackingRoutes = (await import('./routes/tracking')).default;
     await fastify.register(trackingRoutes, { prefix: '/api/tracking' });
+
+    // Labels routes (conversation tagging)
+    const labelsRoutes = (await import('./routes/labels')).default;
+    await fastify.register(labelsRoutes, { prefix: '/api/labels' });
 
     // Alias for short tracking URL used by WooCommerce plugin (OverSeek Integration)
     // The plugin sends events to /api/t/e which maps to /api/t prefix + /e route
@@ -313,6 +320,18 @@ async function initializeApp() {
         }
     });
 
+    // Apply Redis adapter for horizontal scaling (multi-instance support)
+    try {
+        const { createSocketAdapter } = await import('./utils/socketAdapter');
+        io.adapter(createSocketAdapter());
+        Logger.info('[Socket.IO] Redis adapter enabled for horizontal scaling');
+    } catch (error) {
+        Logger.warn('[Socket.IO] Redis adapter not available, running in single-instance mode', { error });
+    }
+
+    // Register Socket.IO globally for services
+    setIO(io);
+
     // Initialize Chat Service
     chatService = new ChatService(io);
 
@@ -360,12 +379,49 @@ async function initializeApp() {
             socket.join(`account:${accountId}`);
         });
 
-        socket.on('join:conversation', (convId) => {
-            socket.join(`conversation:${convId}`);
+        // Conversation presence tracking for collision detection
+        socket.on('join:conversation', async ({ conversationId, user }) => {
+            socket.join(`conversation:${conversationId}`);
+
+            // Track viewer presence if user info provided
+            if (user && conversationId) {
+                const userInfo = {
+                    userId: user.id || 'anon',
+                    name: user.name || 'Anonymous',
+                    avatarUrl: user.avatarUrl,
+                    connectedAt: Date.now()
+                };
+                const { CollaborationService } = await import('./services/CollaborationService');
+                await CollaborationService.joinDocument(`conv:${conversationId}`, socket.id, userInfo);
+                const viewers = await CollaborationService.getPresence(`conv:${conversationId}`);
+                io.to(`conversation:${conversationId}`).emit('viewers:sync', viewers);
+            }
         });
 
-        socket.on('leave:conversation', (convId) => {
-            socket.leave(`conversation:${convId}`);
+        socket.on('leave:conversation', async ({ conversationId }) => {
+            socket.leave(`conversation:${conversationId}`);
+
+            // Remove from presence tracking
+            if (conversationId) {
+                const { CollaborationService } = await import('./services/CollaborationService');
+                await CollaborationService.leaveDocument(`conv:${conversationId}`, socket.id);
+                const viewers = await CollaborationService.getPresence(`conv:${conversationId}`);
+                io.to(`conversation:${conversationId}`).emit('viewers:sync', viewers);
+            }
+        });
+
+        // Handle disconnect - clean up conversation presence
+        socket.on('disconnecting', async () => {
+            const rooms: string[] = Array.from(socket.rooms) as string[];
+            const convRooms = rooms.filter((r: string) => r.startsWith('conversation:'));
+
+            const { CollaborationService } = await import('./services/CollaborationService');
+            for (const room of convRooms) {
+                const conversationId = room.replace('conversation:', '');
+                await CollaborationService.leaveDocument(`conv:${conversationId}`, socket.id);
+                const viewers = await CollaborationService.getPresence(`conv:${conversationId}`);
+                io.to(room).emit('viewers:sync', viewers);
+            }
         });
 
         socket.on('typing:start', ({ conversationId }) => {

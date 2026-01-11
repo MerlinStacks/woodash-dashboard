@@ -98,7 +98,7 @@ export class AutomationEngine {
 
         let currentNodeId = enrollment.currentNodeId;
         let stepsProcessed = 0;
-        const MAX_STEPS = 20;
+        const MAX_STEPS = parseInt(process.env.AUTOMATION_MAX_STEPS || '20', 10);
 
         while (currentNodeId && stepsProcessed < MAX_STEPS) {
             const node = flow.nodes.find(n => n.id === currentNodeId);
@@ -143,6 +143,10 @@ export class AutomationEngine {
 
             stepsProcessed++;
         }
+
+        if (stepsProcessed >= MAX_STEPS) {
+            Logger.warn(`[AutomationEngine] Enrollment ${enrollmentId} hit MAX_STEPS limit`, { stepsProcessed });
+        }
     }
 
     /**
@@ -158,9 +162,23 @@ export class AutomationEngine {
 
     /**
      * Global ticker - processes due enrollments.
+     * Logs warning if backlog exceeds threshold.
      */
     async runTicker() {
         const now = new Date();
+
+        // Check for backlog (overflow detection)
+        const backlogCount = await prisma.automationEnrollment.count({
+            where: { status: 'ACTIVE', nextRunAt: { lte: now } }
+        });
+
+        if (backlogCount > 100) {
+            Logger.warn('[AutomationEngine] Enrollment backlog detected - processing may be falling behind', {
+                backlogCount,
+                threshold: 100
+            });
+        }
+
         const due = await prisma.automationEnrollment.findMany({
             where: { status: 'ACTIVE', nextRunAt: { lte: now } },
             take: 50

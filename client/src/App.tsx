@@ -1,5 +1,6 @@
 
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { AccountProvider, useAccount } from './context/AccountContext';
 import { SocketProvider } from './context/SocketContext';
@@ -8,52 +9,65 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { SuperAdminGuard } from './components/layout/SuperAdminGuard';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+
+// Core pages (always loaded)
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SetupWizard } from './pages/SetupWizard';
 import { SettingsPage } from './pages/SettingsPage';
-import { OrdersPage } from './pages/OrdersPage';
-import { OrderDetailPage } from './pages/OrderDetailPage';
-import { MarketingPage } from './pages/MarketingPage';
-import { FlowsPage } from './pages/FlowsPage';
-import { TeamPage } from './pages/TeamPage';
-import { InventoryPage } from './pages/InventoryPage';
-import { CustomersPage } from './pages/CustomersPage';
-import { SegmentsPage } from './pages/SegmentsPage';
-import { CustomerDetailsPage } from './pages/CustomerDetailsPage';
-import { ReportsPage } from './pages/ReportsPage';
-import { InboxPage } from './pages/InboxPage';
-import { ReviewsPage } from './pages/ReviewsPage';
-import { PaidAdsPage } from './pages/PaidAdsPage';
-import { BroadcastsPage } from './pages/BroadcastsPage';
-import { HelpCenterHome } from './pages/HelpCenter/HelpCenterHome';
-import { HelpArticle } from './pages/HelpCenter/HelpArticle';
-import { LiveAnalyticsPage } from './pages/LiveAnalyticsPage';
-import AnalyticsDashboard from './pages/AnalyticsDashboard';
-import { ProductEditPage } from './pages/ProductEditPage';
-import { PurchaseOrderEditPage } from './pages/PurchaseOrderEditPage';
-import { InvoiceDesigner } from './pages/InvoiceDesigner';
-import { PoliciesPage } from './pages/PoliciesPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { DataDeletionPage } from './pages/DataDeletionPage';
 import { TermsOfServicePage } from './pages/TermsOfServicePage';
 
+// Lazy-loaded pages (code splitting for bundle optimization)
+const OrdersPage = lazy(() => import('./pages/OrdersPage').then(m => ({ default: m.OrdersPage })));
+const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage').then(m => ({ default: m.OrderDetailPage })));
+const MarketingPage = lazy(() => import('./pages/MarketingPage').then(m => ({ default: m.MarketingPage })));
+const FlowsPage = lazy(() => import('./pages/FlowsPage').then(m => ({ default: m.FlowsPage })));
+const TeamPage = lazy(() => import('./pages/TeamPage').then(m => ({ default: m.TeamPage })));
+const InventoryPage = lazy(() => import('./pages/InventoryPage').then(m => ({ default: m.InventoryPage })));
+const CustomersPage = lazy(() => import('./pages/CustomersPage').then(m => ({ default: m.CustomersPage })));
+const SegmentsPage = lazy(() => import('./pages/SegmentsPage').then(m => ({ default: m.SegmentsPage })));
+const CustomerDetailsPage = lazy(() => import('./pages/CustomerDetailsPage').then(m => ({ default: m.CustomerDetailsPage })));
+const ReportsPage = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
+const InboxPage = lazy(() => import('./pages/InboxPage').then(m => ({ default: m.InboxPage })));
+const ReviewsPage = lazy(() => import('./pages/ReviewsPage').then(m => ({ default: m.ReviewsPage })));
+const PaidAdsPage = lazy(() => import('./pages/PaidAdsPage').then(m => ({ default: m.PaidAdsPage })));
+const BroadcastsPage = lazy(() => import('./pages/BroadcastsPage').then(m => ({ default: m.BroadcastsPage })));
+const HelpCenterHome = lazy(() => import('./pages/HelpCenter/HelpCenterHome').then(m => ({ default: m.HelpCenterHome })));
+const HelpArticle = lazy(() => import('./pages/HelpCenter/HelpArticle').then(m => ({ default: m.HelpArticle })));
+const LiveAnalyticsPage = lazy(() => import('./pages/LiveAnalyticsPage').then(m => ({ default: m.LiveAnalyticsPage })));
+const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'));
+const ProductEditPage = lazy(() => import('./pages/ProductEditPage').then(m => ({ default: m.ProductEditPage })));
+const PurchaseOrderEditPage = lazy(() => import('./pages/PurchaseOrderEditPage').then(m => ({ default: m.PurchaseOrderEditPage })));
+const InvoiceDesigner = lazy(() => import('./pages/InvoiceDesigner').then(m => ({ default: m.InvoiceDesigner })));
+const PoliciesPage = lazy(() => import('./pages/PoliciesPage').then(m => ({ default: m.PoliciesPage })));
+const UserProfilePage = lazy(() => import('./pages/UserProfilePage').then(m => ({ default: m.UserProfilePage })));
+
 // Analytics Sub-Pages
-import { AnalyticsOverviewPage } from './pages/analytics/AnalyticsOverviewPage';
-import { RevenuePage } from './pages/analytics/RevenuePage';
-import { AttributionPage } from './pages/analytics/AttributionPage';
-import { CohortsPage } from './pages/analytics/CohortsPage';
+const AnalyticsOverviewPage = lazy(() => import('./pages/analytics/AnalyticsOverviewPage').then(m => ({ default: m.AnalyticsOverviewPage })));
+const RevenuePage = lazy(() => import('./pages/analytics/RevenuePage').then(m => ({ default: m.RevenuePage })));
+const AttributionPage = lazy(() => import('./pages/analytics/AttributionPage').then(m => ({ default: m.AttributionPage })));
+const CohortsPage = lazy(() => import('./pages/analytics/CohortsPage').then(m => ({ default: m.CohortsPage })));
 
+// Admin pages
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const AdminAccountsPage = lazy(() => import('./pages/admin/AdminAccountsPage').then(m => ({ default: m.AdminAccountsPage })));
+const AdminLogsPage = lazy(() => import('./pages/admin/AdminLogsPage').then(m => ({ default: m.AdminLogsPage })));
+const AdminBroadcastPage = lazy(() => import('./pages/admin/AdminBroadcastPage').then(m => ({ default: m.AdminBroadcastPage })));
+const AdminCredentialsPage = lazy(() => import('./pages/admin/AdminCredentialsPage').then(m => ({ default: m.AdminCredentialsPage })));
+const AdminAIPromptsPage = lazy(() => import('./pages/admin/AdminAIPromptsPage').then(m => ({ default: m.AdminAIPromptsPage })));
+const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
 
-import { UserProfilePage } from './pages/UserProfilePage';
-import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { AdminAccountsPage } from './pages/admin/AdminAccountsPage';
-import { AdminLogsPage } from './pages/admin/AdminLogsPage';
-import { AdminBroadcastPage } from './pages/admin/AdminBroadcastPage';
-import { AdminCredentialsPage } from './pages/admin/AdminCredentialsPage';
-import { AdminAIPromptsPage } from './pages/admin/AdminAIPromptsPage';
-import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
+// Loading fallback for lazy routes
+function PageLoader() {
+    return (
+        <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        </div>
+    );
+}
 
 // Component to handle redirection based on account status
 // Component to ensure account exists/is selected
@@ -77,69 +91,71 @@ function App() {
                 <AccountProvider>
                     <SocketProvider>
                         <SyncStatusProvider>
-                            <Routes>
-                                {/* Public Routes */}
-                                <Route path="/login" element={<LoginPage />} />
-                                <Route path="/register" element={<RegisterPage />} />
-                                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-                                <Route path="/data-deletion" element={<DataDeletionPage />} />
-                                <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+                            <Suspense fallback={<PageLoader />}>
+                                <Routes>
+                                    {/* Public Routes */}
+                                    <Route path="/login" element={<LoginPage />} />
+                                    <Route path="/register" element={<RegisterPage />} />
+                                    <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                                    <Route path="/data-deletion" element={<DataDeletionPage />} />
+                                    <Route path="/terms-of-service" element={<TermsOfServicePage />} />
 
-                                {/* Protected Routes */}
-                                <Route element={<ProtectedRoute />}>
-                                    <Route path="/setup" element={<SetupWizard />} />
+                                    {/* Protected Routes */}
+                                    <Route element={<ProtectedRoute />}>
+                                        <Route path="/setup" element={<SetupWizard />} />
 
-                                    {/* Super Admin Routes */}
-                                    <Route element={<SuperAdminGuard><AdminLayout><Outlet /></AdminLayout></SuperAdminGuard>}>
-                                        <Route path="/admin" element={<AdminDashboard />} />
-                                        <Route path="/admin/accounts" element={<AdminAccountsPage />} />
-                                        <Route path="/admin/logs" element={<AdminLogsPage />} />
-                                        <Route path="/admin/broadcast" element={<AdminBroadcastPage />} />
-                                        <Route path="/admin/credentials" element={<AdminCredentialsPage />} />
-                                        <Route path="/admin/ai-prompts" element={<AdminAIPromptsPage />} />
-                                        <Route path="/admin/settings" element={<AdminSettingsPage />} />
+                                        {/* Super Admin Routes */}
+                                        <Route element={<SuperAdminGuard><AdminLayout><Outlet /></AdminLayout></SuperAdminGuard>}>
+                                            <Route path="/admin" element={<AdminDashboard />} />
+                                            <Route path="/admin/accounts" element={<AdminAccountsPage />} />
+                                            <Route path="/admin/logs" element={<AdminLogsPage />} />
+                                            <Route path="/admin/broadcast" element={<AdminBroadcastPage />} />
+                                            <Route path="/admin/credentials" element={<AdminCredentialsPage />} />
+                                            <Route path="/admin/ai-prompts" element={<AdminAIPromptsPage />} />
+                                            <Route path="/admin/settings" element={<AdminSettingsPage />} />
+                                        </Route>
+
+                                        <Route element={<DashboardLayout><Outlet /></DashboardLayout>}>
+                                            <Route path="/" element={<AccountGuard><DashboardPage /></AccountGuard>} />
+                                            <Route path="/orders" element={<AccountGuard><OrdersPage /></AccountGuard>} />
+                                            <Route path="/orders/:id" element={<AccountGuard><OrderDetailPage /></AccountGuard>} />
+                                            <Route path="/inventory" element={<AccountGuard><InventoryPage /></AccountGuard>} />
+                                            <Route path="/inventory/product/:id" element={<AccountGuard><ProductEditPage /></AccountGuard>} />
+                                            <Route path="/inventory/purchase-orders/new" element={<AccountGuard><PurchaseOrderEditPage /></AccountGuard>} />
+                                            <Route path="/inventory/purchase-orders/:id" element={<AccountGuard><PurchaseOrderEditPage /></AccountGuard>} />
+                                            <Route path="/customers" element={<AccountGuard><CustomersPage /></AccountGuard>} />
+                                            <Route path="/customers/segments" element={<AccountGuard><SegmentsPage /></AccountGuard>} />
+                                            <Route path="/customers/:id" element={<AccountGuard><CustomerDetailsPage /></AccountGuard>} />
+                                            <Route path="/marketing" element={<AccountGuard><MarketingPage /></AccountGuard>} />
+                                            <Route path="/ads" element={<AccountGuard><PaidAdsPage /></AccountGuard>} />
+                                            <Route path="/broadcasts" element={<AccountGuard><BroadcastsPage /></AccountGuard>} />
+                                            <Route path="/flows" element={<AccountGuard><FlowsPage /></AccountGuard>} />
+                                            <Route path="/inbox" element={<AccountGuard><InboxPage /></AccountGuard>} />
+                                            <Route path="/live" element={<AccountGuard><LiveAnalyticsPage /></AccountGuard>} />
+                                            <Route path="/analytics" element={<AccountGuard><AnalyticsOverviewPage /></AccountGuard>} />
+                                            <Route path="/analytics/revenue" element={<AccountGuard><RevenuePage /></AccountGuard>} />
+                                            <Route path="/analytics/attribution" element={<AccountGuard><AttributionPage /></AccountGuard>} />
+                                            <Route path="/analytics/cohorts" element={<AccountGuard><CohortsPage /></AccountGuard>} />
+
+                                            <Route path="/reviews" element={<AccountGuard><ReviewsPage /></AccountGuard>} />
+                                            <Route path="/help" element={<AccountGuard><HelpCenterHome /></AccountGuard>} />
+                                            <Route path="/help/article/:slug" element={<AccountGuard><HelpArticle /></AccountGuard>} />
+
+                                            <Route path="/reports" element={<AccountGuard><ReportsPage /></AccountGuard>} />
+                                            <Route path="/team" element={<AccountGuard><TeamPage /></AccountGuard>} />
+                                            <Route path="/wizard" element={<AccountGuard><SetupWizard /></AccountGuard>} />
+                                            <Route path="/settings" element={<AccountGuard><SettingsPage /></AccountGuard>} />
+                                            <Route path="/profile" element={<AccountGuard><UserProfilePage /></AccountGuard>} />
+
+                                            <Route path="/invoices/design" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
+                                            <Route path="/invoices/design/:id" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
+                                            <Route path="/policies" element={<AccountGuard><PoliciesPage /></AccountGuard>} />
+                                        </Route>
                                     </Route>
 
-                                    <Route element={<DashboardLayout><Outlet /></DashboardLayout>}>
-                                        <Route path="/" element={<AccountGuard><DashboardPage /></AccountGuard>} />
-                                        <Route path="/orders" element={<AccountGuard><OrdersPage /></AccountGuard>} />
-                                        <Route path="/orders/:id" element={<AccountGuard><OrderDetailPage /></AccountGuard>} />
-                                        <Route path="/inventory" element={<AccountGuard><InventoryPage /></AccountGuard>} />
-                                        <Route path="/inventory/product/:id" element={<AccountGuard><ProductEditPage /></AccountGuard>} />
-                                        <Route path="/inventory/purchase-orders/new" element={<AccountGuard><PurchaseOrderEditPage /></AccountGuard>} />
-                                        <Route path="/inventory/purchase-orders/:id" element={<AccountGuard><PurchaseOrderEditPage /></AccountGuard>} />
-                                        <Route path="/customers" element={<AccountGuard><CustomersPage /></AccountGuard>} />
-                                        <Route path="/customers/segments" element={<AccountGuard><SegmentsPage /></AccountGuard>} />
-                                        <Route path="/customers/:id" element={<AccountGuard><CustomerDetailsPage /></AccountGuard>} />
-                                        <Route path="/marketing" element={<AccountGuard><MarketingPage /></AccountGuard>} />
-                                        <Route path="/ads" element={<AccountGuard><PaidAdsPage /></AccountGuard>} />
-                                        <Route path="/broadcasts" element={<AccountGuard><BroadcastsPage /></AccountGuard>} />
-                                        <Route path="/flows" element={<AccountGuard><FlowsPage /></AccountGuard>} />
-                                        <Route path="/inbox" element={<AccountGuard><InboxPage /></AccountGuard>} />
-                                        <Route path="/live" element={<AccountGuard><LiveAnalyticsPage /></AccountGuard>} />
-                                        <Route path="/analytics" element={<AccountGuard><AnalyticsOverviewPage /></AccountGuard>} />
-                                        <Route path="/analytics/revenue" element={<AccountGuard><RevenuePage /></AccountGuard>} />
-                                        <Route path="/analytics/attribution" element={<AccountGuard><AttributionPage /></AccountGuard>} />
-                                        <Route path="/analytics/cohorts" element={<AccountGuard><CohortsPage /></AccountGuard>} />
-
-                                        <Route path="/reviews" element={<AccountGuard><ReviewsPage /></AccountGuard>} />
-                                        <Route path="/help" element={<AccountGuard><HelpCenterHome /></AccountGuard>} />
-                                        <Route path="/help/article/:slug" element={<AccountGuard><HelpArticle /></AccountGuard>} />
-
-                                        <Route path="/reports" element={<AccountGuard><ReportsPage /></AccountGuard>} />
-                                        <Route path="/team" element={<AccountGuard><TeamPage /></AccountGuard>} />
-                                        <Route path="/wizard" element={<AccountGuard><SetupWizard /></AccountGuard>} />
-                                        <Route path="/settings" element={<AccountGuard><SettingsPage /></AccountGuard>} />
-                                        <Route path="/profile" element={<AccountGuard><UserProfilePage /></AccountGuard>} />
-
-                                        <Route path="/invoices/design" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
-                                        <Route path="/invoices/design/:id" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
-                                        <Route path="/policies" element={<AccountGuard><PoliciesPage /></AccountGuard>} />
-                                    </Route>
-                                </Route>
-
-                                <Route path="*" element={<Navigate to="/" replace />} />
-                            </Routes>
+                                    <Route path="*" element={<Navigate to="/" replace />} />
+                                </Routes>
+                            </Suspense>
                         </SyncStatusProvider>
                     </SocketProvider>
                 </AccountProvider>

@@ -8,6 +8,7 @@ import { generateInvoicePDF } from '../utils/InvoiceGenerator';
 import { Modal } from '../components/ui/Modal';
 import { HistoryTimeline } from '../components/shared/HistoryTimeline';
 import { Clock } from 'lucide-react';
+import { FraudBadge } from '../components/orders/FraudBadge';
 
 export function OrderDetailPage() {
     const { id } = useParams();
@@ -107,6 +108,7 @@ export function OrderDetailPage() {
                                     order.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
                             {order.status}
                         </span>
+                        <FraudBadge orderId={id || ''} />
                     </div>
                     <div className="text-sm text-gray-500 mt-1">Placed on {formatDate(order.date_created)} via {order.payment_method_title}</div>
                 </div>

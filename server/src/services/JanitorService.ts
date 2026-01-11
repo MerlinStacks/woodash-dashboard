@@ -5,9 +5,10 @@ import { Logger } from '../utils/logger';
  * The Janitor - Automated Data Pruning Service
  * 
  * Runs on a schedule to clean old data based on retention policies:
- * - Analytics sessions > 90 days
+ * - Analytics sessions > 90 days (includes events and visits)
  * - Audit logs > 365 days  
  * - Notifications > 30 days (read only)
+ * - Sync logs > 30 days
  */
 export class JanitorService {
 
@@ -29,6 +30,9 @@ export class JanitorService {
             // 3. Prune read notifications (> 30 days)
             deleted.notifications = await this.pruneNotifications(30);
 
+            // 4. Prune old sync logs (> 30 days)
+            deleted.syncLogs = await this.pruneSyncLogs(30);
+
             Logger.info('Janitor cleanup complete', { deleted });
         } catch (error) {
             Logger.error('Janitor cleanup failed', { error });
@@ -38,21 +42,34 @@ export class JanitorService {
     }
 
     /**
-     * Prune analytics sessions older than specified days
+     * Prune analytics sessions older than specified days.
+     * Also deletes related events and visits to prevent orphaned records.
      */
     private static async pruneAnalyticsSessions(daysOld: number): Promise<number> {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - daysOld);
 
         // First delete related events
-        await prisma.analyticsEvent.deleteMany({
+        const eventsDeleted = await prisma.analyticsEvent.deleteMany({
             where: {
                 session: {
                     lastActiveAt: { lt: cutoff }
                 }
             }
         });
+        Logger.debug(`Pruned ${eventsDeleted.count} analytics events`);
 
+        // Then delete related visits (prevents orphaned records)
+        const visitsDeleted = await prisma.analyticsVisit.deleteMany({
+            where: {
+                session: {
+                    lastActiveAt: { lt: cutoff }
+                }
+            }
+        });
+        Logger.debug(`Pruned ${visitsDeleted.count} analytics visits`);
+
+        // Finally delete sessions
         const result = await prisma.analyticsSession.deleteMany({
             where: {
                 lastActiveAt: { lt: cutoff }
@@ -97,4 +114,23 @@ export class JanitorService {
         Logger.debug(`Pruned ${result.count} read notifications older than ${daysOld} days`);
         return result.count;
     }
+
+    /**
+     * Prune sync logs older than specified days.
+     * Keeps recent logs for debugging while preventing table bloat.
+     */
+    private static async pruneSyncLogs(daysOld: number): Promise<number> {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - daysOld);
+
+        const result = await prisma.syncLog.deleteMany({
+            where: {
+                startedAt: { lt: cutoff }
+            }
+        });
+
+        Logger.debug(`Pruned ${result.count} sync logs older than ${daysOld} days`);
+        return result.count;
+    }
 }
+

@@ -10,14 +10,17 @@ import { Server } from 'socket.io';
 import { Logger } from '../utils/logger';
 import { EmailIngestion, IncomingEmailData } from './EmailIngestion';
 import { BlockedContactService } from './BlockedContactService';
+import { AutomationEngine } from './AutomationEngine';
 
 export class ChatService {
     private io: Server;
     private emailIngestion: EmailIngestion;
+    private automationEngine: AutomationEngine;
 
     constructor(io: Server) {
         this.io = io;
         this.emailIngestion = new EmailIngestion(io, this.addMessage.bind(this));
+        this.automationEngine = new AutomationEngine();
     }
 
     // --- Conversations ---
@@ -64,7 +67,7 @@ export class ChatService {
     }
 
     async getConversation(id: string) {
-        return prisma.conversation.findUnique({
+        const conversation = await prisma.conversation.findUnique({
             where: { id },
             include: {
                 messages: { orderBy: { createdAt: 'asc' } },
@@ -72,6 +75,45 @@ export class ChatService {
                 assignee: true
             }
         });
+
+        if (!conversation) return null;
+
+        // Fetch email tracking data for this conversation
+        const emailLogs = await prisma.emailLog.findMany({
+            where: { sourceId: id, status: 'SUCCESS' },
+            select: {
+                createdAt: true,
+                firstOpenedAt: true,
+                openCount: true,
+                trackingId: true
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Match email logs to agent messages by creation time (within 5 seconds)
+        // This allows us to associate tracking info with the correct message
+        const enrichedMessages = conversation.messages.map(msg => {
+            if (msg.senderType !== 'AGENT') return msg;
+
+            // Find the closest email log sent around the same time
+            const matchingLog = emailLogs.find(log => {
+                const msgTime = new Date(msg.createdAt).getTime();
+                const logTime = new Date(log.createdAt).getTime();
+                return Math.abs(msgTime - logTime) < 5000; // 5 second window
+            });
+
+            if (matchingLog) {
+                return {
+                    ...msg,
+                    trackingId: matchingLog.trackingId,
+                    firstOpenedAt: matchingLog.firstOpenedAt,
+                    openCount: matchingLog.openCount
+                };
+            }
+            return msg;
+        });
+
+        return { ...conversation, messages: enrichedMessages };
     }
 
     // --- Messages ---
@@ -144,6 +186,16 @@ export class ChatService {
                 body: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
                 data: { url: '/inbox' }
             }, 'message');
+
+            // Trigger automation for customer messages
+            this.automationEngine.processTrigger(conversation.accountId, 'MESSAGE_RECEIVED', {
+                conversationId,
+                messageId: message.id,
+                content,
+                senderType,
+                customerEmail: conversation.wooCustomer?.email || conversation.guestEmail,
+                customerId: conversation.wooCustomerId
+            });
         }
 
         return message;
@@ -157,11 +209,27 @@ export class ChatService {
             data: { assignedTo: userId }
         });
         this.io.to(`conversation:${id}`).emit('conversation:assigned', { userId });
+
+        // Trigger automation
+        this.automationEngine.processTrigger(conv.accountId, 'CONVERSATION_ASSIGNED', {
+            conversationId: id,
+            assignedTo: userId
+        });
+
         return conv;
     }
 
     async updateStatus(id: string, status: string) {
-        return prisma.conversation.update({ where: { id }, data: { status } });
+        const conv = await prisma.conversation.update({ where: { id }, data: { status } });
+
+        // Trigger automation for closed conversations
+        if (status === 'CLOSED') {
+            this.automationEngine.processTrigger(conv.accountId, 'CONVERSATION_CLOSED', {
+                conversationId: id
+            });
+        }
+
+        return conv;
     }
 
     /**

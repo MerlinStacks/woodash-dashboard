@@ -1,12 +1,32 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     User, Mail,
     MoreVertical,
-    ChevronDown, ChevronRight
+    ChevronDown, ChevronRight,
+    ShoppingBag, Package, MessageSquare, ExternalLink, Trash2, Send
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { format } from 'date-fns';
+import { useAuth } from '../../context/AuthContext';
+import { useAccount } from '../../context/AccountContext';
+
+interface Note {
+    id: string;
+    content: string;
+    createdAt: string;
+    createdBy: { id: string; fullName?: string; avatarUrl?: string };
+}
+
+interface Order {
+    id: string;
+    wooId: number;
+    number: string;
+    status: string;
+    total: number;
+    currency: string;
+    dateCreated: string;
+}
 
 interface ContactPanelProps {
     conversation?: {
@@ -15,8 +35,10 @@ interface ContactPanelProps {
         priority?: string;
         createdAt: string;
         updatedAt: string;
+        snoozedUntil?: string | null;
         wooCustomer?: {
             id: string;
+            wooId: number;
             firstName?: string;
             lastName?: string;
             email?: string;
@@ -64,9 +86,136 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
 }
 
 export function ContactPanel({ conversation }: ContactPanelProps) {
+    const { token, user } = useAuth();
+    const { currentAccount } = useAccount();
+    const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+    const [conversationCount, setConversationCount] = useState<number>(0);
+    const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+    const [notes, setNotes] = useState<Note[]>([]);
+    const [newNote, setNewNote] = useState('');
+    const [isAddingNote, setIsAddingNote] = useState(false);
+
+    const customer = conversation?.wooCustomer;
+
+    // Fetch recent orders when customer changes
+    useEffect(() => {
+        if (customer?.wooId && token && currentAccount?.id) {
+            fetchCustomerOrders(customer.wooId);
+        } else {
+            setRecentOrders([]);
+            setConversationCount(0);
+        }
+    }, [customer?.wooId, token, currentAccount?.id]);
+
+    // Fetch notes when conversation changes
+    useEffect(() => {
+        if (conversation?.id && token) {
+            fetchNotes();
+        }
+    }, [conversation?.id, token]);
+
+    const fetchNotes = async () => {
+        if (!conversation?.id) return;
+        try {
+            const res = await fetch(`/api/chat/conversations/${conversation.id}/notes`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount?.id || ''
+                }
+            });
+            if (res.ok) setNotes(await res.json());
+        } catch (e) {
+            console.error('Failed to fetch notes:', e);
+        }
+    };
+
+    const addNote = async () => {
+        if (!newNote.trim() || !conversation?.id) return;
+        setIsAddingNote(true);
+        try {
+            const res = await fetch(`/api/chat/conversations/${conversation.id}/notes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount?.id || ''
+                },
+                body: JSON.stringify({ content: newNote })
+            });
+            if (res.ok) {
+                const note = await res.json();
+                setNotes([note, ...notes]);
+                setNewNote('');
+            }
+        } catch (e) {
+            console.error('Failed to add note:', e);
+        } finally {
+            setIsAddingNote(false);
+        }
+    };
+
+    const deleteNote = async (noteId: string) => {
+        if (!confirm('Delete this note?')) return;
+        try {
+            await fetch(`/api/chat/conversations/${conversation?.id}/notes/${noteId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount?.id || ''
+                }
+            });
+            setNotes(notes.filter(n => n.id !== noteId));
+        } catch (e) {
+            console.error('Failed to delete note:', e);
+        }
+    };
+
+    const fetchCustomerOrders = async (wooCustomerId: number) => {
+        setIsLoadingOrders(true);
+        try {
+            // Fetch recent orders for this customer
+            const ordersRes = await fetch(`/api/orders?customerId=${wooCustomerId}&limit=5`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount?.id || '',
+                },
+            });
+            if (ordersRes.ok) {
+                const ordersData = await ordersRes.json();
+                setRecentOrders(ordersData.orders || []);
+            }
+
+            // Fetch conversation count for this customer
+            const convsRes = await fetch(`/api/chat/conversations?wooCustomerId=${wooCustomerId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount?.id || '',
+                },
+            });
+            if (convsRes.ok) {
+                const convsData = await convsRes.json();
+                setConversationCount(Array.isArray(convsData) ? convsData.length : 0);
+            }
+        } catch (error) {
+            console.error('Failed to fetch customer data:', error);
+        } finally {
+            setIsLoadingOrders(false);
+        }
+    };
+
+    const getOrderStatusColor = (status: string) => {
+        switch (status.toLowerCase()) {
+            case 'completed': return 'bg-green-100 text-green-700';
+            case 'processing': return 'bg-blue-100 text-blue-700';
+            case 'on-hold': return 'bg-yellow-100 text-yellow-700';
+            case 'cancelled':
+            case 'refunded': return 'bg-red-100 text-red-700';
+            default: return 'bg-gray-100 text-gray-700';
+        }
+    };
+
     if (!conversation) return null;
 
-    const customer = conversation.wooCustomer;
     const name = customer
         ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || 'Anonymous'
         : conversation.guestName || conversation.guestEmail || 'Anonymous';
@@ -120,7 +269,7 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
 
                 {/* Quick Stats for WooCustomer */}
                 {customer && (
-                    <div className="grid grid-cols-2 gap-3 mt-4">
+                    <div className="grid grid-cols-3 gap-2 mt-4">
                         <div className="bg-gray-50 rounded-lg p-2 text-center">
                             <div className="text-lg font-semibold text-gray-900">{customer.ordersCount || 0}</div>
                             <div className="text-xs text-gray-500">Orders</div>
@@ -130,6 +279,10 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
                                 ${(customer.totalSpent || 0).toLocaleString()}
                             </div>
                             <div className="text-xs text-gray-500">Spent</div>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-2 text-center">
+                            <div className="text-lg font-semibold text-gray-900">{conversationCount}</div>
+                            <div className="text-xs text-gray-500">Convos</div>
                         </div>
                     </div>
                 )}
@@ -147,6 +300,57 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
             {/* Scrollable Sections */}
             <div className="flex-1 overflow-y-auto">
 
+                {/* Order History */}
+                {customer && (
+                    <Section title="Recent Orders" defaultOpen={true}>
+                        {isLoadingOrders ? (
+                            <div className="text-sm text-gray-500 italic">Loading orders...</div>
+                        ) : recentOrders.length === 0 ? (
+                            <div className="text-sm text-gray-500 italic">No orders found.</div>
+                        ) : (
+                            <div className="space-y-2">
+                                {recentOrders.map((order) => (
+                                    <a
+                                        key={order.id}
+                                        href={`/orders/${order.id}`}
+                                        className="block p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Package size={14} className="text-gray-400" />
+                                                <span className="text-sm font-medium text-gray-900">#{order.number}</span>
+                                            </div>
+                                            <span className={cn(
+                                                "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase",
+                                                getOrderStatusColor(order.status)
+                                            )}>
+                                                {order.status}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between mt-1">
+                                            <span className="text-xs text-gray-500">
+                                                {format(new Date(order.dateCreated), 'MMM d, yyyy')}
+                                            </span>
+                                            <span className="text-xs font-medium text-gray-700">
+                                                {order.currency} {Number(order.total).toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </a>
+                                ))}
+                                {customer.ordersCount && customer.ordersCount > 5 && (
+                                    <a
+                                        href={`/customers/${customer.id}`}
+                                        className="flex items-center justify-center gap-1 text-xs text-blue-600 hover:underline mt-2"
+                                    >
+                                        View all {customer.ordersCount} orders
+                                        <ExternalLink size={10} />
+                                    </a>
+                                )}
+                            </div>
+                        )}
+                    </Section>
+                )}
+
                 {/* Conversation Info */}
                 <Section title="Conversation Information" defaultOpen={true}>
                     <div className="space-y-3 text-sm">
@@ -156,6 +360,14 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
                                 {conversation.status}
                             </span>
                         </div>
+                        {conversation.status === 'SNOOZED' && conversation.snoozedUntil && (
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Snooze until</span>
+                                <span className="text-yellow-600 text-xs">
+                                    {format(new Date(conversation.snoozedUntil), 'MMM d, h:mm a')}
+                                </span>
+                            </div>
+                        )}
                         <div className="flex justify-between">
                             <span className="text-gray-500">Priority</span>
                             <span className={cn("font-medium", getPriorityColor(conversation.priority))}>
@@ -194,25 +406,74 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
                                 <span className="text-gray-500">Customer ID</span>
                                 <span className="text-gray-900 font-mono text-xs">{customer.id.slice(0, 8)}...</span>
                             </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">WooCommerce ID</span>
+                                <span className="text-gray-900 font-mono text-xs">{customer.wooId}</span>
+                            </div>
                         </div>
                     </Section>
                 )}
 
                 {/* Contact Notes */}
-                <Section title="Contact Notes" defaultOpen={false}>
-                    <div className="text-sm text-gray-500 italic">
-                        No notes added yet.
+                <Section title="Notes" defaultOpen={true}>
+                    {/* Add note form */}
+                    <div className="flex gap-2 mb-3">
+                        <input
+                            type="text"
+                            placeholder="Add a note..."
+                            value={newNote}
+                            onChange={(e) => setNewNote(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && addNote()}
+                            className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                        <button
+                            onClick={addNote}
+                            disabled={!newNote.trim() || isAddingNote}
+                            className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Send size={14} />
+                        </button>
                     </div>
-                    <button className="mt-2 text-xs text-blue-600 hover:underline">
-                        + Add note
-                    </button>
+
+                    {/* Notes list */}
+                    {notes.length === 0 ? (
+                        <div className="text-sm text-gray-500 italic">No notes yet.</div>
+                    ) : (
+                        <div className="space-y-2">
+                            {notes.map((note) => (
+                                <div key={note.id} className="bg-yellow-50 border border-yellow-100 rounded-lg p-2 group">
+                                    <p className="text-sm text-gray-800">{note.content}</p>
+                                    <div className="flex items-center justify-between mt-1">
+                                        <span className="text-[10px] text-gray-500">
+                                            {note.createdBy?.fullName || 'Agent'} · {format(new Date(note.createdAt), 'MMM d, h:mm a')}
+                                        </span>
+                                        {note.createdBy?.id === user?.id && (
+                                            <button
+                                                onClick={() => deleteNote(note.id)}
+                                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 transition-opacity"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </Section>
 
                 {/* Previous Conversations */}
                 <Section title="Previous Conversations" defaultOpen={false}>
-                    <div className="text-sm text-gray-500 italic">
-                        No previous conversations found.
-                    </div>
+                    {conversationCount > 1 ? (
+                        <div className="text-sm text-gray-700">
+                            <MessageSquare size={12} className="inline mr-1" />
+                            {conversationCount - 1} other conversation{conversationCount > 2 ? 's' : ''}
+                        </div>
+                    ) : (
+                        <div className="text-sm text-gray-500 italic">
+                            No previous conversations found.
+                        </div>
+                    )}
                 </Section>
             </div>
         </div>

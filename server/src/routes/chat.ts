@@ -11,6 +11,7 @@ import { InboxAIService } from '../services/InboxAIService';
 import { BlockedContactService } from '../services/BlockedContactService';
 import { MetaMessagingService } from '../services/messaging/MetaMessagingService';
 import { TikTokMessagingService } from '../services/messaging/TikTokMessagingService';
+import { LabelService } from '../services/LabelService';
 import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 import path from 'path';
@@ -185,20 +186,146 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
         // --- Canned Responses ---
         fastify.get('/canned-responses', async (request, reply) => {
             const accountId = request.headers['x-account-id'] as string;
-            if (!accountId) return {};
-            const responses = await prisma.cannedResponse.findMany({ where: { accountId } });
+            if (!accountId) return [];
+            const responses = await prisma.cannedResponse.findMany({
+                where: { accountId },
+                orderBy: [{ category: 'asc' }, { shortcut: 'asc' }]
+            });
             return responses;
         });
 
         fastify.post('/canned-responses', async (request, reply) => {
-            const { shortcut, content, accountId } = request.body as any;
-            const resp = await prisma.cannedResponse.create({ data: { shortcut, content, accountId } });
+            const { shortcut, content, category } = request.body as any;
+            const accountId = request.headers['x-account-id'] as string;
+            if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
+            const resp = await prisma.cannedResponse.create({
+                data: { shortcut, content, category: category || null, accountId }
+            });
+            return resp;
+        });
+
+        fastify.put<{ Params: { id: string } }>('/canned-responses/:id', async (request, reply) => {
+            const { shortcut, content, category } = request.body as any;
+            const accountId = request.headers['x-account-id'] as string;
+            if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
+
+            const resp = await prisma.cannedResponse.update({
+                where: { id: request.params.id },
+                data: { shortcut, content, category: category || null }
+            });
             return resp;
         });
 
         fastify.delete<{ Params: { id: string } }>('/canned-responses/:id', async (request, reply) => {
             await prisma.cannedResponse.delete({ where: { id: request.params.id } });
             return { success: true };
+        });
+
+        // --- Conversation Notes ---
+        fastify.get<{ Params: { id: string } }>('/conversations/:id/notes', async (request, reply) => {
+            const notes = await prisma.conversationNote.findMany({
+                where: { conversationId: request.params.id },
+                include: { createdBy: { select: { id: true, fullName: true, avatarUrl: true } } },
+                orderBy: { createdAt: 'desc' }
+            });
+            return notes;
+        });
+
+        fastify.post<{ Params: { id: string } }>('/conversations/:id/notes', async (request, reply) => {
+            const { content } = request.body as any;
+            const userId = (request as any).user?.id;
+            if (!userId) return reply.code(401).send({ error: 'Unauthorized' });
+            if (!content?.trim()) return reply.code(400).send({ error: 'Content required' });
+
+            const note = await prisma.conversationNote.create({
+                data: {
+                    conversationId: request.params.id,
+                    content: content.trim(),
+                    createdById: userId
+                },
+                include: { createdBy: { select: { id: true, fullName: true, avatarUrl: true } } }
+            });
+            return note;
+        });
+
+        fastify.delete<{ Params: { id: string; noteId: string } }>('/conversations/:id/notes/:noteId', async (request, reply) => {
+            await prisma.conversationNote.delete({ where: { id: request.params.noteId } });
+            return { success: true };
+        });
+
+        // --- Inbox Macros ---
+        fastify.get('/macros', async (request, reply) => {
+            const accountId = request.headers['x-account-id'] as string;
+            if (!accountId) return [];
+            return prisma.inboxMacro.findMany({
+                where: { accountId },
+                orderBy: { sortOrder: 'asc' }
+            });
+        });
+
+        fastify.post('/macros', async (request, reply) => {
+            const accountId = request.headers['x-account-id'] as string;
+            if (!accountId) return reply.code(400).send({ error: 'Account required' });
+            const { name, icon, color, actions } = request.body as any;
+            return prisma.inboxMacro.create({
+                data: { accountId, name, icon, color, actions }
+            });
+        });
+
+        fastify.put<{ Params: { id: string } }>('/macros/:id', async (request, reply) => {
+            const { name, icon, color, actions, sortOrder } = request.body as any;
+            return prisma.inboxMacro.update({
+                where: { id: request.params.id },
+                data: { name, icon, color, actions, sortOrder }
+            });
+        });
+
+        fastify.delete<{ Params: { id: string } }>('/macros/:id', async (request, reply) => {
+            await prisma.inboxMacro.delete({ where: { id: request.params.id } });
+            return { success: true };
+        });
+
+        // Execute a macro on a conversation
+        fastify.post<{ Params: { id: string } }>('/macros/:id/execute', async (request, reply) => {
+            const { conversationId } = request.body as any;
+            if (!conversationId) return reply.code(400).send({ error: 'conversationId required' });
+
+            const macro = await prisma.inboxMacro.findUnique({ where: { id: request.params.id } });
+            if (!macro) return reply.code(404).send({ error: 'Macro not found' });
+
+            const actions = macro.actions as any[];
+            const conv = await prisma.conversation.findUnique({ where: { id: conversationId } });
+            if (!conv) return reply.code(404).send({ error: 'Conversation not found' });
+
+            for (const action of actions) {
+                if (action.type === 'ASSIGN' && action.userId) {
+                    await prisma.conversation.update({
+                        where: { id: conversationId },
+                        data: { assignedTo: action.userId }
+                    });
+                }
+                if (action.type === 'ADD_TAG' && action.labelId) {
+                    await prisma.conversationLabelAssignment.upsert({
+                        where: { conversationId_labelId: { conversationId, labelId: action.labelId } },
+                        create: { conversationId, labelId: action.labelId },
+                        update: {}
+                    });
+                }
+                if (action.type === 'CLOSE') {
+                    await prisma.conversation.update({
+                        where: { id: conversationId },
+                        data: { status: 'CLOSED' }
+                    });
+                }
+                if (action.type === 'REOPEN') {
+                    await prisma.conversation.update({
+                        where: { id: conversationId },
+                        data: { status: 'OPEN' }
+                    });
+                }
+            }
+
+            return { success: true, actionsExecuted: actions.length };
         });
 
         // --- Settings ---
@@ -557,6 +684,249 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
             } catch (error) {
                 Logger.error('Failed to check blocked status', { error });
                 return reply.code(500).send({ error: 'Failed to check blocked status' });
+            }
+        });
+
+        // === CONVERSATION LABELS ===
+        const labelService = new LabelService();
+
+        // GET /:id/labels - Get labels for a conversation
+        fastify.get<{ Params: { id: string } }>('/:id/labels', async (request, reply) => {
+            try {
+                const labels = await labelService.getConversationLabels(request.params.id);
+                return { labels };
+            } catch (error) {
+                Logger.error('Failed to get conversation labels', { error });
+                return reply.code(500).send({ error: 'Failed to get labels' });
+            }
+        });
+
+        // POST /:id/labels/:labelId - Assign a label to conversation
+        fastify.post<{ Params: { id: string; labelId: string } }>('/:id/labels/:labelId', async (request, reply) => {
+            try {
+                const assignment = await labelService.assignLabel(request.params.id, request.params.labelId);
+                return { success: true, label: assignment.label };
+            } catch (error: any) {
+                if (error.code === 'P2025') {
+                    return reply.code(404).send({ error: 'Conversation or label not found' });
+                }
+                Logger.error('Failed to assign label', { error });
+                return reply.code(500).send({ error: 'Failed to assign label' });
+            }
+        });
+
+        // DELETE /:id/labels/:labelId - Remove a label from conversation
+        fastify.delete<{ Params: { id: string; labelId: string } }>('/:id/labels/:labelId', async (request, reply) => {
+            try {
+                await labelService.removeLabel(request.params.id, request.params.labelId);
+                return { success: true };
+            } catch (error: any) {
+                if (error.code === 'P2025') {
+                    return reply.code(404).send({ error: 'Label assignment not found' });
+                }
+                Logger.error('Failed to remove label', { error });
+                return reply.code(500).send({ error: 'Failed to remove label' });
+            }
+        });
+
+        // === MESSAGE SCHEDULING ===
+
+        // POST /:id/messages/schedule - Schedule a message for later
+        fastify.post<{ Params: { id: string } }>('/:id/messages/schedule', async (request, reply) => {
+            try {
+                const { content, scheduledFor, isInternal } = request.body as any;
+                const userId = request.user?.id;
+
+                if (!content || !scheduledFor) {
+                    return reply.code(400).send({ error: 'Content and scheduledFor are required' });
+                }
+
+                const scheduledDate = new Date(scheduledFor);
+                if (scheduledDate <= new Date()) {
+                    return reply.code(400).send({ error: 'Scheduled time must be in the future' });
+                }
+
+                const message = await prisma.message.create({
+                    data: {
+                        conversationId: request.params.id,
+                        content,
+                        senderType: 'AGENT',
+                        senderId: userId,
+                        isInternal: isInternal || false,
+                        scheduledFor: scheduledDate,
+                        scheduledBy: userId,
+                    },
+                });
+
+                Logger.info('Message scheduled', { messageId: message.id, scheduledFor: scheduledDate });
+                return { success: true, message };
+            } catch (error) {
+                Logger.error('Failed to schedule message', { error });
+                return reply.code(500).send({ error: 'Failed to schedule message' });
+            }
+        });
+
+        // DELETE /messages/:id/schedule - Cancel a scheduled message
+        fastify.delete<{ Params: { id: string } }>('/messages/:id/schedule', async (request, reply) => {
+            try {
+                const message = await prisma.message.findUnique({
+                    where: { id: request.params.id },
+                    select: { scheduledFor: true, scheduledBy: true },
+                });
+
+                if (!message) {
+                    return reply.code(404).send({ error: 'Message not found' });
+                }
+
+                if (!message.scheduledFor) {
+                    return reply.code(400).send({ error: 'Message is not scheduled' });
+                }
+
+                // Delete the scheduled message entirely
+                await prisma.message.delete({ where: { id: request.params.id } });
+
+                Logger.info('Scheduled message cancelled', { messageId: request.params.id });
+                return { success: true };
+            } catch (error) {
+                Logger.error('Failed to cancel scheduled message', { error });
+                return reply.code(500).send({ error: 'Failed to cancel scheduled message' });
+            }
+        });
+
+        // === SNOOZE ===
+
+        // POST /:id/snooze - Snooze a conversation
+        fastify.post<{ Params: { id: string } }>('/:id/snooze', async (request, reply) => {
+            try {
+                const { until } = request.body as any;
+
+                if (!until) {
+                    return reply.code(400).send({ error: 'Snooze until time is required' });
+                }
+
+                const snoozeUntil = new Date(until);
+                if (snoozeUntil <= new Date()) {
+                    return reply.code(400).send({ error: 'Snooze time must be in the future' });
+                }
+
+                const conversation = await prisma.conversation.update({
+                    where: { id: request.params.id },
+                    data: {
+                        status: 'SNOOZED',
+                        snoozedUntil: snoozeUntil,
+                    },
+                });
+
+                Logger.info('Conversation snoozed', { conversationId: conversation.id, until: snoozeUntil });
+                return { success: true, snoozedUntil: snoozeUntil };
+            } catch (error: any) {
+                if (error.code === 'P2025') {
+                    return reply.code(404).send({ error: 'Conversation not found' });
+                }
+                Logger.error('Failed to snooze conversation', { error });
+                return reply.code(500).send({ error: 'Failed to snooze conversation' });
+            }
+        });
+
+        // DELETE /:id/snooze - Cancel snooze (reopen conversation)
+        fastify.delete<{ Params: { id: string } }>('/:id/snooze', async (request, reply) => {
+            try {
+                const conversation = await prisma.conversation.update({
+                    where: { id: request.params.id },
+                    data: {
+                        status: 'OPEN',
+                        snoozedUntil: null,
+                    },
+                });
+
+                Logger.info('Snooze cancelled', { conversationId: conversation.id });
+                return { success: true };
+            } catch (error: any) {
+                if (error.code === 'P2025') {
+                    return reply.code(404).send({ error: 'Conversation not found' });
+                }
+                Logger.error('Failed to cancel snooze', { error });
+                return reply.code(500).send({ error: 'Failed to cancel snooze' });
+            }
+        });
+
+        // === BULK ACTIONS ===
+
+        // POST /conversations/bulk - Perform bulk actions on multiple conversations
+        fastify.post('/conversations/bulk', async (request, reply) => {
+            try {
+                const accountId = request.headers['x-account-id'] as string;
+                const userId = request.user?.id;
+                const { conversationIds, action, labelId, assignToUserId } = request.body as {
+                    conversationIds: string[];
+                    action: 'close' | 'open' | 'assign' | 'addLabel' | 'removeLabel';
+                    labelId?: string;
+                    assignToUserId?: string;
+                };
+
+                if (!conversationIds || !Array.isArray(conversationIds) || conversationIds.length === 0) {
+                    return reply.code(400).send({ error: 'conversationIds array is required' });
+                }
+
+                if (!action) {
+                    return reply.code(400).send({ error: 'action is required' });
+                }
+
+                let result: { updated: number } = { updated: 0 };
+
+                switch (action) {
+                    case 'close':
+                        const closeResult = await prisma.conversation.updateMany({
+                            where: { id: { in: conversationIds }, accountId },
+                            data: { status: 'CLOSED' },
+                        });
+                        result.updated = closeResult.count;
+                        break;
+
+                    case 'open':
+                        const openResult = await prisma.conversation.updateMany({
+                            where: { id: { in: conversationIds }, accountId },
+                            data: { status: 'OPEN', snoozedUntil: null },
+                        });
+                        result.updated = openResult.count;
+                        break;
+
+                    case 'assign':
+                        if (!assignToUserId) {
+                            return reply.code(400).send({ error: 'assignToUserId is required for assign action' });
+                        }
+                        const assignResult = await prisma.conversation.updateMany({
+                            where: { id: { in: conversationIds }, accountId },
+                            data: { assignedTo: assignToUserId },
+                        });
+                        result.updated = assignResult.count;
+                        break;
+
+                    case 'addLabel':
+                        if (!labelId) {
+                            return reply.code(400).send({ error: 'labelId is required for addLabel action' });
+                        }
+                        await labelService.bulkAssignLabel(conversationIds, labelId);
+                        result.updated = conversationIds.length;
+                        break;
+
+                    case 'removeLabel':
+                        if (!labelId) {
+                            return reply.code(400).send({ error: 'labelId is required for removeLabel action' });
+                        }
+                        const removeResult = await labelService.bulkRemoveLabel(conversationIds, labelId);
+                        result.updated = removeResult.count;
+                        break;
+
+                    default:
+                        return reply.code(400).send({ error: `Unknown action: ${action}` });
+                }
+
+                Logger.info('Bulk action completed', { action, count: result.updated, userId });
+                return { success: true, ...result };
+            } catch (error) {
+                Logger.error('Failed to perform bulk action', { error });
+                return reply.code(500).send({ error: 'Failed to perform bulk action' });
             }
         });
 

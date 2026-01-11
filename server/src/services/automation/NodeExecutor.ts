@@ -43,7 +43,7 @@ export class NodeExecutor {
     }
 
     /**
-     * Execute action nodes (email, invoice, etc.)
+     * Execute action nodes (email, invoice, inbox actions, etc.)
      */
     private async executeAction(node: FlowNode, enrollment: any): Promise<void> {
         const actionType = node.data?.actionType || 'SEND_EMAIL';
@@ -55,6 +55,98 @@ export class NodeExecutor {
         if (actionType === 'GENERATE_INVOICE') {
             await this.executeGenerateInvoice(node.data, enrollment);
         }
+
+        // Inbox Actions
+        if (actionType === 'ASSIGN_CONVERSATION') {
+            await this.executeAssignConversation(node.data, enrollment);
+        }
+
+        if (actionType === 'ADD_TAG') {
+            await this.executeAddTag(node.data, enrollment);
+        }
+
+        if (actionType === 'CLOSE_CONVERSATION') {
+            await this.executeCloseConversation(enrollment);
+        }
+
+        if (actionType === 'ADD_NOTE') {
+            await this.executeAddNote(node.data, enrollment);
+        }
+
+        if (actionType === 'SEND_CANNED_RESPONSE') {
+            await this.executeSendCannedResponse(node.data, enrollment);
+        }
+    }
+
+    // --- Inbox Action Methods ---
+
+    private async executeAssignConversation(config: any, enrollment: any): Promise<void> {
+        const conversationId = enrollment.contextData?.conversationId;
+        if (!conversationId || !config.userId) return;
+
+        Logger.info(`Assigning conversation ${conversationId} to ${config.userId}`);
+        await prisma.conversation.update({
+            where: { id: conversationId },
+            data: { assignedTo: config.userId }
+        });
+    }
+
+    private async executeAddTag(config: any, enrollment: any): Promise<void> {
+        const conversationId = enrollment.contextData?.conversationId;
+        if (!conversationId || !config.labelId) return;
+
+        Logger.info(`Adding tag ${config.labelId} to ${conversationId}`);
+        await prisma.conversationLabelAssignment.upsert({
+            where: { conversationId_labelId: { conversationId, labelId: config.labelId } },
+            create: { conversationId, labelId: config.labelId },
+            update: {}
+        });
+    }
+
+    private async executeCloseConversation(enrollment: any): Promise<void> {
+        const conversationId = enrollment.contextData?.conversationId;
+        if (!conversationId) return;
+
+        Logger.info(`Closing conversation ${conversationId}`);
+        await prisma.conversation.update({
+            where: { id: conversationId },
+            data: { status: 'CLOSED' }
+        });
+    }
+
+    private async executeAddNote(config: any, enrollment: any): Promise<void> {
+        const conversationId = enrollment.contextData?.conversationId;
+        if (!conversationId || !config.content) return;
+
+        Logger.info(`Adding note to ${conversationId}`);
+        await prisma.conversationNote.create({
+            data: {
+                conversationId,
+                content: renderTemplate(config.content, enrollment.contextData),
+                createdById: config.createdById || enrollment.contextData?.assignedTo || 'system'
+            }
+        });
+    }
+
+    private async executeSendCannedResponse(config: any, enrollment: any): Promise<void> {
+        const conversationId = enrollment.contextData?.conversationId;
+        if (!conversationId || !config.cannedResponseId) return;
+
+        const canned = await prisma.cannedResponse.findUnique({
+            where: { id: config.cannedResponseId }
+        });
+        if (!canned) return;
+
+        Logger.info(`Sending canned response to ${conversationId}`);
+        const content = renderTemplate(canned.content, enrollment.contextData);
+        await prisma.message.create({
+            data: {
+                conversationId,
+                content,
+                senderType: 'AGENT',
+                contentType: 'TEXT'
+            }
+        });
     }
 
     /**

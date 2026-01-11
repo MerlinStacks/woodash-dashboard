@@ -7,7 +7,7 @@ import React, { useState, useMemo, memo } from 'react';
 import DOMPurify from 'dompurify';
 import { format } from 'date-fns';
 import { cn } from '../../utils/cn';
-import { Check, AlertCircle, ChevronDown, ChevronUp, FileText, Download, Image as ImageIcon, File, Reply, CornerDownRight, User, Send } from 'lucide-react';
+import { Check, AlertCircle, ChevronDown, ChevronUp, FileText, Download, Image as ImageIcon, File, Reply, CornerDownRight, User, Send, Eye } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface MessageBubbleProps {
@@ -21,6 +21,10 @@ interface MessageBubbleProps {
         readAt?: string | null;
         status?: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
         reactions?: Record<string, Array<{ userId: string; userName: string | null }>>;
+        // Email tracking fields
+        trackingId?: string | null;
+        firstOpenedAt?: string | null;
+        openCount?: number;
     };
     recipientName?: string;
     onImageClick?: (src: string) => void;
@@ -256,11 +260,23 @@ export const MessageBubble = memo(function MessageBubble({
                     {/* Status & Actions */}
                     <div className="flex items-center gap-2 shrink-0">
                         {isMe && !message.isInternal && (
-                            <span className="flex items-center gap-1 text-xs text-gray-400" title={message.status === 'FAILED' ? 'Failed to send' : 'Sent'}>
+                            <span className="flex items-center gap-1 text-xs text-gray-400" title={
+                                message.status === 'FAILED' ? 'Failed to send'
+                                    : message.firstOpenedAt ? `Opened ${message.openCount || 1} time(s)`
+                                        : 'Sent'
+                            }>
                                 {message.status === 'FAILED' ? (
                                     <>
                                         <AlertCircle size={14} className="text-red-500" />
                                         <span className="text-red-500">Failed</span>
+                                    </>
+                                ) : message.firstOpenedAt ? (
+                                    <>
+                                        <Eye size={14} className="text-purple-500" />
+                                        <span className="text-purple-600">Opened</span>
+                                        {message.openCount && message.openCount > 1 && (
+                                            <span className="text-purple-500">({message.openCount})</span>
+                                        )}
                                     </>
                                 ) : (
                                     <>

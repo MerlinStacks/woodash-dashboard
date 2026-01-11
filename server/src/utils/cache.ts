@@ -87,17 +87,27 @@ export async function cacheDelete(key: string, options?: CacheOptions): Promise<
 
 /**
  * Delete all cached values matching a pattern.
- * Use sparingly - KEYS command can be slow on large datasets.
+ * Uses SCAN for non-blocking iteration (safe for large datasets).
  */
 export async function cacheDeletePattern(pattern: string, namespace?: string): Promise<number> {
     const fullPattern = buildKey(pattern, namespace);
+    let deleted = 0;
+    let cursor = '0';
 
     try {
-        const keys = await redisClient.keys(fullPattern);
-        if (keys.length > 0) {
-            await redisClient.del(...keys);
+        do {
+            const [nextCursor, keys] = await redisClient.scan(cursor, 'MATCH', fullPattern, 'COUNT', 100);
+            cursor = nextCursor;
+            if (keys.length > 0) {
+                await redisClient.del(...keys);
+                deleted += keys.length;
+            }
+        } while (cursor !== '0');
+
+        if (deleted > 0) {
+            Logger.debug('[Cache] Pattern delete completed', { pattern: fullPattern, deleted });
         }
-        return keys.length;
+        return deleted;
     } catch (error) {
         Logger.warn('[Cache] Pattern delete failed', { pattern: fullPattern, error });
         return 0;

@@ -48,6 +48,39 @@ const customersRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: 'Failed to fetch customer details' });
         }
     });
+
+    // Find potential duplicate customers
+    fastify.get<{ Params: { id: string } }>('/:id/duplicates', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            const customerId = request.params.id;
+
+            const result = await CustomersService.findDuplicates(accountId, customerId);
+            return result;
+        } catch (error: any) {
+            Logger.error('Find Duplicates Error', { error });
+            return reply.code(500).send({ error: 'Failed to find duplicates' });
+        }
+    });
+
+    // Merge source customer into target
+    fastify.post<{ Params: { id: string } }>('/:id/merge', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            const targetId = request.params.id;
+            const { sourceId } = request.body as { sourceId: string };
+
+            if (!sourceId) {
+                return reply.code(400).send({ error: 'sourceId is required' });
+            }
+
+            const result = await CustomersService.mergeCustomers(accountId, targetId, sourceId);
+            return result;
+        } catch (error: any) {
+            Logger.error('Merge Customers Error', { error });
+            return reply.code(500).send({ error: error.message || 'Failed to merge customers' });
+        }
+    });
 };
 
 export default customersRoutes;

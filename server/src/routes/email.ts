@@ -240,6 +240,10 @@ const emailRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: 'Failed to fetch email logs' });
         }
     });
+
+    // === EMAIL TRACKING (Read Receipts) ===
+    // Tracking routes are in separate file: email-tracking.ts
 };
 
 export default emailRoutes;
+

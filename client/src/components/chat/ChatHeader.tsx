@@ -5,10 +5,18 @@
  */
 
 import { useState } from 'react';
-import { ChevronDown, Clock, CheckCircle, RotateCcw, MoreHorizontal, MoreVertical, Search, Users, Merge, Ban } from 'lucide-react';
+import { ChevronDown, Clock, CheckCircle, RotateCcw, MoreHorizontal, MoreVertical, Search, Users, Merge, Ban, Eye } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { MacrosDropdown } from './MacrosDropdown';
+
+interface Viewer {
+    userId: string;
+    name: string;
+    avatarUrl?: string;
+}
 
 interface ChatHeaderProps {
+    conversationId: string;
     recipientName?: string;
     recipientEmail?: string;
     status?: string;
@@ -20,9 +28,12 @@ interface ChatHeaderProps {
     onShowAssign: () => void;
     onShowMerge: () => void;
     onBlock?: () => Promise<void>;
+    /** Other users currently viewing this conversation */
+    otherViewers?: Viewer[];
 }
 
 export function ChatHeader({
+    conversationId,
     recipientName,
     recipientEmail,
     status,
@@ -33,12 +44,14 @@ export function ChatHeader({
     onShowSnooze,
     onShowAssign,
     onShowMerge,
-    onBlock
+    onBlock,
+    otherViewers = []
 }: ChatHeaderProps) {
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
 
     const isOpen = status === 'OPEN';
+    const hasOtherViewers = otherViewers.length > 0;
 
     return (
         <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white">
@@ -57,8 +70,39 @@ export function ChatHeader({
                 </div>
             </div>
 
+            {/* Center - Other Viewers Indicator */}
+            {hasOtherViewers && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full">
+                    <Eye size={14} className="text-amber-600" />
+                    <div className="flex -space-x-2">
+                        {otherViewers.slice(0, 3).map((viewer, i) => (
+                            <div
+                                key={viewer.userId}
+                                className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-white text-[10px] font-medium border-2 border-white"
+                                title={viewer.name}
+                            >
+                                {viewer.avatarUrl ? (
+                                    <img src={viewer.avatarUrl} alt={viewer.name} className="w-full h-full rounded-full object-cover" />
+                                ) : (
+                                    viewer.name.charAt(0).toUpperCase()
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <span className="text-xs font-medium text-amber-700">
+                        {otherViewers.length === 1
+                            ? `${otherViewers[0].name} is viewing`
+                            : `${otherViewers.length} others viewing`
+                        }
+                    </span>
+                </div>
+            )}
+
             {/* Right - Actions */}
             <div className="flex items-center gap-2">
+                {/* Macros Quick Actions */}
+                <MacrosDropdown conversationId={conversationId} />
+
                 {/* Resolve/Reopen Button with Dropdown */}
                 <div className="relative">
                     <div className="flex">

@@ -73,12 +73,21 @@ export class EmailService {
         try {
             const transporter = await this.createTransporter(emailAccount);
 
+            // Generate tracking ID for read receipts
+            const trackingId = crypto.randomUUID();
+            const trackingPixelUrl = `${process.env.API_URL || 'http://localhost:3000'}/api/email/track/${trackingId}.png`;
+
+            // Inject tracking pixel at end of HTML body
+            const htmlWithTracking = html.includes('</body>')
+                ? html.replace('</body>', `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none" alt="" /></body>`)
+                : `${html}<img src="${trackingPixelUrl}" width="1" height="1" style="display:none" alt="" />`;
+
             // Build mail options with threading headers
             const mailOptions: any = {
                 from: `"${emailAccount.name}" <${emailAccount.email}>`,
                 to,
                 subject,
-                html,
+                html: htmlWithTracking,
                 attachments
             };
 
@@ -92,7 +101,7 @@ export class EmailService {
 
             const info = await transporter.sendMail(mailOptions);
 
-            // Log success
+            // Log success with tracking ID
             await prisma.emailLog.create({
                 data: {
                     accountId,
@@ -101,12 +110,13 @@ export class EmailService {
                     subject,
                     status: 'SUCCESS',
                     messageId: info.messageId,
+                    trackingId,
                     source: options?.source,
                     sourceId: options?.sourceId
                 }
             });
 
-            Logger.info(`Sent email`, { messageId: info.messageId, to });
+            Logger.info(`Sent email with tracking`, { messageId: info.messageId, to, trackingId });
             return info;
         } catch (error: any) {
             // Log failure

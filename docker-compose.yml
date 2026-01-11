@@ -29,7 +29,7 @@ services:
     container_name: overseekv2-elasticsearch-1
     environment:
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
       - xpack.security.enabled=false
     # Ports removed to prevent external access
     # ports:
@@ -80,9 +80,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://admin:password@postgres:5432/overseek
+      DATABASE_URL: ${DATABASE_URL:-postgres://admin:password@postgres:5432/overseek}
       ELASTICSEARCH_URL: http://elasticsearch:9200
-      JWT_SECRET: supersecretkey
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       PORT: 3000
       REDIS_HOST: redis
       API_URL: ${API_URL}

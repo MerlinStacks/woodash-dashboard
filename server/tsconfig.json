@@ -6,7 +6,11 @@
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
         "strict": false,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "moduleResolution": "node",
+        "declaration": false,
+        "noEmitOnError": false
     },
     "include": [
         "src"

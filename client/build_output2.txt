@@ -1,0 +1,47 @@
+﻿node.exe : npm warn 
+config ignoring 
+workspace config at C:
+\Users\ratte\Desktop\O
+verSeekv2\client/.npmr
+c
+At C:\Program Files\no
+dejs\npm.ps1:29 char:3
++   & $NODE_EXE 
+$NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (npm warn c   
+ onfig...2\client/    
+.npmrc:String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+
+> overseek-client@0.0.0 build
+> tsc && vite build
+
+src/components/chat/ChatWindow.tsx(311,17): error TS2322: Type 'RefObject<HTMLInputElement | null>' is not assignable to type 'RefObject<HTMLInputElement>'.
+  Type 'HTMLInputElement | null' is not assignable to type 'HTMLInputElement'.
+    Type 'null' is not assignable to type 'HTMLInputElement'.
+npm error Lifecycle 
+script `build` failed 
+with error:
+npm error code 2
+npm error path C:\User
+s\ratte\Desktop\OverSe
+ekv2\client
+npm error workspace 
+overseek-client@0.0.0
+npm error location C:\
+Users\ratte\Desktop\Ov
+erSeekv2\client
+npm error command 
+failed
+npm error command C:\w
+indows\system32\cmd.ex
+e /d /s /c tsc && 
+vite build

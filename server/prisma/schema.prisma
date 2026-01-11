@@ -45,6 +45,8 @@ model User {
   blockedContacts       BlockedContact[]
   todos                 Todo[]
   messageReactions      MessageReaction[]
+  scheduledMessages     Message[]            @relation("ScheduledMessages")
+  conversationNotes     ConversationNote[]   @relation("UserConversationNotes")
 }
 
 model RefreshToken {
@@ -145,6 +147,12 @@ model Account {
   
   // AI Todos
   todos             Todo[]
+  
+  // Conversation Labels
+  conversationLabels ConversationLabel[]
+  
+  // Inbox Macros
+  inboxMacros        InboxMacro[]
 }
 
 model Notification {
@@ -618,6 +626,9 @@ model Conversation {
   status   String @default("OPEN") // OPEN, CLOSED, SNOOZED
   isRead   Boolean @default(false) // Tracks whether staff has read the conversation
   priority String @default("MEDIUM") // LOW, MEDIUM, HIGH
+  
+  // Snooze support - when set, conversation is snoozed until this time
+  snoozedUntil DateTime?
 
   assignedTo String? // User ID of agent
 
@@ -639,6 +650,8 @@ model Conversation {
   mergedFrom   Conversation[] @relation("ConversationMerges")
 
   messages Message[]
+  labels   ConversationLabelAssignment[]
+  notes    ConversationNote[]
 
   account     Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
   wooCustomer WooCustomer? @relation(fields: [wooCustomerId], references: [id])
@@ -651,6 +664,22 @@ model Conversation {
   @@index([accountId, channel])
   @@index([visitorToken])
   @@index([externalConversationId])
+}
+
+// Conversation Notes - sticky notes visible to all agents
+model ConversationNote {
+  id             String   @id @default(uuid())
+  conversationId String
+  content        String   @db.Text
+  createdById    String
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("UserConversationNotes", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conversationId])
 }
 
 model Message {
@@ -668,11 +697,18 @@ model Message {
 
   // Email threading: stores RFC 5322 Message-ID for In-Reply-To matching
   emailMessageId String?
+  
+  // Message scheduling - if set, message won't send until this time
+  scheduledFor   DateTime?
+  scheduledBy    String?    // User ID who scheduled it
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  reactions    MessageReaction[]
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  reactions       MessageReaction[]
+  scheduledByUser User?        @relation("ScheduledMessages", fields: [scheduledBy], references: [id])
 
   createdAt DateTime @default(now())
+  
+  @@index([scheduledFor]) // For efficient scheduled message queries
 }
 
 model MessageReaction {
@@ -696,6 +732,7 @@ model CannedResponse {
 
   shortcut String // e.g. "hi", "refund"
   content  String @db.Text
+  category String? // Optional category for grouping (e.g. "Shipping", "Returns")
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -703,6 +740,60 @@ model CannedResponse {
   updatedAt DateTime @updatedAt
 
   @@unique([accountId, shortcut])
+  @@index([accountId, category])
+}
+
+// --------------------------------------
+// Conversation Labels/Tags
+// --------------------------------------
+
+model ConversationLabel {
+  id        String @id @default(uuid())
+  accountId String
+  name      String
+  color     String @default("#6366f1") // Tailwind indigo-500
+  
+  account       Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  conversations ConversationLabelAssignment[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([accountId, name])
+  @@index([accountId])
+}
+
+model ConversationLabelAssignment {
+  id             String @id @default(uuid())
+  conversationId String
+  labelId        String
+  
+  conversation Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  label        ConversationLabel  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([conversationId, labelId])
+  @@index([conversationId])
+  @@index([labelId])
+}
+
+// Inbox Macros - Quick 1-click automation shortcuts
+model InboxMacro {
+  id        String  @id @default(uuid())
+  accountId String
+  name      String            // "Escalate to Manager", "Quick Close"
+  icon      String?           // Lucide icon name
+  color     String? @default("#6366f1")
+  actions   Json              // [{type: 'ASSIGN', userId: 'x'}, {type: 'ADD_TAG', labelId: 'y'}]
+  sortOrder Int     @default(0)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId])
 }
 
 // Social media messaging accounts (Facebook Pages, Instagram, TikTok)
@@ -984,6 +1075,7 @@ model AnalyticsEvent {
 
   @@index([sessionId])
   @@index([visitId])
+  @@index([createdAt]) // For time-based cleanup queries
 }
 
 // Individual browsing visit (session gap detection: 30 min inactivity = new visit)
@@ -1067,13 +1159,34 @@ model EmailLog {
   
   messageId      String?  // SMTP message ID on success
   
+  // Email tracking (read receipts)
+  trackingId     String?  @unique  // UUID for tracking pixel
+  firstOpenedAt  DateTime?
+  openCount      Int      @default(0)
+  
   createdAt      DateTime @default(now())
   
   account        Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  trackingEvents MessageTrackingEvent[]
   
   @@index([accountId, createdAt])
   @@index([emailAccountId])
+  @@index([trackingId])
+}
+
+model MessageTrackingEvent {
+  id            String   @id @default(uuid())
+  emailLogId    String
+  eventType     String   // "OPEN", "CLICK"
+  ipCountry     String?  // Privacy-respecting: country only
+  userAgent     String?
+  
+  emailLog EmailLog @relation(fields: [emailLogId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([emailLogId])
 }
 
 model CustomerSegment {

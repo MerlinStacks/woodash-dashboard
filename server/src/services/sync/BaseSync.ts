@@ -10,6 +10,22 @@ export interface SyncResult {
     itemsDeleted?: number;
 }
 
+/**
+ * Emit sync status via Socket.IO if available.
+ * Uses dynamic import to avoid circular dependencies.
+ */
+async function emitSyncEvent(event: string, data: any) {
+    try {
+        const { getIO } = await import('../../socket');
+        const io = getIO();
+        if (io) {
+            io.to(`account:${data.accountId}`).emit(event, data);
+        }
+    } catch {
+        // Socket not initialized yet (startup) - ignore
+    }
+}
+
 export abstract class BaseSync {
 
     protected abstract entityType: string;
@@ -19,6 +35,9 @@ export abstract class BaseSync {
         const syncId = randomUUID().slice(0, 8); // Short correlation ID
 
         Logger.info(`Starting ${this.entityType} sync`, { accountId, incremental, syncId });
+
+        // Emit sync started event
+        await emitSyncEvent('sync:started', { accountId, type: this.entityType, syncId });
 
         const log = await this.createLog(accountId, this.entityType);
 
@@ -36,9 +55,28 @@ export abstract class BaseSync {
                 itemsDeleted: result.itemsDeleted || 0
             });
 
+            // Emit sync completed event
+            await emitSyncEvent('sync:completed', {
+                accountId,
+                type: this.entityType,
+                syncId,
+                itemsProcessed: result.itemsProcessed,
+                status: 'SUCCESS'
+            });
+
         } catch (error: any) {
             Logger.error(`Sync Failed: ${this.entityType}`, { accountId, syncId, error: error.message });
             await this.updateLog(log.id, 'FAILED', error.message);
+
+            // Emit sync failed event
+            await emitSyncEvent('sync:completed', {
+                accountId,
+                type: this.entityType,
+                syncId,
+                status: 'FAILED',
+                error: error.message
+            });
+
             throw error; // Bubble up to BullMQ for retry
         }
     }

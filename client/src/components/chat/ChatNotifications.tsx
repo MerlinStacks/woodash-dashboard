@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 /**
  * Headless component to handle global chat notifications via browser API
@@ -11,6 +11,7 @@ export function ChatNotifications() {
     const { socket } = useSocket();
     const { user } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
 
     // Check permission on mount
     useEffect(() => {
@@ -76,12 +77,46 @@ export function ChatNotifications() {
             }
         };
 
+        /**
+         * Handle snooze expiry notifications.
+         * When a snoozed conversation reopens, notify the assigned agent.
+         */
+        const handleSnoozeExpired = (data: {
+            conversationId: string;
+            assignedToId?: string;
+            customerName?: string;
+        }) => {
+            // Only notify if this conversation is assigned to the current user
+            if (data.assignedToId && data.assignedToId !== user?.id) {
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                const customerName = data.customerName || 'Customer';
+                const n = new Notification('⏰ Snooze Ended', {
+                    body: `Conversation with ${customerName} has reopened`,
+                    icon: '/favicon.ico',
+                    tag: `snooze-${data.conversationId}`,
+                    requireInteraction: true, // Keep notification until user interacts
+                });
+
+                n.onclick = function () {
+                    window.focus();
+                    // Navigate to the conversation
+                    navigate(`/inbox?conversationId=${data.conversationId}`);
+                    n.close();
+                };
+            }
+        };
+
         socket.on('message:new', handleNewMessage);
+        socket.on('snooze:expired', handleSnoozeExpired);
 
         return () => {
             socket.off('message:new', handleNewMessage);
+            socket.off('snooze:expired', handleSnoozeExpired);
         };
-    }, [socket, location.pathname, user]);
+    }, [socket, location.pathname, user, navigate]);
 
     return null; // Headless
 }

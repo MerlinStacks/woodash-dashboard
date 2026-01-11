@@ -1,11 +1,12 @@
 
 import { formatDistanceToNow } from 'date-fns';
-import { Mail, User, MessageSquare, Filter, ChevronDown, Pencil, Eye, EyeOff, Plus, Search, X, Loader2 } from 'lucide-react';
+import { Mail, User, MessageSquare, Filter, ChevronDown, Pencil, Eye, EyeOff, Plus, Search, X, Loader2, Tag, Check, Square, CheckSquare } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useState, useEffect, useCallback } from 'react';
 import { useDrafts } from '../../hooks/useDrafts';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { BulkActionToolbar } from './BulkActionToolbar';
 
 interface Conversation {
     id: string;
@@ -26,6 +27,14 @@ interface Conversation {
     updatedAt: string;
     status: string;
     isRead?: boolean;
+    labels?: { id: string; name: string; color: string }[];
+}
+
+interface Label {
+    id: string;
+    name: string;
+    color: string;
+    _count?: { conversations: number };
 }
 
 interface ConversationListProps {
@@ -34,11 +43,13 @@ interface ConversationListProps {
     onSelect: (id: string) => void;
     currentUserId?: string;
     onCompose?: () => void;
+    onRefresh?: () => void;
+    users?: { id: string; fullName: string }[];
 }
 
 type FilterType = 'all' | 'mine' | 'unassigned';
 
-export function ConversationList({ conversations, selectedId, onSelect, currentUserId, onCompose }: ConversationListProps) {
+export function ConversationList({ conversations, selectedId, onSelect, currentUserId, onCompose, onRefresh, users = [] }: ConversationListProps) {
     const [filter, setFilter] = useState<FilterType>('all');
     const [showFilterMenu, setShowFilterMenu] = useState(false);
     const [showResolved, setShowResolved] = useState(false);
@@ -46,11 +57,62 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
     const { token } = useAuth();
     const { currentAccount } = useAccount();
 
+    // Bulk Selection
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+    // Label filter
+    const [allLabels, setAllLabels] = useState<Label[]>([]);
+    const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
+    const [showLabelFilter, setShowLabelFilter] = useState(false);
+
     // Search state
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<Conversation[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const isSearchMode = searchQuery.trim().length >= 2;
+
+    // Fetch available labels
+    useEffect(() => {
+        if (!token || !currentAccount) return;
+        fetch('/api/labels', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'x-account-id': currentAccount.id
+            }
+        })
+            .then(res => res.json())
+            .then(data => setAllLabels(data.labels || []))
+            .catch(e => console.error('Failed to fetch labels', e));
+    }, [token, currentAccount]);
+
+    // Clear selection when conversations change
+    useEffect(() => {
+        setSelectedIds(new Set());
+        setIsSelectionMode(false);
+    }, [conversations]);
+
+    const toggleSelection = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+        setIsSelectionMode(newSelected.size > 0);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredConversations.length) {
+            setSelectedIds(new Set());
+            setIsSelectionMode(false);
+        } else {
+            setSelectedIds(new Set(filteredConversations.map(c => c.id)));
+            setIsSelectionMode(true);
+        }
+    };
 
     // Debounced search
     useEffect(() => {
@@ -86,6 +148,11 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
     const filteredConversations = isSearchMode ? searchResults : conversations.filter(conv => {
         // Status filter: only show OPEN by default
         if (!showResolved && conv.status !== 'OPEN') return false;
+
+        // Label filter
+        if (selectedLabelId) {
+            if (!conv.labels?.some(l => l.id === selectedLabelId)) return false;
+        }
 
         // Assignment filter
         if (filter === 'mine') return conv.assignedTo === currentUserId;
@@ -153,6 +220,48 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                             <Plus size={16} />
                         </button>
                     )}
+                        {/* Label Filter */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowLabelFilter(!showLabelFilter)}
+                                className={cn(
+                                    "p-1.5 rounded-sm hover:bg-gray-100",
+                                    selectedLabelId ? "text-indigo-600 bg-indigo-50" : "text-gray-500"
+                                )}
+                                title="Filter by label"
+                            >
+                                <Tag size={16} />
+                            </button>
+                            {showLabelFilter && (
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-20 py-1">
+                                    <button
+                                        onClick={() => { setSelectedLabelId(null); setShowLabelFilter(false); }}
+                                        className={cn(
+                                            "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50",
+                                            !selectedLabelId && "bg-gray-50 font-medium"
+                                        )}
+                                    >
+                                        All Labels
+                                    </button>
+                                    {allLabels.map(label => (
+                                        <button
+                                            key={label.id}
+                                            onClick={() => { setSelectedLabelId(label.id); setShowLabelFilter(false); }}
+                                            className={cn(
+                                                "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50",
+                                                selectedLabelId === label.id && "bg-gray-50 font-medium"
+                                            )}
+                                        >
+                                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: label.color }} />
+                                            {label.name}
+                                            {label._count?.conversations != null && (
+                                                <span className="ml-auto text-xs text-gray-400">{label._count.conversations}</span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                         <div className="relative">
                             <button
                                 onClick={() => setShowFilterMenu(!showFilterMenu)}
@@ -264,15 +373,27 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                         return (
                             <div
                                 key={conv.id}
-                                onClick={() => onSelect(conv.id)}
+                                onClick={() => !isSelectionMode && onSelect(conv.id)}
                                 className={cn(
                                     "flex gap-3 p-3 cursor-pointer border-b border-gray-100 transition-colors",
                                     isSelected
                                         ? "bg-blue-50 border-l-2 border-l-blue-600"
                                         : "hover:bg-gray-50 border-l-2 border-l-transparent",
-                                    isUnread && !isSelected && "bg-blue-50/50"
+                                    isUnread && !isSelected && "bg-blue-50/50",
+                                    selectedIds.has(conv.id) && "bg-indigo-50"
                                 )}
                             >
+                                {/* Checkbox for bulk selection */}
+                                <button
+                                    onClick={(e) => toggleSelection(conv.id, e)}
+                                    className="p-0.5 rounded hover:bg-gray-200 transition-colors shrink-0 self-start mt-2"
+                                >
+                                    {selectedIds.has(conv.id) ? (
+                                        <CheckSquare size={16} className="text-indigo-600" />
+                                    ) : (
+                                        <Square size={16} className="text-gray-400" />
+                                    )}
+                                </button>
                                 {/* Avatar */}
                                 <div className={cn(
                                     "w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium shrink-0",
@@ -333,6 +454,22 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                                                 Draft
                                             </span>
                                         )}
+                                        {/* Labels */}
+                                        {conv.labels && conv.labels.slice(0, 2).map(label => (
+                                            <span
+                                                key={label.id}
+                                                className="px-1.5 py-0.5 text-[10px] font-medium rounded-sm"
+                                                style={{
+                                                    backgroundColor: `${label.color}20`,
+                                                    color: label.color,
+                                                }}
+                                            >
+                                                {label.name}
+                                            </span>
+                                        ))}
+                                        {conv.labels && conv.labels.length > 2 && (
+                                            <span className="text-[10px] text-gray-400">+{conv.labels.length - 2}</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -340,6 +477,20 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                     })
                 )}
             </div>
+
+            {/* Bulk Action Toolbar */}
+            <BulkActionToolbar
+                selectedIds={Array.from(selectedIds)}
+                onClearSelection={() => {
+                    setSelectedIds(new Set());
+                    setIsSelectionMode(false);
+                }}
+                onActionComplete={() => {
+                    onRefresh?.();
+                }}
+                users={users}
+                labels={allLabels}
+            />
         </div >
     );
 }

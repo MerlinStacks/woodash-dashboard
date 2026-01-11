@@ -16,12 +16,13 @@ import { SocialChannelsSettings } from '../components/settings/SocialChannelsSet
 import { TeamSettings } from '../components/settings/TeamSettings';
 import { WebhookSettings } from '../components/settings/WebhookSettings';
 import { AdAccountSettings } from '../components/settings/AdAccountSettings';
+import { CannedResponsesSettings } from '../components/settings/CannedResponsesSettings';
 import {
     LayoutGrid, Palette, MessageSquare, Bot, Activity, RefreshCw,
-    Mail, Package, Tags, Coins, Bell, Share2, Users, ChevronRight, Webhook, Megaphone
+    Mail, Package, Tags, Coins, Bell, Share2, Users, ChevronRight, Webhook, Megaphone, Zap
 } from 'lucide-react';
 
-type TabId = 'general' | 'appearance' | 'team' | 'chat' | 'channels' | 'intelligence' | 'analytics' | 'sync' | 'email' | 'inventory' | 'orderTags' | 'goldPrice' | 'notifications' | 'webhooks' | 'ads';
+type TabId = 'general' | 'appearance' | 'team' | 'chat' | 'channels' | 'intelligence' | 'analytics' | 'sync' | 'email' | 'inventory' | 'orderTags' | 'goldPrice' | 'notifications' | 'webhooks' | 'ads' | 'cannedResponses';
 
 interface TabDef {
     id: TabId;
@@ -50,7 +51,7 @@ export function SettingsPage() {
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const tab = params.get('tab') as TabId | null;
-        const validTabs: TabId[] = ['general', 'appearance', 'team', 'chat', 'channels', 'intelligence', 'analytics', 'sync', 'email', 'inventory', 'orderTags', 'goldPrice', 'notifications', 'webhooks', 'ads'];
+        const validTabs: TabId[] = ['general', 'appearance', 'team', 'chat', 'channels', 'intelligence', 'analytics', 'sync', 'email', 'inventory', 'orderTags', 'goldPrice', 'notifications', 'webhooks', 'ads', 'cannedResponses'];
         if (tab && validTabs.includes(tab)) {
             setActiveTab(tab);
         }
@@ -90,6 +91,7 @@ export function SettingsPage() {
             name: 'Intelligence',
             tabs: [
                 { id: 'chat', label: 'Chat Widget', icon: MessageSquare },
+                { id: 'cannedResponses', label: 'Canned Responses', icon: Zap },
                 { id: 'intelligence', label: 'AI Models', icon: Bot, hidden: !isAIEnabled },
                 { id: 'analytics', label: 'Analytics', icon: Activity },
                 { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -150,6 +152,12 @@ export function SettingsPage() {
                 );
             case 'notifications':
                 return <NotificationSettings />;
+            case 'cannedResponses':
+                return (
+                    <SettingsCard title="Canned Responses" description="Create reusable message templates with placeholders.">
+                        <CannedResponsesSettings />
+                    </SettingsCard>
+                );
             case 'team':
                 return <TeamSettings />;
             case 'webhooks':

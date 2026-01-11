@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAccount } from './AccountContext';
 import { useAuth } from './AuthContext';
+import { useSocket } from './SocketContext';
 
 export interface SyncJob {
     id: string;
@@ -42,12 +43,13 @@ const SyncStatusContext = createContext<SyncStatusContextType | undefined>(undef
 export function SyncStatusProvider({ children }: { children: ReactNode }) {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
+    const { socket } = useSocket();
     const [activeJobs, setActiveJobs] = useState<SyncJob[]>([]);
     const [syncState, setSyncState] = useState<SyncState[]>([]);
     const [logs, setLogs] = useState<SyncLog[]>([]);
     const [isSyncing, setIsSyncing] = useState(false);
 
-    const fetchStatus = async () => {
+    const fetchStatus = useCallback(async () => {
         if (!currentAccount?.id || !token) return;
         try {
             const url = new URL('/api/sync/active', window.location.origin);
@@ -61,8 +63,6 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
                 const data = await res.json();
                 setActiveJobs(data);
                 setIsSyncing(data.length > 0);
-            } else {
-                console.error('Failed to fetch sync status', res.status, res.statusText);
             }
 
             // Also fetch persistent state
@@ -74,23 +74,44 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
                 setSyncState(data.state || []);
                 setLogs(data.logs || []);
             }
-
-
         } catch (error) {
             console.error('Failed to fetch sync status', error);
         }
-    };
+    }, [currentAccount?.id, token]);
 
+    // Listen for Socket.IO sync events (real-time updates)
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleSyncStarted = (data: { accountId: string; type: string }) => {
+            setIsSyncing(true);
+            fetchStatus(); // Refresh full state
+        };
+
+        const handleSyncCompleted = (data: { accountId: string; type: string; status: string }) => {
+            fetchStatus(); // Refresh full state to get updated logs
+        };
+
+        socket.on('sync:started', handleSyncStarted);
+        socket.on('sync:completed', handleSyncCompleted);
+
+        return () => {
+            socket.off('sync:started', handleSyncStarted);
+            socket.off('sync:completed', handleSyncCompleted);
+        };
+    }, [socket, fetchStatus]);
+
+    // Fallback polling (reduced from 2s to 30s since we have real-time events now)
     useEffect(() => {
         if (!currentAccount?.id || !token) return;
 
         // Initial fetch
         fetchStatus();
 
-        // Poll every 2 seconds
-        const interval = setInterval(fetchStatus, 2000);
+        // Poll every 30 seconds as fallback for missed events
+        const interval = setInterval(fetchStatus, 30000);
         return () => clearInterval(interval);
-    }, [currentAccount?.id, token]);
+    }, [currentAccount?.id, token, fetchStatus]);
 
     const controlSync = async (action: 'pause' | 'resume' | 'cancel', queueName?: string, jobId?: string) => {
         if (!currentAccount?.id || !token) return;

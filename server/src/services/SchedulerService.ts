@@ -79,6 +79,16 @@ export class SchedulerService {
             JanitorService.runCleanup().catch(e => Logger.error('Janitor Error', { error: e }));
         }, 24 * 60 * 60 * 1000);
 
+        // Scheduled Messages Worker (Check every minute)
+        setInterval(() => {
+            SchedulerService.processScheduledMessages().catch(e => Logger.error('Scheduled Message Error', { error: e }));
+        }, 60 * 1000);
+
+        // Snooze Reminder Worker (Check every minute)
+        setInterval(() => {
+            SchedulerService.checkSnoozedConversations().catch(e => Logger.error('Snooze Check Error', { error: e }));
+        }, 60 * 1000);
+
     }
 
     private static async checkAbandonedCarts() {
@@ -319,6 +329,150 @@ export class SchedulerService {
                 Logger.info(`[Scheduler] Updated gold price for account ${accountId}`);
             } catch (error) {
                 Logger.error(`[Scheduler] Failed to update gold price for account ${accountId}`, { error });
+            }
+        }
+    }
+
+    /**
+     * Process scheduled messages that are due to be sent.
+     * Finds messages where scheduledFor <= now and sends them.
+     */
+    private static async processScheduledMessages() {
+        const now = new Date();
+
+        // Find due scheduled messages
+        const dueMessages = await prisma.message.findMany({
+            where: {
+                scheduledFor: {
+                    lte: now,
+                    not: null,
+                },
+            },
+            include: {
+                conversation: {
+                    include: {
+                        account: true,
+                        wooCustomer: true,
+                    },
+                },
+            },
+            take: 50, // Process in batches
+        });
+
+        if (dueMessages.length === 0) return;
+
+        Logger.info(`[Scheduler] Processing ${dueMessages.length} scheduled message(s)`);
+
+        for (const message of dueMessages) {
+            try {
+                // For email conversations, actually send the email
+                if (message.conversation.channel === 'EMAIL') {
+                    const { EmailService } = await import('./EmailService');
+                    const emailService = new EmailService();
+
+                    // Get recipient email
+                    const recipientEmail = message.conversation.wooCustomer?.email
+                        || message.conversation.guestEmail;
+
+                    if (recipientEmail) {
+                        // Find email account for this account
+                        const emailAccount = await prisma.emailAccount.findFirst({
+                            where: { accountId: message.conversation.accountId, isDefault: true },
+                        });
+
+                        if (emailAccount) {
+                            await emailService.sendEmail(
+                                message.conversation.accountId,
+                                emailAccount.id,
+                                recipientEmail,
+                                `Re: Conversation`,
+                                message.content
+                            );
+                        }
+                    }
+                }
+
+                // Clear the scheduled time (marks as sent)
+                await prisma.message.update({
+                    where: { id: message.id },
+                    data: { scheduledFor: null },
+                });
+
+                Logger.info(`[Scheduler] Sent scheduled message ${message.id}`);
+            } catch (error) {
+                Logger.error(`[Scheduler] Failed to send scheduled message ${message.id}`, { error });
+            }
+        }
+    }
+
+    /**
+     * Check for snoozed conversations that should be reopened.
+     * Emits socket events to notify assigned agents.
+     */
+    private static async checkSnoozedConversations() {
+        const now = new Date();
+
+        // Find snoozed conversations where snooze has expired
+        const expiredSnoozes = await prisma.conversation.findMany({
+            where: {
+                status: 'SNOOZED',
+                snoozedUntil: {
+                    lte: now,
+                    not: null,
+                },
+            },
+            include: {
+                assignee: true,
+                wooCustomer: true,
+            },
+            take: 50,
+        });
+
+        if (expiredSnoozes.length === 0) return;
+
+        Logger.info(`[Scheduler] Reopening ${expiredSnoozes.length} snoozed conversation(s)`);
+
+        // Dynamically import to avoid circular deps
+        const { getIO } = await import('../socket');
+        const io = getIO();
+
+        for (const conversation of expiredSnoozes) {
+            try {
+                // Reopen the conversation
+                await prisma.conversation.update({
+                    where: { id: conversation.id },
+                    data: {
+                        status: 'OPEN',
+                        snoozedUntil: null,
+                    },
+                });
+
+                // Emit socket event to notify about snooze expiry
+                if (io) {
+                    const customerName = conversation.wooCustomer
+                        ? `${conversation.wooCustomer.firstName || ''} ${conversation.wooCustomer.lastName || ''}`.trim()
+                        : conversation.guestName || conversation.guestEmail || 'Unknown';
+
+                    const snoozeEventData = {
+                        conversationId: conversation.id,
+                        assignedToId: conversation.assignedTo,
+                        customerName,
+                    };
+
+                    // Emit to account room so all agents on this account receive it
+                    io.to(`account:${conversation.accountId}`).emit('snooze:expired', snoozeEventData);
+
+                    // Also emit conversation update to the conversation room
+                    io.to(`conversation:${conversation.id}`).emit('conversation:updated', {
+                        id: conversation.id,
+                        status: 'OPEN',
+                        snoozedUntil: null,
+                    });
+                }
+
+                Logger.info(`[Scheduler] Reopened snoozed conversation ${conversation.id}`);
+            } catch (error) {
+                Logger.error(`[Scheduler] Failed to reopen conversation ${conversation.id}`, { error });
             }
         }
     }
