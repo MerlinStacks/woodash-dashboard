@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { TrendingUp, DollarSign, ShoppingCart, Users, Eye, ArrowUpRight, ArrowDownRight, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { getDateRange, DateRangeOption } from '../../utils/dateUtils';
 
 interface AnalyticsData {
     revenue: { value: number; change: number };
@@ -64,19 +65,13 @@ export function MobileAnalytics() {
                 'X-Account-ID': currentAccount.id
             };
 
-            // Calculate date range based on period
-            const now = new Date();
-            let startDate: string;
-            if (period === 'today') {
-                startDate = now.toISOString().split('T')[0];
-            } else if (period === 'week') {
-                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                startDate = weekAgo.toISOString().split('T')[0];
-            } else {
-                const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                startDate = monthAgo.toISOString().split('T')[0];
-            }
-            const endDate = now.toISOString().split('T')[0];
+            // Map mobile period to dateUtils options
+            const periodMap: Record<string, DateRangeOption> = {
+                'today': 'today',
+                'week': '7d',
+                'month': '30d'
+            };
+            const { startDate, endDate } = getDateRange(periodMap[period]);
 
             // Fetch multiple analytics endpoints in parallel
             const [salesRes, customerRes, liveRes] = await Promise.all([

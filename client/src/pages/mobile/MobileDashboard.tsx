@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { getDateRange } from '../../utils/dateUtils';
 
 /**
  * MobileDashboard - Main dashboard for the PWA companion app.
@@ -56,14 +57,12 @@ export function MobileDashboard() {
                 'X-Account-ID': currentAccount.id
             };
 
-            // Get today's date range
-            const today = new Date();
-            const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString().split('T')[0];
-            const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString().split('T')[0];
+            // Use same date utility as desktop for timezone-aware dates
+            const { startDate, endDate } = getDateRange('today');
 
             // Fetch all data in parallel
             const [salesRes, messagesRes, inventoryRes, ordersRes] = await Promise.all([
-                fetch(`/api/analytics/sales?startDate=${startOfDay}&endDate=${endOfDay}`, { headers }),
+                fetch(`/api/analytics/sales?startDate=${startDate}&endDate=${endDate}`, { headers }),
                 fetch('/api/chat/unread-count', { headers }),
                 fetch('/api/analytics/health', { headers }),
                 fetch('/api/sync/orders/search?limit=5', { headers })
