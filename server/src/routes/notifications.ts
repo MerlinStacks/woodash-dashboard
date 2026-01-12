@@ -128,8 +128,16 @@ const notificationsRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.code(400).send({ error: 'Invalid subscription format' });
             }
 
+            Logger.warn('[notifications] Calling PushNotificationService.subscribe', {
+                userId,
+                accountId,
+                endpoint: subscription.endpoint.substring(0, 50) + '...',
+                hasP256dh: !!subscription.keys.p256dh,
+                hasAuth: !!subscription.keys.auth
+            });
+
             const result = await PushNotificationService.subscribe(userId, accountId, subscription, preferences);
-            Logger.info('[notifications] Subscribe result', { result });
+            Logger.warn('[notifications] Subscribe result', { result });
 
             if (!result.success) {
                 return reply.code(500).send({ error: result.error });

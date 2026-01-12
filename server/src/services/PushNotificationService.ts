@@ -91,7 +91,7 @@ export class PushNotificationService {
                 }
             });
 
-            Logger.info('[PushNotificationService] Subscription saved', { userId, accountId });
+            Logger.warn('[PushNotificationService] Subscription saved', { userId, accountId, subscriptionId: result.id });
             return { success: true, id: result.id };
         } catch (error) {
             Logger.error('[PushNotificationService] Subscribe failed', { error, userId });
