@@ -98,11 +98,14 @@ const notificationsRoutes: FastifyPluginAsync = async (fastify) => {
         try {
             const accountId = request.headers['x-account-id'] as string;
             const userId = request.user?.id;
+            const { endpoint } = request.query as { endpoint?: string };
+
             if (!accountId || !userId) {
                 return reply.code(400).send({ error: 'Account ID and user required' });
             }
 
-            const status = await PushNotificationService.getSubscription(userId, accountId);
+            // Pass endpoint if provided for device-specific check
+            const status = await PushNotificationService.getSubscription(userId, accountId, endpoint);
             return status;
         } catch (error) {
             Logger.error('[notifications] Failed to get subscription', { error });

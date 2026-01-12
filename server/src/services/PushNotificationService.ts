@@ -140,13 +140,38 @@ export class PushNotificationService {
 
     /**
      * Gets the current subscription status for a user.
+     * If endpoint is provided, checks for that specific device subscription.
+     * Otherwise returns the most recent subscription (legacy behavior).
      */
-    static async getSubscription(userId: string, accountId: string): Promise<{
+    static async getSubscription(userId: string, accountId: string, endpoint?: string): Promise<{
         isSubscribed: boolean;
         endpoint?: string;
         preferences?: { notifyNewMessages: boolean; notifyNewOrders: boolean };
     }> {
         try {
+            // If endpoint provided, check for that specific device
+            if (endpoint) {
+                const sub = await prisma.pushSubscription.findUnique({
+                    where: {
+                        userId_endpoint: { userId, endpoint }
+                    }
+                });
+
+                if (!sub) {
+                    return { isSubscribed: false };
+                }
+
+                return {
+                    isSubscribed: true,
+                    endpoint: sub.endpoint,
+                    preferences: {
+                        notifyNewMessages: sub.notifyNewMessages,
+                        notifyNewOrders: sub.notifyNewOrders
+                    }
+                };
+            }
+
+            // Legacy: return any subscription for this user/account
             const sub = await prisma.pushSubscription.findFirst({
                 where: { userId, accountId },
                 orderBy: { updatedAt: 'desc' }

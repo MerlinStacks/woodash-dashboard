@@ -68,14 +68,19 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
                 // Check existing subscription from browser
                 const subscription = await registration.pushManager.getSubscription();
-                console.log('[usePushNotifications] Browser subscription:', subscription ? 'exists' : 'none');
-                if (subscription) {
-                    setCurrentEndpoint(subscription.endpoint);
-                    setIsSubscribed(true);
+                const browserEndpoint = subscription?.endpoint || null;
+                console.log('[usePushNotifications] Browser subscription:', browserEndpoint ? 'exists' : 'none');
+
+                if (browserEndpoint) {
+                    setCurrentEndpoint(browserEndpoint);
                 }
 
-                // Fetch preferences from backend
-                const res = await fetch('/api/notifications/push/subscription', {
+                // Fetch status from backend - pass browser endpoint for device-specific check
+                const url = browserEndpoint
+                    ? `/api/notifications/push/subscription?endpoint=${encodeURIComponent(browserEndpoint)}`
+                    : '/api/notifications/push/subscription';
+
+                const res = await fetch(url, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'x-account-id': currentAccount.id
@@ -85,14 +90,16 @@ export function usePushNotifications(): UsePushNotificationsReturn {
                 if (res.ok) {
                     const data = await res.json();
                     console.log('[usePushNotifications] Backend status:', data);
-                    setIsSubscribed(data.isSubscribed);
-                    if (data.preferences) {
-                        setPreferences(data.preferences);
-                    }
-                    // Sync endpoint from backend if browser subscription wasn't found
-                    // This handles cases where the backend has the subscription but the browser doesn't
-                    if (data.isSubscribed && data.endpoint) {
-                        setCurrentEndpoint(data.endpoint);
+
+                    // If we have a browser subscription, check if backend knows about THIS device
+                    if (browserEndpoint) {
+                        setIsSubscribed(data.isSubscribed);
+                        if (data.preferences) {
+                            setPreferences(data.preferences);
+                        }
+                    } else {
+                        // No browser subscription - show as unsubscribed on this device
+                        setIsSubscribed(false);
                     }
                 } else {
                     console.error('[usePushNotifications] Backend status check failed:', res.status);
