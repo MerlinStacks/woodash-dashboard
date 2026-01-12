@@ -48,7 +48,7 @@ export function MobileOrderDetail() {
 
         try {
             setLoading(true);
-            const response = await fetch(`/api/sync/orders/${id}`, {
+            const response = await fetch(`/api/orders/${id}`, {
                 headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
             });
             if (!response.ok) throw new Error('Failed to fetch');

@@ -54,7 +54,7 @@ export function MobileLayout({ children }: MobileLayoutProps) {
             const ordersRes = await fetch('/api/sync/orders/search?limit=1&status=pending', { headers });
             if (ordersRes.ok) {
                 const data = await ordersRes.json();
-                setOrdersBadge(data.totalPending || data.total || 0);
+                setOrdersBadge(data.total || 0);
             }
         } catch (error) {
             // Silently fail - badges are enhancement only
