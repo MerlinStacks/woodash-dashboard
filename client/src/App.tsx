@@ -60,6 +60,16 @@ const AdminCredentialsPage = lazy(() => import('./pages/admin/AdminCredentialsPa
 const AdminAIPromptsPage = lazy(() => import('./pages/admin/AdminAIPromptsPage').then(m => ({ default: m.AdminAIPromptsPage })));
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
 
+// Mobile PWA pages
+const MobileLayout = lazy(() => import('./components/layout/MobileLayout').then(m => ({ default: m.MobileLayout })));
+const MobileDashboard = lazy(() => import('./pages/mobile/MobileDashboard').then(m => ({ default: m.MobileDashboard })));
+const MobileOrders = lazy(() => import('./pages/mobile/MobileOrders').then(m => ({ default: m.MobileOrders })));
+const MobileOrderDetail = lazy(() => import('./pages/mobile/MobileOrderDetail').then(m => ({ default: m.MobileOrderDetail })));
+const MobileInbox = lazy(() => import('./pages/mobile/MobileInbox').then(m => ({ default: m.MobileInbox })));
+const MobileAnalytics = lazy(() => import('./pages/mobile/MobileAnalytics').then(m => ({ default: m.MobileAnalytics })));
+const MobileInventory = lazy(() => import('./pages/mobile/MobileInventory').then(m => ({ default: m.MobileInventory })));
+const MobileMore = lazy(() => import('./pages/mobile/MobileMore').then(m => ({ default: m.MobileMore })));
+
 // Loading fallback for lazy routes
 function PageLoader() {
     return (
@@ -150,6 +160,24 @@ function App() {
                                             <Route path="/invoices/design" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
                                             <Route path="/invoices/design/:id" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
                                             <Route path="/policies" element={<AccountGuard><PoliciesPage /></AccountGuard>} />
+                                        </Route>
+                                    </Route>
+
+                                    {/* Mobile PWA Routes */}
+                                    <Route element={<ProtectedRoute />}>
+                                        <Route element={<MobileLayout><Outlet /></MobileLayout>}>
+                                            <Route path="/m/dashboard" element={<AccountGuard><MobileDashboard /></AccountGuard>} />
+                                            <Route path="/m/orders" element={<AccountGuard><MobileOrders /></AccountGuard>} />
+                                            <Route path="/m/orders/:id" element={<AccountGuard><MobileOrderDetail /></AccountGuard>} />
+                                            <Route path="/m/inbox" element={<AccountGuard><MobileInbox /></AccountGuard>} />
+                                            <Route path="/m/inbox/:id" element={<AccountGuard><MobileInbox /></AccountGuard>} />
+                                            <Route path="/m/analytics" element={<AccountGuard><MobileAnalytics /></AccountGuard>} />
+                                            <Route path="/m/inventory" element={<AccountGuard><MobileInventory /></AccountGuard>} />
+                                            <Route path="/m/more" element={<AccountGuard><MobileMore /></AccountGuard>} />
+                                            <Route path="/m/profile" element={<AccountGuard><UserProfilePage /></AccountGuard>} />
+                                            <Route path="/m/settings" element={<AccountGuard><SettingsPage /></AccountGuard>} />
+                                            <Route path="/m/notifications" element={<AccountGuard><SettingsPage /></AccountGuard>} />
+                                            <Route path="/m" element={<Navigate to="/m/dashboard" replace />} />
                                         </Route>
                                     </Route>
 

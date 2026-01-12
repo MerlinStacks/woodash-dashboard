@@ -231,10 +231,21 @@ export class PushNotificationService {
 
         // Diagnostic: log when no subscriptions found (common issue)
         if (subscriptions.length === 0) {
+            // Get all subscription accountIds to diagnose mismatches
+            const allSubs = await prisma.pushSubscription.findMany({
+                select: { accountId: true, userId: true, notifyNewOrders: true, notifyNewMessages: true }
+            });
+
             Logger.warn('[PushNotificationService] No subscriptions found for account', {
                 accountId,
                 type,
-                title: notification.title
+                whereClause,
+                title: notification.title,
+                totalSubscriptionsInDb: allSubs.length,
+                existingAccountIds: [...new Set(allSubs.map(s => s.accountId))],
+                preferencesCheck: type === 'order'
+                    ? allSubs.filter(s => s.notifyNewOrders).length + ' have notifyNewOrders=true'
+                    : allSubs.filter(s => s.notifyNewMessages).length + ' have notifyNewMessages=true'
             });
             return { sent: 0, failed: 0 };
         }
