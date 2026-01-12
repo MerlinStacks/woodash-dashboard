@@ -9,16 +9,11 @@ import {
     Bell,
     DollarSign
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import api from '../../services/api';
 
 /**
  * MobileDashboard - Main dashboard for the PWA companion app.
- * 
- * Displays:
- * - Today's key metrics (orders, revenue, messages)
- * - Quick action buttons
- * - Recent activity feed
  */
 
 interface DashboardStats {
@@ -38,6 +33,7 @@ interface RecentActivity {
 
 export function MobileDashboard() {
     const navigate = useNavigate();
+    const { token } = useAuth();
     const { currentAccount } = useAccount();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [activities, setActivities] = useState<RecentActivity[]>([]);
@@ -45,35 +41,47 @@ export function MobileDashboard() {
 
     useEffect(() => {
         fetchDashboardData();
-    }, [currentAccount]);
+    }, [currentAccount, token]);
 
     const fetchDashboardData = async () => {
+        if (!currentAccount || !token) return;
+
         try {
             setLoading(true);
-            const [statsRes, ordersRes] = await Promise.all([
-                api.get('/stats/dashboard'),
-                api.get('/orders?limit=5&sort=createdAt:desc')
-            ]);
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                'X-Account-ID': currentAccount.id
+            };
 
+            const ordersRes = await fetch('/api/sync/orders/search?limit=5', { headers });
+
+            // Set default stats
             setStats({
-                todayOrders: statsRes.data.todayOrders || 0,
-                todayRevenue: statsRes.data.todayRevenue || 0,
-                pendingMessages: statsRes.data.pendingMessages || 0,
-                lowStockItems: statsRes.data.lowStockItems || 0
+                todayOrders: 0,
+                todayRevenue: 0,
+                pendingMessages: 0,
+                lowStockItems: 0
             });
 
-            // Transform recent orders into activity feed
-            const recentActivities: RecentActivity[] = (ordersRes.data.orders || [])
-                .slice(0, 5)
-                .map((order: any) => ({
-                    id: order.id,
-                    type: 'order' as const,
-                    title: `Order #${order.orderNumber || order.id.slice(-6)}`,
-                    subtitle: `$${order.total?.toFixed(2) || '0.00'} - ${order.status || 'pending'}`,
-                    time: formatTimeAgo(order.createdAt)
-                }));
+            if (ordersRes.ok) {
+                const ordersData = await ordersRes.json();
+                const recentActivities: RecentActivity[] = (ordersData.orders || ordersData || [])
+                    .slice(0, 5)
+                    .map((order: any) => ({
+                        id: order.id,
+                        type: 'order' as const,
+                        title: `Order #${order.orderNumber || String(order.id).slice(-6)}`,
+                        subtitle: `$${Number(order.total || 0).toFixed(2)} - ${order.status || 'pending'}`,
+                        time: formatTimeAgo(order.date_created || order.createdAt)
+                    }));
+                setActivities(recentActivities);
 
-            setActivities(recentActivities);
+                // Update stats from orders
+                setStats(prev => ({
+                    ...prev!,
+                    todayOrders: recentActivities.length
+                }));
+            }
         } catch (error) {
             console.error('[MobileDashboard] Error fetching data:', error);
         } finally {
@@ -82,6 +90,7 @@ export function MobileDashboard() {
     };
 
     const formatTimeAgo = (date: string) => {
+        if (!date) return '';
         const now = new Date();
         const then = new Date(date);
         const diff = Math.floor((now.getTime() - then.getTime()) / 1000);
@@ -123,7 +132,6 @@ export function MobileDashboard() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -137,41 +145,29 @@ export function MobileDashboard() {
                 </button>
             </div>
 
-            {/* Stats Cards */}
             <div className="grid grid-cols-2 gap-3">
-                <StatCard
-                    label="Today's Orders"
-                    value={stats?.todayOrders || 0}
-                    icon={ShoppingCart}
-                    color="text-blue-600"
-                    bgColor="bg-blue-50"
-                />
-                <StatCard
-                    label="Today's Revenue"
-                    value={formatCurrency(stats?.todayRevenue || 0)}
-                    icon={DollarSign}
-                    color="text-green-600"
-                    bgColor="bg-green-50"
-                />
-                <StatCard
-                    label="Messages"
-                    value={stats?.pendingMessages || 0}
-                    icon={MessageSquare}
-                    color="text-purple-600"
-                    bgColor="bg-purple-50"
-                    badge={stats?.pendingMessages ? stats.pendingMessages : undefined}
-                />
-                <StatCard
-                    label="Low Stock"
-                    value={stats?.lowStockItems || 0}
-                    icon={Package}
-                    color="text-orange-600"
-                    bgColor="bg-orange-50"
-                    badge={stats?.lowStockItems ? stats.lowStockItems : undefined}
-                />
+                <div className="bg-blue-50 rounded-xl p-4">
+                    <ShoppingCart size={20} className="text-blue-600 mb-2" />
+                    <p className="text-2xl font-bold text-blue-600">{stats?.todayOrders || 0}</p>
+                    <p className="text-xs text-gray-600">Today's Orders</p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-4">
+                    <DollarSign size={20} className="text-green-600 mb-2" />
+                    <p className="text-2xl font-bold text-green-600">{formatCurrency(stats?.todayRevenue || 0)}</p>
+                    <p className="text-xs text-gray-600">Today's Revenue</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-4">
+                    <MessageSquare size={20} className="text-purple-600 mb-2" />
+                    <p className="text-2xl font-bold text-purple-600">{stats?.pendingMessages || 0}</p>
+                    <p className="text-xs text-gray-600">Messages</p>
+                </div>
+                <div className="bg-orange-50 rounded-xl p-4">
+                    <Package size={20} className="text-orange-600 mb-2" />
+                    <p className="text-2xl font-bold text-orange-600">{stats?.lowStockItems || 0}</p>
+                    <p className="text-xs text-gray-600">Low Stock</p>
+                </div>
             </div>
 
-            {/* Quick Actions */}
             <div>
                 <h2 className="text-sm font-semibold text-gray-500 uppercase mb-3">Quick Actions</h2>
                 <div className="grid grid-cols-4 gap-3">
@@ -190,7 +186,6 @@ export function MobileDashboard() {
                 </div>
             </div>
 
-            {/* Recent Activity */}
             <div>
                 <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold text-gray-500 uppercase">Recent Activity</h2>
@@ -223,32 +218,6 @@ export function MobileDashboard() {
                     )}
                 </div>
             </div>
-        </div>
-    );
-}
-
-interface StatCardProps {
-    label: string;
-    value: number | string;
-    icon: typeof ShoppingCart;
-    color: string;
-    bgColor: string;
-    badge?: number;
-}
-
-function StatCard({ label, value, icon: Icon, color, bgColor, badge }: StatCardProps) {
-    return (
-        <div className={`${bgColor} rounded-xl p-4 relative`}>
-            <div className="flex items-center justify-between mb-2">
-                <Icon size={20} className={color} />
-                {badge && badge > 0 && (
-                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                        {badge}
-                    </span>
-                )}
-            </div>
-            <p className={`text-2xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-gray-600 mt-1">{label}</p>
         </div>
     );
 }

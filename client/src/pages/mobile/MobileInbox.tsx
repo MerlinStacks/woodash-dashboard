@@ -1,25 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import {
-    ArrowLeft,
-    MessageSquare,
-    Mail,
-    Send,
-    Paperclip,
-    MoreVertical
-} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { MessageSquare, Mail } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import api from '../../services/api';
-
-/**
- * MobileInbox - Conversation list and chat view for mobile.
- * 
- * Features:
- * - Conversation list with channel badges
- * - Unread indicators
- * - Tap to open chat
- * - Channel icons (Email, FB, Instagram, TikTok)
- */
 
 interface Conversation {
     id: string;
@@ -28,7 +11,6 @@ interface Conversation {
     channel: string;
     unread: boolean;
     updatedAt: string;
-    avatar?: string;
 }
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -41,59 +23,59 @@ const CHANNEL_COLORS: Record<string, string> = {
 
 export function MobileInbox() {
     const navigate = useNavigate();
+    const { token } = useAuth();
     const { currentAccount } = useAccount();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeConversation, setActiveConversation] = useState<string | null>(null);
 
     useEffect(() => {
         fetchConversations();
-    }, [currentAccount]);
+    }, [currentAccount, token]);
 
     const fetchConversations = async () => {
+        if (!currentAccount || !token) return;
+
         try {
             setLoading(true);
-            const response = await api.get('/conversations', {
-                params: { limit: 50, sort: 'updatedAt:desc' }
+            const response = await fetch('/api/conversations?limit=50', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id
+                }
             });
 
-            const convos = (response.data.conversations || []).map((c: any) => ({
+            if (!response.ok) throw new Error('Failed to fetch');
+
+            const data = await response.json();
+            const convos = (data.conversations || data || []).map((c: any) => ({
                 id: c.id,
                 customerName: c.customerName || c.customerEmail || 'Unknown',
-                lastMessage: c.lastMessage?.body || 'No messages',
+                lastMessage: c.lastMessage?.body || c.snippet || 'No messages',
                 channel: c.channel || 'email',
                 unread: c.status === 'open' || c.unreadCount > 0,
-                updatedAt: c.updatedAt,
-                avatar: c.customerAvatar
+                updatedAt: c.updatedAt
             }));
-
             setConversations(convos);
         } catch (error) {
-            console.error('[MobileInbox] Error fetching conversations:', error);
+            console.error('[MobileInbox] Error:', error);
         } finally {
             setLoading(false);
         }
     };
 
     const formatTimeAgo = (date: string) => {
+        if (!date) return '';
         const now = new Date();
         const then = new Date(date);
         const diff = Math.floor((now.getTime() - then.getTime()) / 1000);
-
         if (diff < 60) return 'Now';
         if (diff < 3600) return `${Math.floor(diff / 60)}m`;
         if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-        if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
         return then.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
     };
 
-    const getChannelColor = (channel: string) => {
-        return CHANNEL_COLORS[channel.toLowerCase()] || CHANNEL_COLORS.default;
-    };
-
-    const getInitials = (name: string) => {
-        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    };
+    const getChannelColor = (channel: string) => CHANNEL_COLORS[channel.toLowerCase()] || CHANNEL_COLORS.default;
+    const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
     if (loading) {
         return (
@@ -114,10 +96,7 @@ export function MobileInbox() {
 
     return (
         <div className="space-y-4">
-            {/* Header */}
             <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
-
-            {/* Conversations List */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
                 {conversations.length === 0 ? (
                     <div className="text-center py-12">
@@ -129,28 +108,16 @@ export function MobileInbox() {
                         <button
                             key={convo.id}
                             onClick={() => navigate(`/m/inbox/${convo.id}`)}
-                            className="w-full flex items-center gap-3 p-4 text-left active:bg-gray-50 transition-colors"
+                            className="w-full flex items-center gap-3 p-4 text-left active:bg-gray-50"
                         >
-                            {/* Avatar */}
                             <div className="relative flex-shrink-0">
-                                {convo.avatar ? (
-                                    <img
-                                        src={convo.avatar}
-                                        alt={convo.customerName}
-                                        className="w-12 h-12 rounded-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                                        {getInitials(convo.customerName)}
-                                    </div>
-                                )}
-                                {/* Channel badge */}
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                                    {getInitials(convo.customerName)}
+                                </div>
                                 <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${getChannelColor(convo.channel)} flex items-center justify-center ring-2 ring-white`}>
                                     <Mail size={10} className="text-white" />
                                 </div>
                             </div>
-
-                            {/* Content */}
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-1">
                                     <span className={`font-semibold truncate ${convo.unread ? 'text-gray-900' : 'text-gray-700'}`}>
@@ -164,11 +131,7 @@ export function MobileInbox() {
                                     {convo.lastMessage}
                                 </p>
                             </div>
-
-                            {/* Unread indicator */}
-                            {convo.unread && (
-                                <div className="w-2.5 h-2.5 bg-indigo-600 rounded-full flex-shrink-0" />
-                            )}
+                            {convo.unread && <div className="w-2.5 h-2.5 bg-indigo-600 rounded-full flex-shrink-0" />}
                         </button>
                     ))
                 )}

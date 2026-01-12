@@ -81,11 +81,11 @@ export function MobileMore() {
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-5 text-white">
                 <div className="flex items-center gap-4">
                     <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-xl font-bold">
-                        {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+                        {user?.fullName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
                     </div>
                     <div className="flex-1 min-w-0">
                         <h2 className="font-semibold truncate">
-                            {user?.name || 'User'}
+                            {user?.fullName || 'User'}
                         </h2>
                         <p className="text-sm text-white/80 truncate">
                             {user?.email}
