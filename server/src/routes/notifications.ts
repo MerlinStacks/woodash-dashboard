@@ -115,16 +115,22 @@ const notificationsRoutes: FastifyPluginAsync = async (fastify) => {
         try {
             const accountId = request.headers['x-account-id'] as string;
             const userId = request.user?.id;
+            Logger.info('[notifications] Subscribe request', { userId, accountId, hasBody: !!request.body });
+
             if (!accountId || !userId) {
+                Logger.warn('[notifications] Subscribe missing IDs', { accountId, userId });
                 return reply.code(400).send({ error: 'Account ID and user required' });
             }
 
             const { subscription, preferences } = request.body;
             if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+                Logger.warn('[notifications] Invalid subscription format', { subscription });
                 return reply.code(400).send({ error: 'Invalid subscription format' });
             }
 
             const result = await PushNotificationService.subscribe(userId, accountId, subscription, preferences);
+            Logger.info('[notifications] Subscribe result', { result });
+
             if (!result.success) {
                 return reply.code(500).send({ error: result.error });
             }
@@ -183,11 +189,16 @@ const notificationsRoutes: FastifyPluginAsync = async (fastify) => {
         try {
             const accountId = request.headers['x-account-id'] as string;
             const userId = request.user?.id;
+            Logger.info('[notifications] Test notification request', { userId, accountId });
+
             if (!accountId || !userId) {
+                Logger.warn('[notifications] Test missing IDs', { accountId, userId });
                 return reply.code(400).send({ error: 'Account ID and user required' });
             }
 
             const result = await PushNotificationService.sendTestNotification(userId, accountId);
+            Logger.info('[notifications] Test notification result', { result });
+
             if (!result.success) {
                 return reply.code(400).send({ error: result.error || 'Failed to send test notification' });
             }
