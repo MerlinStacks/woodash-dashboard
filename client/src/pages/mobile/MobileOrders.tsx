@@ -130,7 +130,7 @@ export function MobileOrders() {
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-AU', {
             style: 'currency',
-            currency: 'AUD',
+            currency: currentAccount?.currency || 'USD',
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(amount);
@@ -224,6 +224,13 @@ export function MobileOrders() {
                     );
                 })}
             </div>
+
+            {/* Swipe Hint */}
+            {orders.length > 0 && (
+                <p className="text-xs text-gray-400 text-center">
+                    ← Swipe right to advance order status
+                </p>
+            )}
 
             {/* Orders List */}
             <div className="space-y-3">

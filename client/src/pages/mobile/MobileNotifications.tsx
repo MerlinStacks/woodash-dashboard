@@ -77,6 +77,11 @@ export function MobileNotifications() {
         }
     };
 
+    // Detect iOS (for specific PWA guidance)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true;
+
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
@@ -91,6 +96,21 @@ export function MobileNotifications() {
             </header>
 
             <div className="p-4 space-y-4">
+                {/* iOS Not-Installed Warning */}
+                {isIOS && !isStandalone && !isSupported && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <p className="font-medium text-amber-800">Add to Home Screen Required</p>
+                        <p className="text-sm text-amber-700 mt-1">
+                            To enable push notifications on iOS, add this app to your Home Screen:
+                        </p>
+                        <ol className="text-sm text-amber-700 mt-2 list-decimal ml-4 space-y-1">
+                            <li>Tap the Share button</li>
+                            <li>Select "Add to Home Screen"</li>
+                            <li>Open the app from your Home Screen</li>
+                        </ol>
+                    </div>
+                )}
+
                 {/* Push Notifications Master Toggle */}
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
                     <div className="flex items-center justify-between">
@@ -101,9 +121,9 @@ export function MobileNotifications() {
                             <div>
                                 <p className="font-semibold text-gray-900">Push Notifications</p>
                                 <p className="text-sm text-gray-500">
-                                    {isSupported
-                                        ? (isSubscribed ? 'Enabled' : 'Disabled')
-                                        : 'Not supported on this device'
+                                    {!isSupported
+                                        ? (isIOS ? 'Requires iOS 16.4+ and Home Screen install' : 'Not supported on this device')
+                                        : (isSubscribed ? 'Enabled' : 'Disabled')
                                     }
                                 </p>
                             </div>

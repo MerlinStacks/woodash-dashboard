@@ -126,7 +126,7 @@ export function MobileDashboard() {
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-AU', {
             style: 'currency',
-            currency: 'AUD',
+            currency: currentAccount?.currency || 'USD',
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(amount);
@@ -160,7 +160,7 @@ export function MobileDashboard() {
                     <p className="text-sm text-gray-500">Welcome back!</p>
                 </div>
                 <button
-                    onClick={() => navigate('/m/more')}
+                    onClick={() => navigate('/m/notifications')}
                     className="p-2 rounded-full bg-gray-100"
                 >
                     <Bell size={20} className="text-gray-600" />

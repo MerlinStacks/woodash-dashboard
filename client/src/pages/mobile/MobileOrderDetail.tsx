@@ -41,6 +41,10 @@ export function MobileOrderDetail() {
 
     useEffect(() => {
         if (id) fetchOrder();
+        // Listen for refresh events from pull-to-refresh
+        const handleRefresh = () => { if (id) fetchOrder(); };
+        window.addEventListener('mobile-refresh', handleRefresh);
+        return () => window.removeEventListener('mobile-refresh', handleRefresh);
     }, [id, token, currentAccount]);
 
     const fetchOrder = async () => {
@@ -81,7 +85,7 @@ export function MobileOrderDetail() {
         }
     };
 
-    const formatCurrency = (amount: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(amount);
+    const formatCurrency = (amount: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: currentAccount?.currency || 'USD' }).format(amount);
     const formatDate = (date: string) => new Date(date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); if ('vibrate' in navigator) navigator.vibrate(10); };
 

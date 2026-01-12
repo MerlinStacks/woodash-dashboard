@@ -44,6 +44,10 @@ export function MobileChat() {
 
     useEffect(() => {
         fetchConversation();
+        // Listen for refresh events from pull-to-refresh
+        const handleRefresh = () => fetchConversation();
+        window.addEventListener('mobile-refresh', handleRefresh);
+        return () => window.removeEventListener('mobile-refresh', handleRefresh);
     }, [id, currentAccount, token]);
 
     useEffect(() => {
@@ -246,8 +250,8 @@ export function MobileChat() {
                                 >
                                     <div
                                         className={`max-w-[80%] px-4 py-3 rounded-2xl ${msg.direction === 'outbound'
-                                                ? 'bg-indigo-600 text-white rounded-br-md'
-                                                : 'bg-white text-gray-900 rounded-bl-md shadow-sm border border-gray-100'
+                                            ? 'bg-indigo-600 text-white rounded-br-md'
+                                            : 'bg-white text-gray-900 rounded-bl-md shadow-sm border border-gray-100'
                                             }`}
                                     >
                                         <p className="text-sm whitespace-pre-wrap">{msg.body}</p>
@@ -289,8 +293,8 @@ export function MobileChat() {
                         onClick={handleSend}
                         disabled={!newMessage.trim() || sending}
                         className={`p-3 rounded-full flex-shrink-0 transition-all ${newMessage.trim() && !sending
-                                ? 'bg-indigo-600 text-white active:scale-95'
-                                : 'bg-gray-200 text-gray-400'
+                            ? 'bg-indigo-600 text-white active:scale-95'
+                            : 'bg-gray-200 text-gray-400'
                             }`}
                     >
                         <Send size={20} />

@@ -1,7 +1,8 @@
 import { ReactNode, useState, useEffect, useCallback } from 'react';
 import { useLocation, Outlet } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, WifiOff } from 'lucide-react';
 import { MobileNav } from './MobileNav';
+import { MobileErrorBoundary } from '../mobile/MobileErrorBoundary';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 
@@ -32,6 +33,9 @@ export function MobileLayout({ children }: MobileLayoutProps) {
     // Badge counts
     const [inboxBadge, setInboxBadge] = useState(0);
     const [ordersBadge, setOrdersBadge] = useState(0);
+
+    // Network status
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     // Fetch badge counts
     const fetchBadgeCounts = useCallback(async () => {
@@ -67,6 +71,18 @@ export function MobileLayout({ children }: MobileLayoutProps) {
         const interval = setInterval(fetchBadgeCounts, 30000);
         return () => clearInterval(interval);
     }, [fetchBadgeCounts]);
+
+    // Network status listeners
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
     // Pull-to-refresh handlers
     const handleTouchStart = (e: React.TouchEvent) => {
@@ -120,6 +136,13 @@ export function MobileLayout({ children }: MobileLayoutProps) {
                 paddingBottom: 'calc(env(safe-area-inset-bottom) + 64px)'
             }}
         >
+            {/* Offline Banner */}
+            {!isOnline && (
+                <div className="bg-amber-500 text-white text-center py-2.5 px-4 flex items-center justify-center gap-2 text-sm font-medium">
+                    <WifiOff size={16} />
+                    You're offline - some features may be unavailable
+                </div>
+            )}
             {/* Pull-to-refresh indicator */}
             <div
                 className={`fixed top-0 left-0 right-0 flex items-center justify-center z-50 transition-all duration-200 ${pullDistance > 0 ? 'bg-indigo-600' : 'bg-transparent'
@@ -155,7 +178,9 @@ export function MobileLayout({ children }: MobileLayoutProps) {
                 onTouchEnd={handleTouchEnd}
             >
                 <div className="p-4">
-                    {children || <Outlet />}
+                    <MobileErrorBoundary>
+                        {children || <Outlet />}
+                    </MobileErrorBoundary>
                 </div>
             </main>
 

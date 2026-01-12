@@ -38,7 +38,7 @@ export function MobileInventory() {
             params.append('limit', '50');
             if (searchQuery) params.append('q', searchQuery);
 
-            const response = await fetch(`/api/sync/products/search?${params}`, {
+            const response = await fetch(`/api/products?${params}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'X-Account-ID': currentAccount.id
@@ -81,7 +81,7 @@ export function MobileInventory() {
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-AU', {
             style: 'currency',
-            currency: 'AUD',
+            currency: currentAccount?.currency || 'USD',
             minimumFractionDigits: 0
         }).format(amount);
     };
@@ -130,8 +130,8 @@ export function MobileInventory() {
                 <button
                     onClick={() => setFilter(filter === 'low' ? 'all' : 'low')}
                     className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all active:scale-[0.98] ${filter === 'low'
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-amber-50 border border-amber-200'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-amber-50 border border-amber-200'
                         }`}
                 >
                     <div className={`p-2 rounded-full ${filter === 'low' ? 'bg-amber-400' : 'bg-amber-100'}`}>
@@ -166,8 +166,8 @@ export function MobileInventory() {
                 <button
                     onClick={() => setFilter('all')}
                     className={`px-4 py-2.5 rounded-full text-sm font-semibold transition-all ${filter === 'all'
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                            : 'bg-white text-gray-700 border border-gray-200'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                        : 'bg-white text-gray-700 border border-gray-200'
                         }`}
                 >
                     All Products
@@ -175,8 +175,8 @@ export function MobileInventory() {
                 <button
                     onClick={() => setFilter('low')}
                     className={`px-4 py-2.5 rounded-full text-sm font-semibold flex items-center gap-1.5 transition-all ${filter === 'low'
-                            ? 'bg-amber-500 text-white shadow-lg shadow-amber-200'
-                            : 'bg-white text-gray-700 border border-gray-200'
+                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-200'
+                        : 'bg-white text-gray-700 border border-gray-200'
                         }`}
                 >
                     <AlertTriangle size={14} />

@@ -26,6 +26,31 @@ export function MobileAnalytics() {
         fetchAnalytics();
     }, [currentAccount, period, token]);
 
+    // Auto-refresh live visitor count every 30 seconds
+    useEffect(() => {
+        if (!currentAccount || !token) return;
+
+        const fetchLiveCount = async () => {
+            try {
+                const res = await fetch('/api/analytics/visitors/log?live=true&limit=1', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'X-Account-ID': currentAccount.id
+                    }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setLiveCount(data.total || 0);
+                }
+            } catch (e) {
+                console.error('[MobileAnalytics] Live count refresh error:', e);
+            }
+        };
+
+        const interval = setInterval(fetchLiveCount, 30000);
+        return () => clearInterval(interval);
+    }, [currentAccount, token]);
+
     const fetchAnalytics = async () => {
         if (!currentAccount || !token) {
             setLoading(false);
@@ -108,7 +133,7 @@ export function MobileAnalytics() {
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-AU', {
             style: 'currency',
-            currency: 'AUD',
+            currency: currentAccount?.currency || 'USD',
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(amount);

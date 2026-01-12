@@ -55,7 +55,13 @@ export function MobileLiveVisitors() {
         fetchLiveVisitors();
         // Auto-refresh every 30 seconds
         const interval = setInterval(fetchLiveVisitors, 30000);
-        return () => clearInterval(interval);
+        // Listen for pull-to-refresh events
+        const handleRefresh = () => fetchLiveVisitors();
+        window.addEventListener('mobile-refresh', handleRefresh);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('mobile-refresh', handleRefresh);
+        };
     }, [fetchLiveVisitors]);
 
     const getDeviceIcon = (deviceType: string | null) => {
