@@ -118,7 +118,7 @@ export function MobileLiveVisitors() {
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
                 </span>
                 <span className="text-sm font-medium text-green-700">
-                    {total} {total === 1 ? 'visitor' : 'visitors'} active in last 30 minutes
+                    {total} {total === 1 ? 'visitor' : 'visitors'} active in last 3 minutes
                 </span>
             </div>
 
@@ -179,6 +179,40 @@ export function MobileLiveVisitors() {
                                         via {visitor.utmSource}
                                         {visitor.utmCampaign && ` • ${visitor.utmCampaign}`}
                                     </span>
+                                </div>
+                            )}
+
+                            {/* Recent Events */}
+                            {visitor.events && visitor.events.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-100">
+                                    {visitor.events.slice(0, 5).map((event, idx) => {
+                                        const eventConfig: Record<string, { label: string; color: string }> = {
+                                            'add_to_cart': { label: '🛒 Added to Cart', color: 'bg-blue-100 text-blue-700' },
+                                            'remove_from_cart': { label: '❌ Removed', color: 'bg-gray-100 text-gray-600' },
+                                            'cart_view': { label: '🛒 Viewing Cart', color: 'bg-blue-50 text-blue-600' },
+                                            'checkout_view': { label: '💳 At Checkout', color: 'bg-purple-100 text-purple-700' },
+                                            'checkout_start': { label: '💳 Started Checkout', color: 'bg-purple-100 text-purple-700' },
+                                            'checkout_success': { label: '✅ Completed Checkout', color: 'bg-green-100 text-green-700' },
+                                            'purchase': { label: '💰 Purchased', color: 'bg-green-100 text-green-700' },
+                                            'page_view': { label: '👁️ ' + (event.pageTitle || 'Page View'), color: 'bg-gray-50 text-gray-600' },
+                                            'search': { label: '🔍 Searched', color: 'bg-amber-50 text-amber-700' },
+                                        };
+                                        const config = eventConfig[event.type] || { label: event.type, color: 'bg-gray-50 text-gray-600' };
+
+                                        // Skip page_view if there are more interesting events
+                                        if (event.type === 'page_view' && visitor.events.some(e => e.type !== 'page_view')) {
+                                            return null;
+                                        }
+
+                                        return (
+                                            <span
+                                                key={idx}
+                                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}
+                                            >
+                                                {config.label}
+                                            </span>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
