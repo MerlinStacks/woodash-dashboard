@@ -20,6 +20,7 @@ const widgetRoutes: FastifyPluginAsync = async (fastify) => {
 
         if (!accountId) {
             reply.header('Content-Type', 'application/javascript');
+            reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
             return '';
         }
 
@@ -654,6 +655,7 @@ const widgetRoutes: FastifyPluginAsync = async (fastify) => {
 `;
 
             reply.header('Content-Type', 'application/javascript');
+            reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
             return script;
         } catch (e) {
             Logger.error('Widget script error', { error: e });
