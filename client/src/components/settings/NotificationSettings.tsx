@@ -52,7 +52,6 @@ export function NotificationSettings() {
             const res = await fetch('/api/notifications/push/test', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                     'x-account-id': currentAccount.id
                 }
