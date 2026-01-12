@@ -165,7 +165,7 @@ function App() {
 
                                     {/* Mobile PWA Routes */}
                                     <Route element={<ProtectedRoute />}>
-                                        <Route element={<MobileLayout><Outlet /></MobileLayout>}>
+                                        <Route element={<MobileLayout />}>
                                             <Route path="/m/dashboard" element={<AccountGuard><MobileDashboard /></AccountGuard>} />
                                             <Route path="/m/orders" element={<AccountGuard><MobileOrders /></AccountGuard>} />
                                             <Route path="/m/orders/:id" element={<AccountGuard><MobileOrderDetail /></AccountGuard>} />
