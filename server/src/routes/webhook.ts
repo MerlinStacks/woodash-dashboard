@@ -94,6 +94,12 @@ const webhookRoutes: FastifyPluginAsync = async (fastify) => {
                     });
 
                     // Send push notification
+                    Logger.warn(`[Webhook] Attempting push notification for new order`, {
+                        accountId,
+                        orderId: body.id,
+                        orderNumber: body.number
+                    });
+
                     const { PushNotificationService } = require('../services/PushNotificationService');
                     const pushResult = await PushNotificationService.sendToAccount(accountId, {
                         title: '🛒 New Order!',
@@ -101,7 +107,7 @@ const webhookRoutes: FastifyPluginAsync = async (fastify) => {
                         data: { url: '/orders' }
                     }, 'order');
 
-                    Logger.info(`[Webhook] Push notifications sent`, { accountId, ...pushResult });
+                    Logger.warn(`[Webhook] Push notification result`, { accountId, ...pushResult });
                 }
                 Logger.info(`Indexed Order`, { orderId: body.id, accountId });
             }
