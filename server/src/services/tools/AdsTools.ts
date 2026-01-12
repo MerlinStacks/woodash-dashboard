@@ -10,7 +10,7 @@ import { Logger } from '../../utils/logger';
 import { AdsService } from '../ads';
 import { GoogleAdsTools } from './GoogleAdsTools';
 import { MetaAdsTools } from './MetaAdsTools';
-import { AdOptimizer } from './AdOptimizer';
+import { AdOptimizer, AdOptimizerOptions } from './AdOptimizer';
 
 export class AdsTools {
 
@@ -176,7 +176,7 @@ export class AdsTools {
         return MetaAdsTools.analyzeMetaAdsCampaigns(accountId, days);
     }
 
-    static async getAdOptimizationSuggestions(accountId: string) {
-        return AdOptimizer.getAdOptimizationSuggestions(accountId);
+    static async getAdOptimizationSuggestions(accountId: string, options?: AdOptimizerOptions) {
+        return AdOptimizer.getAdOptimizationSuggestions(accountId, options);
     }
 }

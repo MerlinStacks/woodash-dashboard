@@ -153,6 +153,24 @@ export function EmailSettings() {
         }
     };
 
+    const handleSetDefault = async (id: string) => {
+        if (!currentAccount || !token) return;
+        try {
+            const res = await fetch(`/api/email/accounts/${id}/default`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
+                }
+            });
+            if (res.ok) {
+                await fetchAccounts();
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     if (isLoading) return <div>Loading...</div>;
 
     return (
@@ -191,6 +209,7 @@ export function EmailSettings() {
                     onEdit={setEditingAccount}
                     onDelete={handleDelete}
                     onAdd={() => setEditingAccount({ type: 'SMTP', port: 587, isSecure: true })}
+                    onSetDefault={handleSetDefault}
                 />
             )}
 

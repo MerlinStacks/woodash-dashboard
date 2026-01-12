@@ -8,6 +8,8 @@ import { Logger } from '../../utils/logger';
 import { prisma } from '../../utils/prisma';
 import { EmailService } from '../EmailService';
 import { InvoiceService } from '../InvoiceService';
+import { smsService } from '../SmsService';
+import { campaignTrackingService } from '../CampaignTrackingService';
 import { FlowNode, NodeExecutionResult } from './types';
 import { renderTemplate, evaluateCondition } from './FlowNavigator';
 
@@ -75,6 +77,10 @@ export class NodeExecutor {
 
         if (actionType === 'SEND_CANNED_RESPONSE') {
             await this.executeSendCannedResponse(node.data, enrollment);
+        }
+
+        if (actionType === 'SEND_SMS') {
+            await this.executeSendSms(node.data, enrollment);
         }
     }
 
@@ -158,9 +164,8 @@ export class NodeExecutor {
         try {
             let emailAccountId = config.emailAccountId;
             if (!emailAccountId) {
-                const defaultAccount = await prisma.emailAccount.findFirst({
-                    where: { accountId: enrollment.automation.accountId }
-                });
+                const { getDefaultEmailAccount } = await import('../../utils/getDefaultEmailAccount');
+                const defaultAccount = await getDefaultEmailAccount(enrollment.automation.accountId);
                 emailAccountId = defaultAccount?.id;
             }
 
@@ -183,6 +188,14 @@ export class NodeExecutor {
                     subject,
                     body || `<p>Email Template: ${config.templateId}</p>`,
                     enrollment.contextData?.attachments
+                );
+
+                // Track send event for ROI
+                await campaignTrackingService.trackSend(
+                    enrollment.automation.accountId,
+                    enrollment.automationId,
+                    'automation',
+                    enrollment.email
                 );
             } else {
                 Logger.warn('Cannot send email: No Email Account found', {
@@ -236,6 +249,42 @@ export class NodeExecutor {
 
         } catch (err) {
             Logger.error('Failed to generate invoice', { error: err });
+        }
+    }
+
+    /**
+     * Send SMS Action
+     */
+    private async executeSendSms(config: any, enrollment: any): Promise<void> {
+        const phone = config.phone
+            || enrollment.contextData?.phone
+            || enrollment.contextData?.billing?.phone
+            || enrollment.contextData?.customer?.phone;
+
+        if (!phone) {
+            Logger.warn('Cannot send SMS: No phone number in context', {
+                accountId: enrollment.automation?.accountId
+            });
+            return;
+        }
+
+        const body = renderTemplate(config.body || config.message || '', enrollment.contextData);
+
+        if (!body) {
+            Logger.warn('Cannot send SMS: Empty message body');
+            return;
+        }
+
+        Logger.info(`Sending SMS to ${phone}`);
+
+        const result = await smsService.sendSms(
+            phone,
+            body,
+            enrollment.automation?.accountId
+        );
+
+        if (!result.success) {
+            Logger.error('SMS send failed', { error: result.error, phone });
         }
     }
 }

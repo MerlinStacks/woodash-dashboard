@@ -135,6 +135,37 @@ const marketingRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: e });
         }
     });
+
+    // Campaign Analytics / ROI Tracking
+    fastify.get<{ Params: { id: string } }>('/campaigns/:id/analytics', async (request, reply) => {
+        try {
+            const { campaignTrackingService } = await import('../services/CampaignTrackingService');
+            const analytics = await campaignTrackingService.getCampaignAnalytics(
+                request.user!.accountId!,
+                request.params.id
+            );
+            return analytics;
+        } catch (e) {
+            Logger.error('Error fetching campaign analytics', { error: e });
+            return reply.code(500).send({ error: e });
+        }
+    });
+
+    fastify.get<{ Querystring: { days?: string } }>('/analytics/overview', async (request, reply) => {
+        try {
+            const { campaignTrackingService } = await import('../services/CampaignTrackingService');
+            const days = parseInt(request.query.days || '30', 10);
+            const overview = await campaignTrackingService.getAccountCampaignOverview(
+                request.user!.accountId!,
+                days
+            );
+            return overview;
+        } catch (e) {
+            Logger.error('Error fetching campaign overview', { error: e });
+            return reply.code(500).send({ error: e });
+        }
+    });
 };
 
 export default marketingRoutes;
+

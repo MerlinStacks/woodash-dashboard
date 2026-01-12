@@ -375,10 +375,9 @@ export class SchedulerService {
                         || message.conversation.guestEmail;
 
                     if (recipientEmail) {
-                        // Find email account for this account
-                        const emailAccount = await prisma.emailAccount.findFirst({
-                            where: { accountId: message.conversation.accountId, isDefault: true },
-                        });
+                        // Find default email account for this account
+                        const { getDefaultEmailAccount } = await import('../utils/getDefaultEmailAccount');
+                        const emailAccount = await getDefaultEmailAccount(message.conversation.accountId);
 
                         if (emailAccount) {
                             await emailService.sendEmail(

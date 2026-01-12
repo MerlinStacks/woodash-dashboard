@@ -1,9 +1,10 @@
 
 import { WidgetProps } from './WidgetRegistry';
-import { DollarSign, Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { DollarSign, Loader2, TrendingUp, TrendingDown, Minus, Zap } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { useWidgetSocket } from '../../hooks/useWidgetSocket';
 
 export function TotalSalesWidget({ className, dateRange, comparison }: WidgetProps) {
     const { token } = useAuth();
@@ -11,39 +12,49 @@ export function TotalSalesWidget({ className, dateRange, comparison }: WidgetPro
     const [sales, setSales] = useState<number | null>(null);
     const [comparisonSales, setComparisonSales] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
+    const [hasRealtimeUpdate, setHasRealtimeUpdate] = useState(false);
 
-    useEffect(() => {
-        if (!currentAccount) return;
+    const fetchSales = useCallback(async () => {
+        if (!currentAccount || !token) return;
 
-        const fetchSales = async () => {
-            setLoading(true);
-            try {
-                // Fetch Current
-                const currentRes = await fetch(`/api/analytics/sales?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, {
+        setLoading(true);
+        try {
+            const currentRes = await fetch(`/api/analytics/sales?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, {
+                headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
+            });
+            const currentData = await currentRes.json();
+            setSales(currentData.total || 0);
+
+            if (comparison) {
+                const compRes = await fetch(`/api/analytics/sales?startDate=${comparison.startDate}&endDate=${comparison.endDate}`, {
                     headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
                 });
-                const currentData = await currentRes.json();
-                setSales(currentData.total || 0);
-
-                // Fetch Comparison if exists
-                if (comparison) {
-                    const compRes = await fetch(`/api/analytics/sales?startDate=${comparison.startDate}&endDate=${comparison.endDate}`, {
-                        headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
-                    });
-                    const compData = await compRes.json();
-                    setComparisonSales(compData.total || 0);
-                } else {
-                    setComparisonSales(null);
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+                const compData = await compRes.json();
+                setComparisonSales(compData.total || 0);
+            } else {
+                setComparisonSales(null);
             }
-        };
-
-        fetchSales();
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     }, [currentAccount, token, dateRange, comparison]);
+
+    useEffect(() => {
+        fetchSales();
+    }, [fetchSales]);
+
+    // Real-time: Listen for new orders and update sales
+    useWidgetSocket<{ total?: number }>('order:new', (data) => {
+        if (data.total && sales !== null) {
+            setSales(prev => (prev || 0) + data.total!);
+            setHasRealtimeUpdate(true);
+            // Clear the indicator after 3 seconds
+            setTimeout(() => setHasRealtimeUpdate(false), 3000);
+        }
+    });
+
 
     // Calculate percentage change
     let percentChange = 0;

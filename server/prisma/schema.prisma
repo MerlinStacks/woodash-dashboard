@@ -153,6 +153,41 @@ model Account {
   
   // Inbox Macros
   inboxMacros        InboxMacro[]
+  
+  // AI Ad Optimization Context
+  adSuggestionContext AdSuggestionContext?
+  
+  // Campaign ROI Tracking
+  campaignEvents      CampaignEvent[]
+  
+  // SMS Settings (per-account Twilio)
+  smsSettings         SmsSettings?
+  
+  // Email Unsubscribes
+  emailUnsubscribes   EmailUnsubscribe[]
+}
+
+/// Per-account SMS/Twilio configuration.
+model SmsSettings {
+  id        String @id @default(uuid())
+  accountId String @unique
+
+  /// Twilio Account SID
+  accountSid String
+
+  /// Twilio Auth Token (encrypted)
+  authToken String
+
+  /// From phone number (E.164 format, e.g., +1234567890)
+  fromNumber String
+
+  /// Optional: enabled flag
+  enabled Boolean @default(true)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Notification {
@@ -999,6 +1034,51 @@ model AutomationEnrollment {
 }
 
 // --------------------------------------
+// Campaign ROI Tracking
+// --------------------------------------
+
+/// Tracks campaign events for ROI attribution.
+/// Links sends, opens, clicks, and purchases to campaigns.
+model CampaignEvent {
+  id        String   @id @default(uuid())
+  accountId String
+
+  /// Campaign identifier (automation ID, broadcast ID, etc.)
+  campaignId   String?
+  campaignType String?  // 'automation', 'broadcast', 'one-off'
+
+  /// Event type: 'send', 'open', 'click', 'unsubscribe', 'purchase'
+  eventType String
+
+  /// Recipient info
+  recipientEmail String?
+  recipientPhone String?
+
+  /// For click events: the link clicked
+  linkUrl String?
+
+  /// For purchase attribution
+  orderId  String?
+  revenue  Float?
+
+  /// UTM parameters for source tracking
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
+  /// Additional context
+  metadata Json?
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId, campaignId])
+  @@index([accountId, eventType, createdAt])
+  @@index([recipientEmail, createdAt])
+}
+
+// --------------------------------------
 // Real-time Analytics (Live View & Carts)
 // --------------------------------------
 
@@ -1179,6 +1259,7 @@ model MessageTrackingEvent {
   id            String   @id @default(uuid())
   emailLogId    String
   eventType     String   // "OPEN", "CLICK"
+  linkUrl       String?  // For click events: the URL clicked
   ipCountry     String?  // Privacy-respecting: country only
   userAgent     String?
   
@@ -1187,6 +1268,21 @@ model MessageTrackingEvent {
   createdAt DateTime @default(now())
   
   @@index([emailLogId])
+}
+
+/// Tracks email unsubscribes per account.
+model EmailUnsubscribe {
+  id        String   @id @default(uuid())
+  accountId String
+  email     String
+  reason    String?
+  
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([accountId, email])
+  @@index([accountId])
 }
 
 model CustomerSegment {
@@ -1424,4 +1520,19 @@ model Todo {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([accountId, userId])
+}
+
+// --------------------------------------
+// AI Ad Optimization Context
+// --------------------------------------
+
+model AdSuggestionContext {
+  id        String   @id @default(uuid())
+  accountId String   @unique
+  context   String   @db.Text  // User-provided business context for AI suggestions
+  
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

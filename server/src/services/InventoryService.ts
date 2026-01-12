@@ -244,9 +244,8 @@ export class InventoryService {
         `;
 
         // Resolve default email account
-        const emailAccount = await prisma.emailAccount.findFirst({
-            where: { accountId }
-        });
+        const { getDefaultEmailAccount } = await import('../utils/getDefaultEmailAccount');
+        const emailAccount = await getDefaultEmailAccount(accountId);
 
         if (!emailAccount) {
             Logger.warn(`[InventoryService] No email account found for account ${accountId}. Cannot send stock alerts.`);

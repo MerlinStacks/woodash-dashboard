@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { useWidgetSocket } from '../../hooks/useWidgetSocket';
 
 interface RiskProduct {
     id: string;
@@ -19,29 +20,35 @@ export function InventoryRiskWidget() {
     const [products, setProducts] = useState<RiskProduct[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (!currentAccount) return;
+    const fetchRisk = useCallback(async () => {
+        if (!currentAccount || !token) return;
 
-        const fetchRisk = async () => {
-            try {
-                const res = await fetch('/api/analytics/health', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'X-Account-ID': currentAccount.id
-                    }
-                });
-                if (res.ok) {
-                    setProducts(await res.json());
+        try {
+            const res = await fetch('/api/analytics/health', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id
                 }
-            } catch (error) {
-                console.error('Failed to load inventory risk', error);
-            } finally {
-                setLoading(false);
+            });
+            if (res.ok) {
+                setProducts(await res.json());
             }
-        };
-
-        fetchRisk();
+        } catch (error) {
+            console.error('Failed to load inventory risk', error);
+        } finally {
+            setLoading(false);
+        }
     }, [currentAccount, token]);
+
+    useEffect(() => {
+        fetchRisk();
+    }, [fetchRisk]);
+
+    // Real-time: Refresh on inventory updates
+    useWidgetSocket('inventory:updated', () => {
+        fetchRisk();
+    });
+
 
     if (loading) return <div className="p-4 text-center text-xs text-gray-500">Analysis...</div>;
 

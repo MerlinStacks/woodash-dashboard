@@ -463,10 +463,9 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                         // Route via email
                         const recipientEmail = conversation.wooCustomer?.email || conversation.guestEmail;
                         if (recipientEmail && accountId) {
-                            // Find the first SMTP account for this tenant
-                            const emailAccount = await prisma.emailAccount.findFirst({
-                                where: { accountId, type: 'SMTP' }
-                            });
+                            // Find the default SMTP account for this tenant
+                            const { getDefaultEmailAccount } = await import('../utils/getDefaultEmailAccount');
+                            const emailAccount = await getDefaultEmailAccount(accountId);
                             if (emailAccount) {
                                 const emailService = new EmailService();
                                 // Extract subject from content if it starts with Subject:
@@ -499,16 +498,19 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                         }
                     } else if (channel === 'FACEBOOK' || channel === 'INSTAGRAM') {
                         // Route via Meta
-                        // Find the social account for this channel (from conversation or merged)
+                        // Find the social account AND correct externalConversationId for this channel
                         let socialAccount = conversation.socialAccount?.platform === channel ? conversation.socialAccount : null;
+                        let externalId = conversation.externalConversationId;
+
                         if (!socialAccount) {
                             const merged = conversation.mergedFrom.find(m => m.socialAccount?.platform === channel);
                             socialAccount = merged?.socialAccount || null;
+                            externalId = merged?.externalConversationId || null;
                         }
 
-                        if (socialAccount && conversation.externalConversationId) {
+                        if (socialAccount && externalId) {
                             // externalConversationId typically contains the sender's ID for Meta
-                            const recipientId = conversation.externalConversationId.split('_')[0];
+                            const recipientId = externalId.split('_')[0];
                             const result = await MetaMessagingService.sendMessage(socialAccount.id, {
                                 recipientId,
                                 message: content.replace(/<[^>]*>/g, ''), // Strip HTML
@@ -520,14 +522,18 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                         }
                     } else if (channel === 'TIKTOK') {
                         // Route via TikTok
+                        // Find the social account AND correct externalConversationId for TikTok
                         let socialAccount = conversation.socialAccount?.platform === 'TIKTOK' ? conversation.socialAccount : null;
+                        let externalId = conversation.externalConversationId;
+
                         if (!socialAccount) {
                             const merged = conversation.mergedFrom.find(m => m.socialAccount?.platform === 'TIKTOK');
                             socialAccount = merged?.socialAccount || null;
+                            externalId = merged?.externalConversationId || null;
                         }
 
-                        if (socialAccount && conversation.externalConversationId) {
-                            const recipientOpenId = conversation.externalConversationId.split('_')[0];
+                        if (socialAccount && externalId) {
+                            const recipientOpenId = externalId.split('_')[0];
                             const result = await TikTokMessagingService.sendMessage(socialAccount.id, {
                                 recipientOpenId,
                                 message: content.replace(/<[^>]*>/g, '')

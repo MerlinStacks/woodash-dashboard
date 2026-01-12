@@ -13,8 +13,10 @@ import {
     RefreshCw,
     Lightbulb,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    MessageCirclePlus
 } from 'lucide-react';
+import { AdContextModal } from './AdContextModal';
 
 interface CampaignInsight {
     campaignId: string;
@@ -65,6 +67,7 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
     const [suggestions, setSuggestions] = useState<any>(null);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(true);
+    const [showContextModal, setShowContextModal] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -212,11 +215,11 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
 
             {/* AI Suggestions Panel - at top for prominence */}
             <div className="bg-linear-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200 shadow-xs overflow-hidden">
-                <button
-                    onClick={() => setShowSuggestions(!showSuggestions)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-purple-100/50 transition-colors"
-                >
-                    <div className="flex items-center gap-3">
+                <div className="p-4 flex items-center justify-between">
+                    <button
+                        onClick={() => setShowSuggestions(!showSuggestions)}
+                        className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                    >
                         <div className="p-2 bg-purple-500 rounded-lg">
                             <Lightbulb size={20} className="text-white" />
                         </div>
@@ -224,15 +227,31 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
                             <h3 className="font-semibold text-gray-900">AI Optimization Suggestions</h3>
                             <p className="text-sm text-gray-600">Smart recommendations based on your campaign data</p>
                         </div>
+                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowContextModal(true)}
+                            className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                            title="Add business context"
+                        >
+                            <MessageCirclePlus size={18} />
+                        </button>
+                        <button
+                            onClick={fetchSuggestions}
+                            disabled={loadingSuggestions}
+                            className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50"
+                            title="Refresh suggestions"
+                        >
+                            <RefreshCw size={18} className={loadingSuggestions ? 'animate-spin' : ''} />
+                        </button>
+                        <button
+                            onClick={() => setShowSuggestions(!showSuggestions)}
+                            className="p-2 text-gray-500 hover:bg-purple-100 rounded-lg transition-colors"
+                        >
+                            {showSuggestions ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </button>
                     </div>
-                    {loadingSuggestions ? (
-                        <Loader2 size={20} className="animate-spin text-purple-500" />
-                    ) : showSuggestions ? (
-                        <ChevronUp size={20} className="text-gray-500" />
-                    ) : (
-                        <ChevronDown size={20} className="text-gray-500" />
-                    )}
-                </button>
+                </div>
 
                 {showSuggestions && suggestions && (
                     <div className="px-4 pb-4 space-y-3">
@@ -266,6 +285,13 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
                     </div>
                 )}
             </div>
+
+            {/* Context Modal */}
+            <AdContextModal
+                isOpen={showContextModal}
+                onClose={() => setShowContextModal(false)}
+                onSaved={fetchSuggestions}
+            />
 
             {/* Summary Stats */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

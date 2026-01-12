@@ -12,6 +12,7 @@ export interface EmailAccount {
     password?: string;
     type: 'SMTP' | 'IMAP';
     isSecure: boolean;
+    isDefault?: boolean;
 }
 
 interface EmailAccountFormProps {

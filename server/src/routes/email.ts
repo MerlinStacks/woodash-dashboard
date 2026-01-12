@@ -134,6 +134,41 @@ const emailRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
+    // Set Default Account
+    fastify.patch<{ Params: { id: string } }>('/accounts/:id/default', async (request, reply) => {
+        try {
+            const accountId = request.user?.accountId || request.accountId;
+            const { id } = request.params;
+
+            if (!accountId) return reply.code(400).send({ error: 'No account selected' });
+
+            // Verify the account exists and belongs to this tenant
+            const target = await prisma.emailAccount.findFirst({
+                where: { id, accountId }
+            });
+
+            if (!target) return reply.code(404).send({ error: 'Email account not found' });
+
+            // Clear default from all other SMTP accounts, then set this one
+            await prisma.$transaction([
+                prisma.emailAccount.updateMany({
+                    where: { accountId, isDefault: true },
+                    data: { isDefault: false }
+                }),
+                prisma.emailAccount.update({
+                    where: { id },
+                    data: { isDefault: true }
+                })
+            ]);
+
+            Logger.info('Set default email account', { accountId, emailAccountId: id });
+            return { success: true };
+        } catch (error) {
+            Logger.error('Failed to set default email account', { error });
+            return reply.code(500).send({ error: 'Failed to set default account' });
+        }
+    });
+
     // Test Connection
     fastify.post<{ Body: EmailAccountBody & { id?: string } }>('/test', async (request, reply) => {
         try {

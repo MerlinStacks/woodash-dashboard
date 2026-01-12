@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { ShieldAlert, ShieldCheck, ShieldQuestion, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useAccount } from '../../context/AccountContext';
 import { cn } from '../../utils/cn';
 
 interface FraudResult {
@@ -19,20 +20,24 @@ interface FraudBadgeProps {
 
 export function FraudBadge({ orderId, className }: FraudBadgeProps) {
     const { token } = useAuth();
+    const { currentAccount } = useAccount();
     const [result, setResult] = useState<FraudResult | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showTooltip, setShowTooltip] = useState(false);
 
     useEffect(() => {
         fetchFraudScore();
-    }, [orderId]);
+    }, [orderId, currentAccount]);
 
     const fetchFraudScore = async () => {
-        if (!orderId || !token) return;
+        if (!orderId || !token || !currentAccount) return;
         setIsLoading(true);
         try {
             const res = await fetch(`/api/orders/${orderId}/fraud-score`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id
+                }
             });
             if (res.ok) {
                 setResult(await res.json());

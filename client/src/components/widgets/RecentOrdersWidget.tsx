@@ -1,18 +1,20 @@
 import { WidgetProps } from './WidgetRegistry';
-import { ShoppingBag, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ShoppingBag, Loader2, Zap } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { useWidgetSocket } from '../../hooks/useWidgetSocket';
 
 export function RecentOrdersWidget({ className }: WidgetProps) {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [newOrderId, setNewOrderId] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!currentAccount) return;
+    const fetchOrders = useCallback(() => {
+        if (!currentAccount || !token) return;
 
         fetch('/api/analytics/recent-orders', {
             headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
@@ -22,6 +24,20 @@ export function RecentOrdersWidget({ className }: WidgetProps) {
             .catch(console.error)
             .finally(() => setLoading(false));
     }, [currentAccount, token]);
+
+    useEffect(() => {
+        fetchOrders();
+    }, [fetchOrders]);
+
+    // Real-time: Prepend new orders
+    useWidgetSocket<any>('order:new', (data) => {
+        if (data?.order) {
+            setOrders(prev => [data.order, ...prev.slice(0, 9)]); // Keep max 10
+            setNewOrderId(data.order.id);
+            setTimeout(() => setNewOrderId(null), 3000);
+        }
+    });
+
 
     return (
         <div className={`bg-white h-full w-full p-4 flex flex-col rounded-xl shadow-xs border border-gray-200 overflow-hidden ${className}`}>
@@ -37,7 +53,7 @@ export function RecentOrdersWidget({ className }: WidgetProps) {
                     <div className="text-center text-gray-400 py-4 text-sm">No recent orders</div>
                 ) : (
                     orders.map(order => (
-                        <div key={order.id} className="flex justify-between items-center text-sm p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
+                        <div key={order.id} className={`flex justify-between items-center text-sm p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer ${order.id === newOrderId ? 'bg-green-50 animate-pulse ring-1 ring-green-200' : ''}`}>
                             <div>
                                 <p className="text-xs text-gray-500 mb-0.5">#{order.id}</p>
                                 {order.customer_id && order.customer_id > 0 ? (

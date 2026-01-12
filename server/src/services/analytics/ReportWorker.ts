@@ -49,11 +49,9 @@ export class ReportWorker {
             // 3. Send Email
             if (schedule.emailRecipients && schedule.emailRecipients.length > 0) {
                 // We need an email account to send FROM.
-                // We'll pick the default SMTP account for the user's account, or system default?
-                // For MVP, user's default email account.
-                const emailAccount = await prisma.emailAccount.findFirst({
-                    where: { accountId, isDefault: true, type: 'SMTP' }
-                });
+                // Use the default SMTP account with fallback if none marked as default.
+                const { getDefaultEmailAccount } = await import('../../utils/getDefaultEmailAccount');
+                const emailAccount = await getDefaultEmailAccount(accountId);
 
                 if (!emailAccount) {
                     Logger.warn(`[ReportWorker] No default SMTP account found for Account ${accountId}. Cannot send email.`);

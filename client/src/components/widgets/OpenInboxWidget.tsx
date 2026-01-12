@@ -4,11 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { useNavigate } from 'react-router-dom';
 import { WidgetProps } from './WidgetRegistry';
+import { useWidgetSocket } from '../../hooks/useWidgetSocket';
 
 /**
  * Compact widget displaying the count of open inbox conversations.
- * Polls the dashboard API every 30 seconds for updates.
- * Clicking navigates to the Inbox page.
+ * Updates in real-time via socket events.
  */
 export function OpenInboxWidget(_props: WidgetProps) {
     const { token } = useAuth();
@@ -33,7 +33,7 @@ export function OpenInboxWidget(_props: WidgetProps) {
                 setCount(data.open ?? 0);
             }
         } catch (error) {
-            // Silent fail - widget will show 0
+            // Silent fail
         } finally {
             setLoading(false);
         }
@@ -41,9 +41,16 @@ export function OpenInboxWidget(_props: WidgetProps) {
 
     useEffect(() => {
         fetchCount();
-        const interval = setInterval(fetchCount, 30000);
+        // Fallback polling (reduced frequency since we have real-time)
+        const interval = setInterval(fetchCount, 60000);
         return () => clearInterval(interval);
     }, [fetchCount]);
+
+    // Real-time: Update count on conversation changes
+    useWidgetSocket('conversation:updated', () => {
+        fetchCount();
+    });
+
 
     const handleClick = () => {
         navigate('/inbox');

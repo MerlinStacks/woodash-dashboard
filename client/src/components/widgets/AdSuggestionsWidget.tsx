@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Lightbulb, TrendingUp, CheckCircle, ExternalLink } from 'lucide-react';
+import { Lightbulb, TrendingUp, CheckCircle, ExternalLink, RefreshCw, MessageCirclePlus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { useNavigate } from 'react-router-dom';
 import { WidgetProps } from './WidgetRegistry';
+import { AdContextModal } from '../marketing/AdContextModal';
 
 interface AdSuggestionsData {
     suggestions: string[];
@@ -23,10 +24,14 @@ export function AdSuggestionsWidget(_props: WidgetProps) {
 
     const [data, setData] = useState<AdSuggestionsData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showContextModal, setShowContextModal] = useState(false);
 
-    const fetchSuggestions = useCallback(async () => {
+    const fetchSuggestions = useCallback(async (isRefresh = false) => {
         if (!currentAccount || !token) return;
+
+        if (isRefresh) setRefreshing(true);
 
         try {
             const res = await fetch('/api/dashboard/ad-suggestions', {
@@ -46,6 +51,7 @@ export function AdSuggestionsWidget(_props: WidgetProps) {
             setError('Failed to load suggestions');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     }, [currentAccount, token]);
 
@@ -136,13 +142,37 @@ export function AdSuggestionsWidget(_props: WidgetProps) {
                     <Lightbulb size={20} className="text-amber-500" />
                     <h3 className="font-semibold text-gray-900">Ad Suggestions</h3>
                 </div>
-                <button
-                    onClick={handleNavigate}
-                    className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                >
-                    View All <ExternalLink size={12} />
-                </button>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => setShowContextModal(true)}
+                        className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        title="Add business context"
+                    >
+                        <MessageCirclePlus size={16} />
+                    </button>
+                    <button
+                        onClick={() => fetchSuggestions(true)}
+                        disabled={refreshing}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Refresh suggestions"
+                    >
+                        <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                    </button>
+                    <button
+                        onClick={handleNavigate}
+                        className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 ml-1"
+                    >
+                        View All <ExternalLink size={12} />
+                    </button>
+                </div>
             </div>
+
+            {/* Context Modal */}
+            <AdContextModal
+                isOpen={showContextModal}
+                onClose={() => setShowContextModal(false)}
+                onSaved={() => fetchSuggestions(true)}
+            />
 
             {/* Suggestions List */}
             <div className="flex-1 space-y-3 overflow-y-auto">

@@ -28,12 +28,21 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     // GET /api/dashboard/ad-suggestions
-    fastify.get('/ad-suggestions', async (request, reply) => {
+    fastify.get<{ Querystring: { refresh?: string } }>('/ad-suggestions', async (request, reply) => {
         const accountId = request.accountId;
         if (!accountId) return reply.code(400).send({ error: 'No account' });
 
         try {
-            const result = await AdsTools.getAdOptimizationSuggestions(accountId);
+            // Fetch saved context to pass to optimizer
+            const savedContext = await prisma.adSuggestionContext.findUnique({
+                where: { accountId },
+                select: { context: true }
+            });
+
+            const result = await AdsTools.getAdOptimizationSuggestions(accountId, {
+                userContext: savedContext?.context,
+                includeInventory: true
+            });
 
             if (typeof result === 'string') {
                 return {
@@ -49,6 +58,53 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: 'Failed to fetch ad suggestions' });
         }
     });
+
+    // GET /api/dashboard/ad-suggestions/context
+    fastify.get('/ad-suggestions/context', async (request, reply) => {
+        const accountId = request.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'No account' });
+
+        try {
+            const context = await prisma.adSuggestionContext.findUnique({
+                where: { accountId },
+                select: { context: true, updatedAt: true }
+            });
+
+            return { context: context?.context || '', updatedAt: context?.updatedAt || null };
+        } catch (error) {
+            Logger.error('Failed to fetch ad suggestion context', { error, accountId });
+            return reply.code(500).send({ error: 'Failed to fetch context' });
+        }
+    });
+
+    // POST /api/dashboard/ad-suggestions/context
+    fastify.post<{ Body: { context: string } }>('/ad-suggestions/context', async (request, reply) => {
+        const accountId = request.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'No account' });
+
+        try {
+            const { context } = request.body;
+
+            if (typeof context !== 'string') {
+                return reply.code(400).send({ error: 'Context must be a string' });
+            }
+
+            // Upsert the context
+            const saved = await prisma.adSuggestionContext.upsert({
+                where: { accountId },
+                update: { context },
+                create: { accountId, context }
+            });
+
+            Logger.info('Ad suggestion context updated', { accountId, contextLength: context.length });
+
+            return { success: true, updatedAt: saved.updatedAt };
+        } catch (error) {
+            Logger.error('Failed to save ad suggestion context', { error, accountId });
+            return reply.code(500).send({ error: 'Failed to save context' });
+        }
+    });
+
 
     // GET Layout
     fastify.get('/', async (request, reply) => {

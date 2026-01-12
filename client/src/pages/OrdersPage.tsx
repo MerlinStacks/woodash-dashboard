@@ -6,6 +6,7 @@ import { formatDate } from '../utils/format';
 import { Loader2, RefreshCw, Search, Tag, X } from 'lucide-react';
 import { Pagination } from '../components/ui/Pagination';
 import { OrderPreviewModal } from '../components/orders/OrderPreviewModal';
+import { FraudIcon } from '../components/orders/FraudIcon';
 import { printPicklist } from '../utils/printPicklist';
 
 interface Order {
@@ -328,7 +329,12 @@ export function OrdersPage() {
                                         className="hover:bg-gray-50 transition-colors cursor-pointer"
                                         onClick={() => setSelectedOrderId(order.id)}
                                     >
-                                        <td className="px-3 md:px-6 py-3 md:py-4 font-medium text-blue-600 outline-hidden">#{order.id}</td>
+                                        <td className="px-3 md:px-6 py-3 md:py-4 font-medium text-blue-600 outline-hidden">
+                                            <div className="flex items-center gap-2">
+                                                <FraudIcon orderId={order.id} />
+                                                #{order.id}
+                                            </div>
+                                        </td>
                                         <td className="px-3 md:px-6 py-3 md:py-4 text-gray-600 text-sm">{formatDate(order.date_created)}</td>
                                         <td className="px-3 md:px-6 py-3 md:py-4">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
