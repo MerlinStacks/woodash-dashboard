@@ -88,7 +88,7 @@ function AccountGuard({ children }: { children: React.ReactNode }) {
 
     // If no accounts, force the wizard
     if (accounts.length === 0) {
-        return <Navigate to="/setup" replace />;
+        return <Navigate to="/wizard" replace />;
     }
 
     return <>{children}</>;
