@@ -60,14 +60,26 @@ export function MobileInbox() {
             if (!response.ok) throw new Error('Failed to fetch');
 
             const data = await response.json();
-            const convos = (data.conversations || data || []).map((c: any) => ({
-                id: c.id,
-                customerName: c.customerName || c.customerEmail || 'Unknown',
-                lastMessage: c.lastMessage?.body || c.snippet || 'No messages',
-                channel: c.channel || 'email',
-                unread: c.status === 'open' || c.unreadCount > 0,
-                updatedAt: c.updatedAt
-            }));
+            // API returns array directly or { conversations } - handle both
+            const rawConvos = Array.isArray(data) ? data : (data.conversations || []);
+            const convos = rawConvos.map((c: any) => {
+                // Get customer name from wooCustomer or guest info
+                const customerName = c.wooCustomer
+                    ? `${c.wooCustomer.firstName || ''} ${c.wooCustomer.lastName || ''}`.trim() || c.wooCustomer.email
+                    : c.guestName || c.guestEmail || 'Unknown';
+
+                // Get last message content from messages array
+                const lastMessage = c.messages?.[0]?.content || 'No messages yet';
+
+                return {
+                    id: c.id,
+                    customerName,
+                    lastMessage,
+                    channel: c.channel || 'CHAT',
+                    unread: !c.isRead,
+                    updatedAt: c.updatedAt
+                };
+            });
             setConversations(convos);
         } catch (error) {
             console.error('[MobileInbox] Error:', error);
