@@ -8,3 +8,4 @@ export { MobileAnalytics } from './MobileAnalytics';
 export { MobileInventory } from './MobileInventory';
 export { MobileMore } from './MobileMore';
 export { MobileNotifications } from './MobileNotifications';
+export { MobileLiveVisitors } from './MobileLiveVisitors';

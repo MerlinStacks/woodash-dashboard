@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, DollarSign, ShoppingCart, Users, Eye, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { TrendingUp, DollarSign, ShoppingCart, Users, Eye, ArrowUpRight, ArrowDownRight, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 
@@ -13,11 +14,13 @@ interface AnalyticsData {
 }
 
 export function MobileAnalytics() {
+    const navigate = useNavigate();
     const { token } = useAuth();
     const { currentAccount } = useAccount();
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
+    const [liveCount, setLiveCount] = useState(0);
 
     useEffect(() => {
         fetchAnalytics();
@@ -51,9 +54,10 @@ export function MobileAnalytics() {
             const endDate = now.toISOString().split('T')[0];
 
             // Fetch multiple analytics endpoints in parallel
-            const [salesRes, customerRes] = await Promise.all([
+            const [salesRes, customerRes, liveRes] = await Promise.all([
                 fetch(`/api/analytics/sales?startDate=${startDate}&endDate=${endDate}`, { headers }),
-                fetch(`/api/analytics/customer-growth?startDate=${startDate}&endDate=${endDate}`, { headers })
+                fetch(`/api/analytics/customer-growth?startDate=${startDate}&endDate=${endDate}`, { headers }),
+                fetch('/api/analytics/visitors/log?live=true&limit=1', { headers })
             ]);
 
             let revenue = 0, orderCount = 0, customerCount = 0;
@@ -67,6 +71,11 @@ export function MobileAnalytics() {
             if (customerRes.ok) {
                 const customerData = await customerRes.json();
                 customerCount = customerData.newCustomers || customerData.total || 0;
+            }
+
+            if (liveRes.ok) {
+                const liveData = await liveRes.json();
+                setLiveCount(liveData.total || 0);
             }
 
             // Calculate AOV
@@ -139,6 +148,25 @@ export function MobileAnalytics() {
     return (
         <div className="space-y-4">
             <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+
+            {/* Live Visitors Banner */}
+            <button
+                onClick={() => navigate('/m/live-visitors')}
+                className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl text-white shadow-lg shadow-green-200 active:scale-[0.98] transition-transform"
+            >
+                <div className="flex items-center gap-3">
+                    <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+                    </span>
+                    <div className="text-left">
+                        <p className="text-2xl font-bold">{liveCount}</p>
+                        <p className="text-sm text-green-100">Live visitors now</p>
+                    </div>
+                </div>
+                <ChevronRight size={24} className="text-green-200" />
+            </button>
+
             <div className="flex gap-2">
                 {(['today', 'week', 'month'] as const).map((p) => (
                     <button
