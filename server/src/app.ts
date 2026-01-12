@@ -351,26 +351,30 @@ async function initializeApp() {
     });
 
     EventBus.on(EVENTS.EMAIL.RECEIVED, async (data) => {
+        // EmailIngestion.handleIncomingEmail already handles push notifications
+        // with proper accountId lookup from emailAccountId
         await chatService.handleIncomingEmail(data);
-        const { PushNotificationService } = await import('./services/PushNotificationService');
-        await PushNotificationService.sendToAccount(data.accountId, {
-            title: '📨 New Message',
-            body: `From: ${data.fromName || data.fromEmail}`,
-            data: { url: '/inbox' }
-        }, 'message');
     });
 
     EventBus.on(EVENTS.SOCIAL.MESSAGE_RECEIVED, async (data) => {
+        Logger.warn('[Push] SOCIAL.MESSAGE_RECEIVED event received', {
+            accountId: data.accountId,
+            platform: data.platform,
+            conversationId: data.conversationId
+        });
+
         const { PushNotificationService } = await import('./services/PushNotificationService');
         const platformLabel = data.platform === 'FACEBOOK' ? '💬 Messenger'
             : data.platform === 'INSTAGRAM' ? '📷 Instagram'
                 : '🎵 TikTok';
 
-        await PushNotificationService.sendToAccount(data.accountId, {
+        const result = await PushNotificationService.sendToAccount(data.accountId, {
             title: `${platformLabel} Message`,
             body: 'New message received',
             data: { url: '/inbox', conversationId: data.conversationId }
         }, 'message');
+
+        Logger.warn('[Push] Social message push result', { ...result, platform: data.platform });
     });
 
     // Socket.io Connection Logic

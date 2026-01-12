@@ -115,7 +115,7 @@ const notificationsRoutes: FastifyPluginAsync = async (fastify) => {
         try {
             const accountId = request.headers['x-account-id'] as string;
             const userId = request.user?.id;
-            Logger.info('[notifications] Subscribe request', { userId, accountId, hasBody: !!request.body });
+            Logger.warn('[notifications] Subscribe request received', { userId, accountId, hasBody: !!request.body });
 
             if (!accountId || !userId) {
                 Logger.warn('[notifications] Subscribe missing IDs', { accountId, userId });

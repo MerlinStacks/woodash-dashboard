@@ -204,6 +204,22 @@ export class PushNotificationService {
             where: whereClause
         });
 
+        // Diagnostic: log when no subscriptions found (common issue)
+        if (subscriptions.length === 0) {
+            Logger.warn('[PushNotificationService] No subscriptions found for account', {
+                accountId,
+                type,
+                title: notification.title
+            });
+            return { sent: 0, failed: 0 };
+        }
+
+        Logger.warn('[PushNotificationService] Sending push notifications', {
+            accountId,
+            type,
+            subscriptionCount: subscriptions.length
+        });
+
         let sent = 0;
         let failed = 0;
 
