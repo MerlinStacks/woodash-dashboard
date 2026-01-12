@@ -73,30 +73,9 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: 'Failed to fetch products' });
         }
     });
-    // POST / - Create product
-    fastify.post('/', async (request, reply) => {
-        try {
-            const accountId = request.accountId!;
-            const body = createProductBodySchema.parse(request.body);
-
-            const product = await ProductsService.createProduct(accountId, body);
-
-            // Initial Index
-            try {
-                // Fetch full structure for indexing
-                const fullProduct = await ProductsService.getProductByWooId(accountId, product.wooId);
-                if (fullProduct) {
-                    await IndexingService.indexProduct(accountId, fullProduct);
-                }
-            } catch (err) {
-                Logger.warn("Failed to index new product", { error: err });
-            }
-
-            return product;
-        } catch (error: any) {
-            Logger.error('Error creating product', { error });
-            return reply.code(500).send({ error: 'Failed to create product' });
-        }
+    // POST / - Create product (Currently disabled - products should be created in WooCommerce)
+    fastify.post('/', async (_request, reply) => {
+        return reply.code(501).send({ error: 'Product creation not yet implemented. Please create products in WooCommerce directly.' });
     });
 
     // GET /:id - Get single product

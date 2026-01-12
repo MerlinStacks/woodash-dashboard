@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 const roleSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    permissions: z.record(z.boolean())
+    permissions: z.record(z.string(), z.boolean())
 });
 
 const rolesRoutes: FastifyPluginAsync = async (fastify) => {

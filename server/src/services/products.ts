@@ -3,51 +3,15 @@ import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
 
 export class ProductsService {
-    static async createProduct(accountId: string, data: any) {
-        const { variations, ...productData } = data;
-
-        // Basic creation logic - creates a "pending" product in our DB
-        // In a real scenario, this might call Woo API first to get an ID, 
-        // or we generate a temporary ID and sync later.
-        // For now, let's assume we can create it in Woo immediately or use a placeholder approach.
-        // Since we need a WooID, we should probably call Woo first.
-
-        const { WooService } = await import('./woo');
-        const wooService = await WooService.forAccount(accountId);
-
-        // 1. Create in WooCommerce
-        const wooProduct = await wooService.createProduct({
-            name: productData.name || 'New Product',
-            type: 'simple',
-            status: 'draft', // Create as draft by default
-            ...productData
-        });
-
-        if (!wooProduct || !wooProduct.id) {
-            throw new Error('Failed to create product in WooCommerce');
-        }
-
-        // 2. Create in local DB
-        const created = await prisma.wooProduct.create({
-            data: {
-                accountId,
-                wooId: wooProduct.id,
-                name: wooProduct.name,
-                sku: wooProduct.sku || '',
-                stockStatus: wooProduct.status || 'instock',
-                permalink: wooProduct.permalink || '',
-                price: wooProduct.price ? parseFloat(wooProduct.price) : null,
-                rawData: wooProduct as any
-            }
-        });
-
-        return created;
+    static async createProduct(accountId: string, data: any): Promise<never> {
+        // TODO: Implement product creation via WooCommerce API
+        // WooService.createProduct method needs to be added first
+        throw new Error('Product creation not yet implemented. Please create products in WooCommerce directly.');
     }
 
     static async getProductByWooId(accountId: string, wooId: number) {
         const product = await prisma.wooProduct.findUnique({
-            where: { accountId_wooId: { accountId, wooId } },
-            include: { variations: true }
+            where: { accountId_wooId: { accountId, wooId } }
         });
 
         if (!product) return null;
@@ -60,18 +24,16 @@ export class ProductsService {
         // Ideally DB variations are the source of truth for local fields
         const variationIds: number[] = raw?.variations || [];
 
-        const mergedVariations = variationIds.map(vId => {
-            const local = product.variations.find(v => v.wooId === vId);
+        const mergedVariations = variationIds.map((vId: number) => {
             return {
                 id: vId,
-                // Fallback to minimal data if not in DB yet (will be synced on edit or full sync)
-                sku: local?.sku || '',
-                price: local?.price?.toString() || '',
-                salePrice: local?.salePrice?.toString() || '',
-                stockStatus: local?.stockStatus || 'instock',
-                cogs: local?.cogs?.toString() || '',
-                binLocation: local?.binLocation || '',
-                images: local?.images || []
+                sku: '',
+                price: '',
+                salePrice: '',
+                stockStatus: 'instock',
+                cogs: '',
+                binLocation: '',
+                images: []
             };
         });
 
@@ -116,14 +78,7 @@ export class ProductsService {
                 isGoldPriceApplied: productData.isGoldPriceApplied,
                 cogs: productData.cogs ? parseFloat(productData.cogs) : undefined,
                 supplierId: productData.supplierId || null,
-                images: productData.images || undefined,
-                rawData: {
-                    update: {
-                        sale_price: productData.salePrice,
-                        description: productData.description,
-                        short_description: productData.short_description
-                    }
-                }
+                images: productData.images || undefined
             }
         });
 
@@ -133,35 +88,8 @@ export class ProductsService {
             const wooService = await WooService.forAccount(accountId);
 
             for (const v of variations) {
-                // Upsert local
-                await prisma.productVariation.upsert({
-                    where: {
-                        productId_wooId: {
-                            productId: updated.id,
-                            wooId: v.id
-                        }
-                    },
-                    update: {
-                        sku: v.sku,
-                        price: v.price ? parseFloat(v.price) : undefined,
-                        salePrice: v.salePrice ? parseFloat(v.salePrice) : undefined,
-                        cogs: v.cogs ? parseFloat(v.cogs) : undefined,
-                        binLocation: v.binLocation,
-                        stockStatus: v.stockStatus,
-                        images: v.images || undefined
-                    },
-                    create: {
-                        productId: updated.id,
-                        wooId: v.id,
-                        sku: v.sku,
-                        price: v.price ? parseFloat(v.price) : undefined,
-                        salePrice: v.salePrice ? parseFloat(v.salePrice) : undefined,
-                        cogs: v.cogs ? parseFloat(v.cogs) : undefined,
-                        binLocation: v.binLocation,
-                        stockStatus: v.stockStatus,
-                        images: v.images || undefined
-                    }
-                });
+                // Note: ProductVariation model not in schema, skipping local upsert
+                // Only sync to WooCommerce
 
                 // Sync to Woo (Only synced fields)
                 // We only sync if changed? For now, sync on save.

@@ -61,10 +61,12 @@ export class AIService {
 
                         const order = await prisma.wooOrder.findFirst({
                             where: whereClause,
-                            select: { number: true, status: true, total: true, currency: true, billing: true }
+                            select: { number: true, status: true, total: true, currency: true, rawData: true }
                         });
                         if (order) {
-                            contextSummary += `\n\n**CURRENTLY VIEWING:** Order #${order.number} (Status: ${order.status}, Total: ${order.currency} ${order.total}, Customer: ${order.billing?.first_name} ${order.billing?.last_name}). Answer questions relative to this order if implied (e.g., "Is THIS profitable?").`;
+                            const raw = order.rawData as any;
+                            const billing = raw?.billing || {};
+                            contextSummary += `\n\n**CURRENTLY VIEWING:** Order #${order.number} (Status: ${order.status}, Total: ${order.currency} ${order.total}, Customer: ${billing?.first_name} ${billing?.last_name}). Answer questions relative to this order if implied (e.g., "Is THIS profitable?").`;
                         }
                     }
                 }

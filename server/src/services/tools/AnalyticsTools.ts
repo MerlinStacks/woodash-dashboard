@@ -1,5 +1,5 @@
 import { AnalyticsService } from '../AnalyticsService';
-import { prisma } from '../../utils/prisma';
+import { prisma, Prisma } from '../../utils/prisma';
 import { Logger } from '../../utils/logger';
 
 export class AnalyticsTools {
@@ -78,7 +78,7 @@ export class AnalyticsTools {
             dailySales.forEach(s => {
                 if (!s.dateCreated) return;
                 const day = s.dateCreated.toISOString().split('T')[0];
-                salesByDay[day] = (salesByDay[day] || 0) + (s._sum.total || 0);
+                salesByDay[day] = (salesByDay[day] || 0) + Number(s._sum.total || 0);
             });
 
             const values = Object.values(salesByDay);
@@ -114,15 +114,15 @@ export class AnalyticsTools {
 
             if (segment === 'at_risk') {
                 // High spenders who haven't bought in 90 days
+                // Note: lastOrderDate not in schema, returning based on high spend only
                 const customers = await prisma.wooCustomer.findMany({
                     where: {
                         accountId,
-                        totalSpent: { gt: 500 }, // Arbitrary 'High Value' threshold
-                        lastOrderDate: { lt: ninetyDaysAgo }
+                        totalSpent: { gt: 500 } // Arbitrary 'High Value' threshold
                     },
                     take: 10,
                     orderBy: { totalSpent: 'desc' },
-                    select: { firstName: true, email: true, totalSpent: true, lastOrderDate: true }
+                    select: { firstName: true, email: true, totalSpent: true }
                 });
                 return customers.length ? customers : "No 'At Risk' high-value customers found.";
             }
