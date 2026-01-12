@@ -6,6 +6,7 @@
  */
 
 import { Logger } from './logger';
+import crypto from 'crypto';
 
 interface EnvConfig {
     /** Variable name */
@@ -64,6 +65,13 @@ export function validateEnvironment(): void {
     }
 
     Logger.info('[ENV] Environment validation passed');
+
+    // JWT diagnostic fingerprint (safe to log - just a hash of first 8 chars)
+    const jwtSecret = process.env.JWT_SECRET;
+    if (jwtSecret) {
+        const fingerprint = crypto.createHash('sha256').update(jwtSecret.substring(0, 8)).digest('hex').substring(0, 12);
+        Logger.warn('[ENV] JWT_SECRET fingerprint', { fingerprint, length: jwtSecret.length });
+    }
 
     // DEVELOPMENT OVERRIDES
     // If running in development (outside Docker) but env vars point to Docker containers,

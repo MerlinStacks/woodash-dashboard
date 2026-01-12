@@ -1,5 +1,6 @@
 import * as argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {

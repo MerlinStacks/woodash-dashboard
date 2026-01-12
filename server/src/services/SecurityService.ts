@@ -63,6 +63,11 @@ export class SecurityService {
         // Create Access Token
         const accessToken = generateToken({ userId });
 
+        // Log JWT fingerprint for debugging multi-container secret mismatches
+        const secret = process.env.JWT_SECRET || '';
+        const fingerprint = crypto.createHash('sha256').update(secret.substring(0, 8)).digest('hex').substring(0, 12);
+        Logger.warn('[SecurityService] Token generated', { userId, jwtFingerprint: fingerprint });
+
         // Create Refresh Token - client gets plaintext, DB stores hash
         const refreshTokenPlain = crypto.randomBytes(40).toString('hex');
         const refreshTokenHash = this.hashToken(refreshTokenPlain);
