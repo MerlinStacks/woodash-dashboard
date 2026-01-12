@@ -7,7 +7,7 @@ export class AnalyticsService {
     /**
      * Get Visitor Log (Real-time Traffic)
      * Includes last 10 events per session for action display
-     * @param liveMode - If true, only returns sessions active in last 30 minutes
+     * @param liveMode - If true, only returns sessions active in last 3 minutes
      */
     static async getVisitorLog(accountId: string, page = 1, limit = 50, liveMode = false) {
         if (!accountId) throw new Error("Account ID is required");
@@ -16,8 +16,9 @@ export class AnalyticsService {
         // Build where clause with optional live mode filter
         const whereClause: any = { accountId };
         if (liveMode) {
-            const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
-            whereClause.lastActiveAt = { gte: thirtyMinsAgo };
+            // 3-minute window for "live" visitors
+            const threeMinsAgo = new Date(Date.now() - 3 * 60 * 1000);
+            whereClause.lastActiveAt = { gte: threeMinsAgo };
         }
 
         const [sessions, total] = await Promise.all([

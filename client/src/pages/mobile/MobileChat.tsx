@@ -71,30 +71,33 @@ export function MobileChat() {
                 'X-Account-ID': currentAccount.id
             };
 
-            // Fetch conversation details
-            const convRes = await fetch(`/api/conversations/${id}`, { headers });
+            // Fetch conversation details - use /api/chat/:id which returns conversation with messages
+            const convRes = await fetch(`/api/chat/${id}`, { headers });
             if (convRes.ok) {
                 const conv = await convRes.json();
+                // Build customer name from wooCustomer or guest fields
+                const customerName = conv.wooCustomer
+                    ? `${conv.wooCustomer.firstName || ''} ${conv.wooCustomer.lastName || ''}`.trim() || conv.wooCustomer.email
+                    : conv.guestName || conv.guestEmail || 'Unknown';
+
                 setConversation({
                     id: conv.id,
-                    customerName: conv.customerName || conv.customerEmail || 'Unknown',
-                    customerEmail: conv.customerEmail,
-                    channel: conv.channel || 'email',
+                    customerName,
+                    customerEmail: conv.wooCustomer?.email || conv.guestEmail,
+                    channel: conv.channel || 'CHAT',
                     status: conv.status
                 });
-            }
 
-            // Fetch messages
-            const msgRes = await fetch(`/api/conversations/${id}/messages`, { headers });
-            if (msgRes.ok) {
-                const data = await msgRes.json();
-                setMessages((data.messages || data || []).map((m: any) => ({
-                    id: m.id,
-                    body: m.body || m.content || '',
-                    direction: m.direction || (m.isOutbound ? 'outbound' : 'inbound'),
-                    createdAt: m.createdAt,
-                    senderName: m.senderName
-                })));
+                // Messages are included in the conversation response
+                if (conv.messages && Array.isArray(conv.messages)) {
+                    setMessages(conv.messages.map((m: any) => ({
+                        id: m.id,
+                        body: m.content || '',
+                        direction: m.senderType === 'AGENT' ? 'outbound' : 'inbound',
+                        createdAt: m.createdAt,
+                        senderName: m.sender?.fullName || (m.senderType === 'AGENT' ? 'Agent' : 'Customer')
+                    })));
+                }
             }
         } catch (error) {
             console.error('[MobileChat] Error:', error);
