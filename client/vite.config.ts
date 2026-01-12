@@ -30,7 +30,6 @@ export default defineConfig(({ mode }) => {
                 // Use dynamic resolution that works in both npm workspaces and Docker
                 'react': resolveReactPath('react'),
                 'react-dom': resolveReactPath('react-dom'),
-                '@': path.resolve(__dirname, './src'),
             }
         },
         server: {

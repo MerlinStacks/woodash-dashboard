@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePermissions } from '@/hooks/usePermissions';
-import { useUser } from '@/hooks/useUser';
+import { usePermissions } from '../../hooks/usePermissions';
+import { useUser } from '../../hooks/useUser';
 import { Plus, Trash2, Edit2, Check, X, Shield } from 'lucide-react';
 
 interface Role {

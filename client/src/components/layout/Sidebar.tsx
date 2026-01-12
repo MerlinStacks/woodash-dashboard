@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { usePermissions } from '@/hooks/usePermissions';
+import { usePermissions } from '../../hooks/usePermissions';
 import {
     LayoutDashboard,
     ShoppingCart,
