@@ -262,7 +262,7 @@ export function AdminCredentialsPage() {
     };
 
     /**
-     * Generates VAPID keys and populates the form.
+     * Generates VAPID keys - the backend now saves them automatically.
      */
     async function handleGenerateVapidKeys() {
         setGenerating(true);
@@ -280,15 +280,32 @@ export function AdminCredentialsPage() {
                 return;
             }
 
-            const keys = await res.json();
-            setFormData(prev => ({
-                ...prev,
-                'WEB_PUSH_VAPID': {
-                    publicKey: keys.publicKey,
-                    privateKey: keys.privateKey
-                }
-            }));
-            setMessage({ type: 'success', text: 'VAPID keys generated! Click Save to store them.' });
+            const result = await res.json();
+
+            if (result.alreadyExists) {
+                // Keys already exist - just populate the form with the public key
+                setFormData(prev => ({
+                    ...prev,
+                    'WEB_PUSH_VAPID': {
+                        publicKey: result.publicKey,
+                        privateKey: '••••••••' // Don't show private key for existing
+                    }
+                }));
+                setMessage({ type: 'success', text: result.message || 'VAPID keys already configured.' });
+            } else {
+                // New keys generated and saved
+                setFormData(prev => ({
+                    ...prev,
+                    'WEB_PUSH_VAPID': {
+                        publicKey: result.publicKey,
+                        privateKey: '(saved securely)'
+                    }
+                }));
+                setMessage({ type: 'success', text: result.message || 'VAPID keys generated and saved!' });
+            }
+
+            // Refresh to show updated status
+            fetchCredentials();
         } catch (err) {
             setMessage({ type: 'error', text: 'Network error generating keys' });
         } finally {
