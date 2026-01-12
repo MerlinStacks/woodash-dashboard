@@ -96,6 +96,60 @@ function AccountGuard({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
 }
 
+/**
+ * MobileRedirect - Redirects mobile devices from desktop routes to mobile routes.
+ * 
+ * Detects mobile via user-agent and standalone PWA mode.
+ * Maps common desktop routes to their /m/* equivalents.
+ */
+function MobileRedirect({ children }: { children: React.ReactNode }) {
+    // Check if running as installed PWA (standalone)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true;
+
+    // Check if mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    // Only redirect if in PWA mode, not just mobile browser
+    if (!isStandalone) {
+        return <>{children}</>;
+    }
+
+    // Get current path
+    const currentPath = window.location.pathname;
+
+    // Map desktop routes to mobile routes
+    const mobileRouteMap: Record<string, string> = {
+        '/': '/m/dashboard',
+        '/orders': '/m/orders',
+        '/inbox': '/m/inbox',
+        '/analytics': '/m/analytics',
+        '/inventory': '/m/inventory',
+        '/settings': '/m/settings',
+        '/profile': '/m/profile',
+    };
+
+    // Check if viewing a desktop route that has a mobile equivalent
+    if (!currentPath.startsWith('/m/') && !currentPath.startsWith('/login') &&
+        !currentPath.startsWith('/register') && !currentPath.startsWith('/admin')) {
+
+        // Check for direct route mapping
+        if (mobileRouteMap[currentPath]) {
+            return <Navigate to={mobileRouteMap[currentPath]} replace />;
+        }
+
+        // Handle dynamic routes like /orders/:id -> /m/orders/:id
+        if (currentPath.startsWith('/orders/')) {
+            return <Navigate to={`/m${currentPath}`} replace />;
+        }
+        if (currentPath.startsWith('/inbox/')) {
+            return <Navigate to={`/m${currentPath}`} replace />;
+        }
+    }
+
+    return <>{children}</>;
+}
+
 function App() {
     return (
         <BrowserRouter>
@@ -103,89 +157,91 @@ function App() {
                 <AccountProvider>
                     <SocketProvider>
                         <SyncStatusProvider>
-                            <Suspense fallback={<PageLoader />}>
-                                <Routes>
-                                    {/* Public Routes */}
-                                    <Route path="/login" element={<LoginPage />} />
-                                    <Route path="/register" element={<RegisterPage />} />
-                                    <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-                                    <Route path="/data-deletion" element={<DataDeletionPage />} />
-                                    <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+                            <MobileRedirect>
+                                <Suspense fallback={<PageLoader />}>
+                                    <Routes>
+                                        {/* Public Routes */}
+                                        <Route path="/login" element={<LoginPage />} />
+                                        <Route path="/register" element={<RegisterPage />} />
+                                        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                                        <Route path="/data-deletion" element={<DataDeletionPage />} />
+                                        <Route path="/terms-of-service" element={<TermsOfServicePage />} />
 
-                                    {/* Protected Routes */}
-                                    <Route element={<ProtectedRoute />}>
-                                        <Route path="/setup" element={<SetupWizard />} />
+                                        {/* Protected Routes */}
+                                        <Route element={<ProtectedRoute />}>
+                                            <Route path="/setup" element={<SetupWizard />} />
 
-                                        {/* Super Admin Routes */}
-                                        <Route element={<SuperAdminGuard><AdminLayout><Outlet /></AdminLayout></SuperAdminGuard>}>
-                                            <Route path="/admin" element={<AdminDashboard />} />
-                                            <Route path="/admin/accounts" element={<AdminAccountsPage />} />
-                                            <Route path="/admin/logs" element={<AdminLogsPage />} />
-                                            <Route path="/admin/broadcast" element={<AdminBroadcastPage />} />
-                                            <Route path="/admin/credentials" element={<AdminCredentialsPage />} />
-                                            <Route path="/admin/ai-prompts" element={<AdminAIPromptsPage />} />
-                                            <Route path="/admin/settings" element={<AdminSettingsPage />} />
+                                            {/* Super Admin Routes */}
+                                            <Route element={<SuperAdminGuard><AdminLayout><Outlet /></AdminLayout></SuperAdminGuard>}>
+                                                <Route path="/admin" element={<AdminDashboard />} />
+                                                <Route path="/admin/accounts" element={<AdminAccountsPage />} />
+                                                <Route path="/admin/logs" element={<AdminLogsPage />} />
+                                                <Route path="/admin/broadcast" element={<AdminBroadcastPage />} />
+                                                <Route path="/admin/credentials" element={<AdminCredentialsPage />} />
+                                                <Route path="/admin/ai-prompts" element={<AdminAIPromptsPage />} />
+                                                <Route path="/admin/settings" element={<AdminSettingsPage />} />
+                                            </Route>
+
+                                            <Route element={<DashboardLayout><Outlet /></DashboardLayout>}>
+                                                <Route path="/" element={<AccountGuard><DashboardPage /></AccountGuard>} />
+                                                <Route path="/orders" element={<AccountGuard><OrdersPage /></AccountGuard>} />
+                                                <Route path="/orders/:id" element={<AccountGuard><OrderDetailPage /></AccountGuard>} />
+                                                <Route path="/inventory" element={<AccountGuard><InventoryPage /></AccountGuard>} />
+                                                <Route path="/inventory/product/:id" element={<AccountGuard><ProductEditPage /></AccountGuard>} />
+                                                <Route path="/inventory/purchase-orders/new" element={<AccountGuard><PurchaseOrderEditPage /></AccountGuard>} />
+                                                <Route path="/inventory/purchase-orders/:id" element={<AccountGuard><PurchaseOrderEditPage /></AccountGuard>} />
+                                                <Route path="/customers" element={<AccountGuard><CustomersPage /></AccountGuard>} />
+                                                <Route path="/customers/segments" element={<AccountGuard><SegmentsPage /></AccountGuard>} />
+                                                <Route path="/customers/:id" element={<AccountGuard><CustomerDetailsPage /></AccountGuard>} />
+                                                <Route path="/marketing" element={<AccountGuard><MarketingPage /></AccountGuard>} />
+                                                <Route path="/ads" element={<AccountGuard><PaidAdsPage /></AccountGuard>} />
+                                                <Route path="/broadcasts" element={<AccountGuard><BroadcastsPage /></AccountGuard>} />
+                                                <Route path="/flows" element={<AccountGuard><FlowsPage /></AccountGuard>} />
+                                                <Route path="/inbox" element={<AccountGuard><InboxPage /></AccountGuard>} />
+                                                <Route path="/live" element={<AccountGuard><LiveAnalyticsPage /></AccountGuard>} />
+                                                <Route path="/analytics" element={<AccountGuard><AnalyticsOverviewPage /></AccountGuard>} />
+                                                <Route path="/analytics/revenue" element={<AccountGuard><RevenuePage /></AccountGuard>} />
+                                                <Route path="/analytics/attribution" element={<AccountGuard><AttributionPage /></AccountGuard>} />
+                                                <Route path="/analytics/cohorts" element={<AccountGuard><CohortsPage /></AccountGuard>} />
+
+                                                <Route path="/reviews" element={<AccountGuard><ReviewsPage /></AccountGuard>} />
+                                                <Route path="/help" element={<AccountGuard><HelpCenterHome /></AccountGuard>} />
+                                                <Route path="/help/article/:slug" element={<AccountGuard><HelpArticle /></AccountGuard>} />
+
+                                                <Route path="/reports" element={<AccountGuard><ReportsPage /></AccountGuard>} />
+                                                <Route path="/team" element={<AccountGuard><TeamPage /></AccountGuard>} />
+                                                <Route path="/wizard" element={<AccountGuard><SetupWizard /></AccountGuard>} />
+                                                <Route path="/settings" element={<AccountGuard><SettingsPage /></AccountGuard>} />
+                                                <Route path="/profile" element={<AccountGuard><UserProfilePage /></AccountGuard>} />
+
+                                                <Route path="/invoices/design" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
+                                                <Route path="/invoices/design/:id" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
+                                                <Route path="/policies" element={<AccountGuard><PoliciesPage /></AccountGuard>} />
+                                            </Route>
                                         </Route>
 
-                                        <Route element={<DashboardLayout><Outlet /></DashboardLayout>}>
-                                            <Route path="/" element={<AccountGuard><DashboardPage /></AccountGuard>} />
-                                            <Route path="/orders" element={<AccountGuard><OrdersPage /></AccountGuard>} />
-                                            <Route path="/orders/:id" element={<AccountGuard><OrderDetailPage /></AccountGuard>} />
-                                            <Route path="/inventory" element={<AccountGuard><InventoryPage /></AccountGuard>} />
-                                            <Route path="/inventory/product/:id" element={<AccountGuard><ProductEditPage /></AccountGuard>} />
-                                            <Route path="/inventory/purchase-orders/new" element={<AccountGuard><PurchaseOrderEditPage /></AccountGuard>} />
-                                            <Route path="/inventory/purchase-orders/:id" element={<AccountGuard><PurchaseOrderEditPage /></AccountGuard>} />
-                                            <Route path="/customers" element={<AccountGuard><CustomersPage /></AccountGuard>} />
-                                            <Route path="/customers/segments" element={<AccountGuard><SegmentsPage /></AccountGuard>} />
-                                            <Route path="/customers/:id" element={<AccountGuard><CustomerDetailsPage /></AccountGuard>} />
-                                            <Route path="/marketing" element={<AccountGuard><MarketingPage /></AccountGuard>} />
-                                            <Route path="/ads" element={<AccountGuard><PaidAdsPage /></AccountGuard>} />
-                                            <Route path="/broadcasts" element={<AccountGuard><BroadcastsPage /></AccountGuard>} />
-                                            <Route path="/flows" element={<AccountGuard><FlowsPage /></AccountGuard>} />
-                                            <Route path="/inbox" element={<AccountGuard><InboxPage /></AccountGuard>} />
-                                            <Route path="/live" element={<AccountGuard><LiveAnalyticsPage /></AccountGuard>} />
-                                            <Route path="/analytics" element={<AccountGuard><AnalyticsOverviewPage /></AccountGuard>} />
-                                            <Route path="/analytics/revenue" element={<AccountGuard><RevenuePage /></AccountGuard>} />
-                                            <Route path="/analytics/attribution" element={<AccountGuard><AttributionPage /></AccountGuard>} />
-                                            <Route path="/analytics/cohorts" element={<AccountGuard><CohortsPage /></AccountGuard>} />
-
-                                            <Route path="/reviews" element={<AccountGuard><ReviewsPage /></AccountGuard>} />
-                                            <Route path="/help" element={<AccountGuard><HelpCenterHome /></AccountGuard>} />
-                                            <Route path="/help/article/:slug" element={<AccountGuard><HelpArticle /></AccountGuard>} />
-
-                                            <Route path="/reports" element={<AccountGuard><ReportsPage /></AccountGuard>} />
-                                            <Route path="/team" element={<AccountGuard><TeamPage /></AccountGuard>} />
-                                            <Route path="/wizard" element={<AccountGuard><SetupWizard /></AccountGuard>} />
-                                            <Route path="/settings" element={<AccountGuard><SettingsPage /></AccountGuard>} />
-                                            <Route path="/profile" element={<AccountGuard><UserProfilePage /></AccountGuard>} />
-
-                                            <Route path="/invoices/design" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
-                                            <Route path="/invoices/design/:id" element={<AccountGuard><InvoiceDesigner /></AccountGuard>} />
-                                            <Route path="/policies" element={<AccountGuard><PoliciesPage /></AccountGuard>} />
+                                        {/* Mobile PWA Routes */}
+                                        <Route element={<ProtectedRoute />}>
+                                            <Route element={<MobileLayout />}>
+                                                <Route path="/m/dashboard" element={<AccountGuard><MobileDashboard /></AccountGuard>} />
+                                                <Route path="/m/orders" element={<AccountGuard><MobileOrders /></AccountGuard>} />
+                                                <Route path="/m/orders/:id" element={<AccountGuard><MobileOrderDetail /></AccountGuard>} />
+                                                <Route path="/m/inbox" element={<AccountGuard><MobileInbox /></AccountGuard>} />
+                                                <Route path="/m/inbox/:id" element={<AccountGuard><MobileChat /></AccountGuard>} />
+                                                <Route path="/m/analytics" element={<AccountGuard><MobileAnalytics /></AccountGuard>} />
+                                                <Route path="/m/inventory" element={<AccountGuard><MobileInventory /></AccountGuard>} />
+                                                <Route path="/m/more" element={<AccountGuard><MobileMore /></AccountGuard>} />
+                                                <Route path="/m/profile" element={<AccountGuard><UserProfilePage /></AccountGuard>} />
+                                                <Route path="/m/settings" element={<AccountGuard><SettingsPage /></AccountGuard>} />
+                                                <Route path="/m/notifications" element={<AccountGuard><MobileNotifications /></AccountGuard>} />
+                                                <Route path="/m" element={<Navigate to="/m/dashboard" replace />} />
+                                            </Route>
                                         </Route>
-                                    </Route>
 
-                                    {/* Mobile PWA Routes */}
-                                    <Route element={<ProtectedRoute />}>
-                                        <Route element={<MobileLayout />}>
-                                            <Route path="/m/dashboard" element={<AccountGuard><MobileDashboard /></AccountGuard>} />
-                                            <Route path="/m/orders" element={<AccountGuard><MobileOrders /></AccountGuard>} />
-                                            <Route path="/m/orders/:id" element={<AccountGuard><MobileOrderDetail /></AccountGuard>} />
-                                            <Route path="/m/inbox" element={<AccountGuard><MobileInbox /></AccountGuard>} />
-                                            <Route path="/m/inbox/:id" element={<AccountGuard><MobileChat /></AccountGuard>} />
-                                            <Route path="/m/analytics" element={<AccountGuard><MobileAnalytics /></AccountGuard>} />
-                                            <Route path="/m/inventory" element={<AccountGuard><MobileInventory /></AccountGuard>} />
-                                            <Route path="/m/more" element={<AccountGuard><MobileMore /></AccountGuard>} />
-                                            <Route path="/m/profile" element={<AccountGuard><UserProfilePage /></AccountGuard>} />
-                                            <Route path="/m/settings" element={<AccountGuard><SettingsPage /></AccountGuard>} />
-                                            <Route path="/m/notifications" element={<AccountGuard><MobileNotifications /></AccountGuard>} />
-                                            <Route path="/m" element={<Navigate to="/m/dashboard" replace />} />
-                                        </Route>
-                                    </Route>
-
-                                    <Route path="*" element={<Navigate to="/" replace />} />
-                                </Routes>
-                            </Suspense>
+                                        <Route path="*" element={<Navigate to="/" replace />} />
+                                    </Routes>
+                                </Suspense>
+                            </MobileRedirect>
                         </SyncStatusProvider>
                     </SocketProvider>
                 </AccountProvider>
