@@ -66,9 +66,11 @@ const MobileDashboard = lazy(() => import('./pages/mobile/MobileDashboard').then
 const MobileOrders = lazy(() => import('./pages/mobile/MobileOrders').then(m => ({ default: m.MobileOrders })));
 const MobileOrderDetail = lazy(() => import('./pages/mobile/MobileOrderDetail').then(m => ({ default: m.MobileOrderDetail })));
 const MobileInbox = lazy(() => import('./pages/mobile/MobileInbox').then(m => ({ default: m.MobileInbox })));
+const MobileChat = lazy(() => import('./pages/mobile/MobileChat').then(m => ({ default: m.MobileChat })));
 const MobileAnalytics = lazy(() => import('./pages/mobile/MobileAnalytics').then(m => ({ default: m.MobileAnalytics })));
 const MobileInventory = lazy(() => import('./pages/mobile/MobileInventory').then(m => ({ default: m.MobileInventory })));
 const MobileMore = lazy(() => import('./pages/mobile/MobileMore').then(m => ({ default: m.MobileMore })));
+const MobileNotifications = lazy(() => import('./pages/mobile/MobileNotifications').then(m => ({ default: m.MobileNotifications })));
 
 // Loading fallback for lazy routes
 function PageLoader() {
@@ -170,13 +172,13 @@ function App() {
                                             <Route path="/m/orders" element={<AccountGuard><MobileOrders /></AccountGuard>} />
                                             <Route path="/m/orders/:id" element={<AccountGuard><MobileOrderDetail /></AccountGuard>} />
                                             <Route path="/m/inbox" element={<AccountGuard><MobileInbox /></AccountGuard>} />
-                                            <Route path="/m/inbox/:id" element={<AccountGuard><MobileInbox /></AccountGuard>} />
+                                            <Route path="/m/inbox/:id" element={<AccountGuard><MobileChat /></AccountGuard>} />
                                             <Route path="/m/analytics" element={<AccountGuard><MobileAnalytics /></AccountGuard>} />
                                             <Route path="/m/inventory" element={<AccountGuard><MobileInventory /></AccountGuard>} />
                                             <Route path="/m/more" element={<AccountGuard><MobileMore /></AccountGuard>} />
                                             <Route path="/m/profile" element={<AccountGuard><UserProfilePage /></AccountGuard>} />
                                             <Route path="/m/settings" element={<AccountGuard><SettingsPage /></AccountGuard>} />
-                                            <Route path="/m/notifications" element={<AccountGuard><SettingsPage /></AccountGuard>} />
+                                            <Route path="/m/notifications" element={<AccountGuard><MobileNotifications /></AccountGuard>} />
                                             <Route path="/m" element={<Navigate to="/m/dashboard" replace />} />
                                         </Route>
                                     </Route>
