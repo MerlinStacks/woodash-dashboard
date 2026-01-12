@@ -56,16 +56,41 @@ export function MobileDashboard() {
                 'X-Account-ID': currentAccount.id
             };
 
-            const ordersRes = await fetch('/api/sync/orders/search?limit=5', { headers });
+            // Get today's date range
+            const today = new Date();
+            const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString().split('T')[0];
+            const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString().split('T')[0];
 
-            // Set default stats
-            setStats({
-                todayOrders: 0,
-                todayRevenue: 0,
-                pendingMessages: 0,
-                lowStockItems: 0
-            });
+            // Fetch all data in parallel
+            const [salesRes, messagesRes, inventoryRes, ordersRes] = await Promise.all([
+                fetch(`/api/analytics/sales?startDate=${startOfDay}&endDate=${endOfDay}`, { headers }),
+                fetch('/api/chat/unread-count', { headers }),
+                fetch('/api/analytics/health', { headers }),
+                fetch('/api/sync/orders/search?limit=5', { headers })
+            ]);
 
+            let todayRevenue = 0, todayOrders = 0, pendingMessages = 0, lowStockItems = 0;
+
+            if (salesRes.ok) {
+                const data = await salesRes.json();
+                todayRevenue = data.total || 0;
+                todayOrders = data.count || 0;
+            }
+
+            if (messagesRes.ok) {
+                const data = await messagesRes.json();
+                pendingMessages = data.count || 0;
+            }
+
+            if (inventoryRes.ok) {
+                const data = await inventoryRes.json();
+                // Count items that are low stock (from health endpoint)
+                lowStockItems = Array.isArray(data) ? data.length : 0;
+            }
+
+            setStats({ todayOrders, todayRevenue, pendingMessages, lowStockItems });
+
+            // Parse recent activities from orders
             if (ordersRes.ok) {
                 const ordersData = await ordersRes.json();
                 const recentActivities: RecentActivity[] = (ordersData.orders || ordersData || [])
@@ -78,12 +103,6 @@ export function MobileDashboard() {
                         time: formatTimeAgo(order.date_created || order.createdAt)
                     }));
                 setActivities(recentActivities);
-
-                // Update stats from orders
-                setStats(prev => ({
-                    ...prev!,
-                    todayOrders: recentActivities.length
-                }));
             }
         } catch (error) {
             console.error('[MobileDashboard] Error fetching data:', error);
