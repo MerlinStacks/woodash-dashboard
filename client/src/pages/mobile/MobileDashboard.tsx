@@ -44,7 +44,10 @@ export function MobileDashboard() {
     }, [currentAccount, token]);
 
     const fetchDashboardData = async () => {
-        if (!currentAccount || !token) return;
+        if (!currentAccount || !token) {
+            setLoading(false);
+            return;
+        }
 
         try {
             setLoading(true);

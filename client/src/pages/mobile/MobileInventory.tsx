@@ -26,7 +26,10 @@ export function MobileInventory() {
     }, [currentAccount, filter, token]);
 
     const fetchProducts = async () => {
-        if (!currentAccount || !token) return;
+        if (!currentAccount || !token) {
+            setLoading(false);
+            return;
+        }
 
         try {
             setLoading(true);

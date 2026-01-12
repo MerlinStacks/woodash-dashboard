@@ -61,7 +61,10 @@ export function MobileOrders() {
     }, [currentAccount, activeFilter, token]);
 
     const fetchOrders = async (reset = false) => {
-        if (!currentAccount || !token) return;
+        if (!currentAccount || !token) {
+            setLoading(false);
+            return;
+        }
 
         try {
             if (reset) {

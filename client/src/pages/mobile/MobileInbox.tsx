@@ -33,7 +33,10 @@ export function MobileInbox() {
     }, [currentAccount, token]);
 
     const fetchConversations = async () => {
-        if (!currentAccount || !token) return;
+        if (!currentAccount || !token) {
+            setLoading(false);
+            return;
+        }
 
         try {
             setLoading(true);

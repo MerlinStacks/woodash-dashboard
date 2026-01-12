@@ -24,7 +24,10 @@ export function MobileAnalytics() {
     }, [currentAccount, period, token]);
 
     const fetchAnalytics = async () => {
-        if (!currentAccount || !token) return;
+        if (!currentAccount || !token) {
+            setLoading(false);
+            return;
+        }
 
         try {
             setLoading(true);
