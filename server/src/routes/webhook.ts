@@ -50,11 +50,16 @@ export async function processWebhookPayload(
                 total: body.total
             });
 
+            // Calculate item count from line_items
+            const lineItems = body.line_items as Array<unknown> | undefined;
+            const itemCount = lineItems?.length || 0;
+            const itemText = itemCount === 1 ? '1 item' : `${itemCount} items`;
+
             await prisma.notification.create({
                 data: {
                     accountId,
                     title: 'New Order Received',
-                    message: `Order #${body.number || body.id} has been placed.`,
+                    message: `Order #${body.number || body.id} - $${body.total} (${itemText})`,
                     type: 'SUCCESS',
                     link: '/orders'
                 }
@@ -70,6 +75,7 @@ export async function processWebhookPayload(
                 orderId: body.id,
                 orderNumber: body.number || body.id,
                 total: body.total,
+                itemCount,
                 customerName: (body.billing as Record<string, string>)?.first_name
                     ? `${(body.billing as Record<string, string>).first_name} ${(body.billing as Record<string, string>).last_name || ''}`.trim()
                     : 'Guest'
@@ -79,7 +85,7 @@ export async function processWebhookPayload(
             const { PushNotificationService } = require('../services/PushNotificationService');
             await PushNotificationService.sendToAccount(accountId, {
                 title: '🛒 New Order!',
-                body: `Order #${body.number || body.id} - $${body.total}`,
+                body: `Order #${body.number || body.id} - $${body.total} (${itemText})`,
                 data: { url: '/orders' }
             }, 'order');
         }
