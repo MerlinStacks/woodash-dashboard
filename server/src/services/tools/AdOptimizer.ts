@@ -93,7 +93,8 @@ export class AdOptimizer {
             }
 
             // Process inventory suggestions first (highest priority)
-            const activeAdProductIds = googleAnalysis?.shopping_products?.active_ad_product_ids;
+            // Extract active ad product IDs only if Google analysis succeeded (not an error string)
+            const activeAdProductIds = hasGoogle ? googleAnalysis?.shopping_products?.active_ad_product_ids : undefined;
 
             if (options?.includeInventory !== false) {
                 await this.processInventorySuggestions(accountId, suggestions, combinedSummary, activeAdProductIds);
