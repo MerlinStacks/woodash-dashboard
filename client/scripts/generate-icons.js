@@ -1,3 +1,4 @@
+/* eslint-disable no-undef, @typescript-eslint/no-unused-vars */
 /**
  * PWA Icon Generator
  * 

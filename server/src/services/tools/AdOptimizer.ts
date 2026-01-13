@@ -159,7 +159,7 @@ export class AdOptimizer {
                 action_items: prioritized
                     .filter(s => s.priority <= 2)
                     .slice(0, 3)
-                    .map((s, i) => `${i + 1}. ${s.text.split(':')[0].replace(/[🔴🟢📊💰🚀📁✅🛒🔍⭐🚫⚠️📝📉📈🎨👥💵ℹ️📅]/gu, '').trim()}`)
+                    .map((s, i) => `${i + 1}. ${s.text.split(':')[0].replace(new RegExp('(🔴|🟢|📊|💰|🚀|📁|✅|🛒|🔍|⭐|🚫|⚠️|📝|📉|📈|🎨|👥|💵|ℹ️|📅)', 'gu'), '').trim()}`)
             };
 
         } catch (error) {

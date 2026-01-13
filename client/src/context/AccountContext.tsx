@@ -102,7 +102,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                 })
                 .catch(console.error);
         }
-    }, [currentAccount?.id, token]);
+    }, [currentAccount?.id, token, updateUser]);
 
     useEffect(() => {
         // Don't fetch accounts until auth has finished loading
@@ -111,7 +111,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
             return;
         }
         refreshAccounts();
-    }, [token, authLoading]);
+    }, [token, authLoading, refreshAccounts]);
 
     // isLoading should be true if either auth is loading or accounts are loading
     const effectiveLoading = authLoading || isLoading;

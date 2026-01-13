@@ -94,7 +94,7 @@ function getSuggestionStyle(suggestion: PrioritizedSuggestion) {
 function cleanText(text: string): string {
     return text
         .replace(/\*\*/g, '')
-        .replace(/[🔴🟢📊💰🚀📁✅🛒🔍⭐🚫⚠️📝📉📈🎨👥💵ℹ️📅]/gu, '')
+        .replace(/(🔴|🟢|📊|💰|🚀|📁|✅|🛒|🔍|⭐|🚫|⚠️|📝|📉|📈|🎨|👥|💵|ℹ️|📅)/gu, '')
         .trim();
 }
 

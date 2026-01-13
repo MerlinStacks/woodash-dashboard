@@ -22,10 +22,10 @@ export function OrderDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [showRaw, setShowRaw] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-    if (!hasPermission('view_orders') && !isLoading) {
-        return <div className="p-10 text-center text-red-500">Access Denied</div>;
-    }
+
 
     useEffect(() => {
         if (id && currentAccount && token) {
@@ -53,7 +53,7 @@ export function OrderDetailPage() {
         }
     }
 
-    const [isGenerating, setIsGenerating] = useState(false);
+
 
     const handleGenerateInvoice = async () => {
         setIsGenerating(true);
@@ -88,9 +88,13 @@ export function OrderDetailPage() {
         }
     };
 
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
 
     // ... existing useEffect ...
+
+    if (!hasPermission('view_orders') && !isLoading) {
+        return <div className="p-10 text-center text-red-500">Access Denied</div>;
+    }
 
     if (isLoading) return <div className="p-10 flex justify-center"><div className="animate-spin text-blue-600"><RefreshCw /></div></div>;
     if (error || !order) return <div className="p-10 text-center text-red-500">{error || 'Order not found'}</div>;

@@ -22,6 +22,7 @@ export function GeneralInfoPanel({ formData, product, suppliers = [], onChange }
     const [viewMode, setViewMode] = useState<'visual' | 'code'>('visual');
     const [isRewriting, setIsRewriting] = useState(false);
     const [rewriteError, setRewriteError] = useState<string | null>(null);
+    const [editorKey, setEditorKey] = useState(0);
 
     /**
      * Calls the AI rewrite endpoint to generate a new product description.
@@ -69,6 +70,7 @@ export function GeneralInfoPanel({ formData, product, suppliers = [], onChange }
 
             if (data.description) {
                 onChange({ description: data.description });
+                setEditorKey(prev => prev + 1);
             }
         } catch (err: any) {
             setRewriteError(err.message || 'Network error');
@@ -172,6 +174,7 @@ export function GeneralInfoPanel({ formData, product, suppliers = [], onChange }
                         {viewMode === 'visual' ? (
                             <div className="bg-white/50 border border-gray-200 rounded-lg overflow-hidden transition-all duration-300">
                                 <RichTextEditor
+                                    key={editorKey}
                                     variant="standard"
                                     value={formData.description || ''}
                                     onChange={(val: string) => onChange({ description: val })}

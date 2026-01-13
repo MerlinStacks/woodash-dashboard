@@ -881,23 +881,25 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                 let result: { updated: number } = { updated: 0 };
 
                 switch (action) {
-                    case 'close':
+                    case 'close': {
                         const closeResult = await prisma.conversation.updateMany({
                             where: { id: { in: conversationIds }, accountId },
                             data: { status: 'CLOSED' },
                         });
                         result.updated = closeResult.count;
                         break;
+                    }
 
-                    case 'open':
+                    case 'open': {
                         const openResult = await prisma.conversation.updateMany({
                             where: { id: { in: conversationIds }, accountId },
                             data: { status: 'OPEN', snoozedUntil: null },
                         });
                         result.updated = openResult.count;
                         break;
+                    }
 
-                    case 'assign':
+                    case 'assign': {
                         if (!assignToUserId) {
                             return reply.code(400).send({ error: 'assignToUserId is required for assign action' });
                         }
@@ -907,6 +909,7 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                         });
                         result.updated = assignResult.count;
                         break;
+                    }
 
                     case 'addLabel':
                         if (!labelId) {
@@ -916,13 +919,14 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                         result.updated = conversationIds.length;
                         break;
 
-                    case 'removeLabel':
+                    case 'removeLabel': {
                         if (!labelId) {
                             return reply.code(400).send({ error: 'labelId is required for removeLabel action' });
                         }
                         const removeResult = await labelService.bulkRemoveLabel(conversationIds, labelId);
                         result.updated = removeResult.count;
                         break;
+                    }
 
                     default:
                         return reply.code(400).send({ error: `Unknown action: ${action}` });

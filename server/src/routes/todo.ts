@@ -44,7 +44,7 @@ const todoRoutes: FastifyPluginAsync = async (fastify) => {
     // POST /api/todos
     fastify.post<{ Body: TodoBody }>('/', async (request, reply) => {
         const accountId = request.accountId;
-        const userId = request.user?.id!;
+        const userId = request.user!.id;
         const { title, priority, dueDate, aiGenerated } = request.body;
 
         if (!accountId) return reply.code(400).send({ error: 'No account' });
@@ -71,7 +71,7 @@ const todoRoutes: FastifyPluginAsync = async (fastify) => {
     // PUT /api/todos/:id
     fastify.put<{ Params: { id: string }; Body: TodoBody }>('/:id', async (request, reply) => {
         const accountId = request.accountId;
-        const userId = request.user?.id!;
+        const userId = request.user!.id;
         const { id } = request.params;
         const { title, completed, priority, dueDate } = request.body;
 
@@ -105,7 +105,7 @@ const todoRoutes: FastifyPluginAsync = async (fastify) => {
     // DELETE /api/todos/:id
     fastify.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
         const accountId = request.accountId;
-        const userId = request.user?.id!;
+        const userId = request.user!.id;
         const { id } = request.params;
 
         if (!accountId) return reply.code(400).send({ error: 'No account' });

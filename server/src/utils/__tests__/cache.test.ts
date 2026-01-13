@@ -7,12 +7,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Redis client
-const mockRedisClient = {
+const mockRedisClient = vi.hoisted(() => ({
     get: vi.fn(),
     setex: vi.fn(),
     del: vi.fn(),
     scan: vi.fn(),
-};
+}));
 
 vi.mock('../../utils/redis', () => ({
     redisClient: mockRedisClient
