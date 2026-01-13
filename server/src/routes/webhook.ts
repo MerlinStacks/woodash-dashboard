@@ -132,16 +132,21 @@ const webhookRoutes: FastifyPluginAsync = async (fastify) => {
         // WooCommerce sends a ping request to verify the URL when creating a webhook
         // These requests may not have the signature/topic headers
         if (!signature || !topic) {
-            // Check if this looks like a WooCommerce ping (has webhook_id in body or is empty)
-            if (body && (body.webhook_id || Object.keys(body).length === 0)) {
+            // Check if this looks like a valid WooCommerce order payload (has 'id' and 'order_key' or 'number')
+            const looksLikeOrder = body && typeof body === 'object' && (body.id || body.order_key || body.number);
+
+            // If it doesn't look like a real order, treat as ping/verification
+            if (!looksLikeOrder) {
                 Logger.info('[Webhook] Received WooCommerce ping/verification request', { accountId });
                 return reply.code(200).send('Webhook URL verified');
             }
-            Logger.warn('[Webhook] Missing required headers', {
+
+            // Has order-like data but no signature - reject
+            Logger.warn('[Webhook] Missing required headers for order webhook', {
                 accountId,
                 hasSignature: !!signature,
                 hasTopic: !!topic,
-                bodyKeys: body ? Object.keys(body) : []
+                bodyKeys: body ? Object.keys(body).slice(0, 10) : []
             });
             return reply.code(400).send('Missing headers');
         }
