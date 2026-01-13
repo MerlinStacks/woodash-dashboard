@@ -227,9 +227,77 @@ export class GoogleAdsService {
      * Fetch products for a specific campaign.
      * Filters shopping products by campaign ID.
      */
+    /**
+     * Fetch products for a specific campaign.
+     * Uses a direct query for efficiency and to avoid hitting account-level limits.
+     */
     static async getCampaignProducts(adAccountId: string, campaignId: string, days: number = 30): Promise<ShoppingProductInsight[]> {
-        const allProducts = await GoogleAdsService.getShoppingProducts(adAccountId, days, 500);
-        return allProducts.filter(p => p.campaignId === campaignId);
+        try {
+            const { customer, currency } = await createGoogleAdsClient(adAccountId);
+
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - days);
+
+            // Direct query filtered by campaign.id
+            const query = `
+                SELECT
+                    campaign.id, campaign.name,
+                    segments.product_item_id, segments.product_title,
+                    segments.product_brand, segments.product_type_l1,
+                    metrics.cost_micros, metrics.impressions, metrics.clicks,
+                    metrics.conversions, metrics.conversions_value
+                FROM shopping_performance_view
+                WHERE segments.date BETWEEN '${formatDateGAQL(startDate)}' AND '${formatDateGAQL(endDate)}'
+                    AND campaign.id = ${campaignId}
+                    AND metrics.impressions > 0
+                ORDER BY metrics.cost_micros DESC
+                LIMIT 500
+            `;
+
+            const results = await customer.query(query);
+
+            return results.map((row: any) => {
+                const spend = (row.metrics?.cost_micros || 0) / 1_000_000;
+                const impressions = row.metrics?.impressions || 0;
+                const clicks = row.metrics?.clicks || 0;
+                const conversions = row.metrics?.conversions || 0;
+                const conversionsValue = row.metrics?.conversions_value || 0;
+
+                return {
+                    campaignId: row.campaign?.id?.toString() || '',
+                    campaignName: row.campaign?.name || 'Unknown',
+                    productId: row.segments?.product_item_id || '',
+                    productTitle: row.segments?.product_title || 'Unknown Product',
+                    productBrand: row.segments?.product_brand || '',
+                    productCategory: row.segments?.product_type_l1 || '',
+                    spend, impressions, clicks, conversions, conversionsValue,
+                    roas: spend > 0 ? conversionsValue / spend : 0,
+                    ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+                    cpc: clicks > 0 ? spend / clicks : 0,
+                    currency,
+                    dateStart: formatDateISO(startDate),
+                    dateStop: formatDateISO(endDate)
+                };
+            });
+
+        } catch (error: any) {
+            // Check for expected errors (non-shopping campaigns)
+            if (error.message?.includes('UNIMPLEMENTED') ||
+                error.message?.includes('service is not enabled') ||
+                error.message?.includes('Campaign type not supported')) {
+                // This is expected for Search/Display campaigns when querying shopping view
+                return [];
+            }
+
+            // Log unexpected errors but return empty to prevent UI crash
+            Logger.warn('Failed to fetch specific campaign products', {
+                adAccountId,
+                campaignId,
+                error: error.message
+            });
+            return [];
+        }
     }
 
     /**

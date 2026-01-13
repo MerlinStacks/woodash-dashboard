@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Send, AlertTriangle, CheckCircle, Info, MessageSquare } from 'lucide-react';
+import { Send, AlertTriangle, CheckCircle, Info, MessageSquare, Bell } from 'lucide-react';
 
 export function AdminBroadcastPage() {
     const { token } = useAuth();
@@ -8,7 +8,8 @@ export function AdminBroadcastPage() {
         title: '',
         message: '',
         type: 'INFO',
-        link: ''
+        link: '',
+        sendPush: false
     });
     const [sending, setSending] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
@@ -30,8 +31,12 @@ export function AdminBroadcastPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                setSuccessMsg(`Successfully sent to ${data.count} accounts.`);
-                setFormData({ title: '', message: '', type: 'INFO', link: '' });
+                let msg = `Successfully sent to ${data.count} accounts.`;
+                if (formData.sendPush) {
+                    msg += ` Push: ${data.pushSent} sent, ${data.pushFailed} failed.`;
+                }
+                setSuccessMsg(msg);
+                setFormData({ title: '', message: '', type: 'INFO', link: '', sendPush: false });
             } else {
                 alert('Failed to send broadcast');
             }
@@ -103,6 +108,24 @@ export function AdminBroadcastPage() {
                             onChange={e => setFormData({ ...formData, link: e.target.value })}
                         />
                     </div>
+                </div>
+
+                {/* Push Notification Toggle */}
+                <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                    <input
+                        type="checkbox"
+                        id="sendPush"
+                        checked={formData.sendPush}
+                        onChange={e => setFormData({ ...formData, sendPush: e.target.checked })}
+                        className="w-5 h-5 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <label htmlFor="sendPush" className="flex items-center gap-2 cursor-pointer">
+                        <Bell size={18} className="text-indigo-600" />
+                        <div>
+                            <p className="font-medium text-slate-800">Send Push Notification</p>
+                            <p className="text-sm text-slate-500">Also send as a push notification to all subscribed devices</p>
+                        </div>
+                    </label>
                 </div>
 
                 <div className="pt-4">

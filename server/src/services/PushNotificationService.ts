@@ -376,4 +376,70 @@ export class PushNotificationService {
         Logger.info('[PushNotificationService] Test notification sent', { userId, sent, failed });
         return { success: sent > 0, sent, failed };
     }
+
+    /**
+     * Sends a push notification to ALL subscriptions globally (super admin broadcast).
+     * Does NOT filter by account or notification type preference.
+     */
+    static async sendBroadcast(
+        notification: { title: string; body: string; data?: Record<string, unknown> }
+    ): Promise<{ sent: number; failed: number }> {
+        const keys = await this.getVapidKeys();
+        if (!keys) {
+            Logger.warn('[PushNotificationService] Broadcast skipped - No VAPID keys configured');
+            return { sent: 0, failed: 0 };
+        }
+
+        webpush.setVapidDetails(
+            'mailto:notifications@overseek.io',
+            keys.publicKey,
+            keys.privateKey
+        );
+
+        // Fetch ALL subscriptions across all accounts
+        const subscriptions = await prisma.pushSubscription.findMany();
+
+        if (subscriptions.length === 0) {
+            Logger.warn('[PushNotificationService] Broadcast: No subscriptions found');
+            return { sent: 0, failed: 0 };
+        }
+
+        Logger.info('[PushNotificationService] Broadcasting push notification', {
+            subscriptionCount: subscriptions.length,
+            title: notification.title
+        });
+
+        let sent = 0;
+        let failed = 0;
+
+        for (const sub of subscriptions) {
+            try {
+                const pushSubscription: WebPushSubscription = {
+                    endpoint: sub.endpoint,
+                    keys: {
+                        p256dh: sub.p256dh,
+                        auth: sub.auth
+                    }
+                };
+
+                await webpush.sendNotification(
+                    pushSubscription,
+                    JSON.stringify(notification)
+                );
+                sent++;
+            } catch (error: unknown) {
+                failed++;
+                const statusCode = (error as { statusCode?: number })?.statusCode;
+                if (statusCode === 410 || statusCode === 404) {
+                    await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => { });
+                    Logger.info('[PushNotificationService] Removed stale subscription during broadcast', { subId: sub.id });
+                } else {
+                    Logger.error('[PushNotificationService] Broadcast send failed', { error, subId: sub.id });
+                }
+            }
+        }
+
+        Logger.info('[PushNotificationService] Broadcast complete', { sent, failed });
+        return { sent, failed };
+    }
 }

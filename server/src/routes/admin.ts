@@ -158,14 +158,26 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     // Broadcast Notification
-    fastify.post<{ Body: { title: string; message: string; type?: string; link?: string } }>('/broadcast', async (request, reply) => {
+    fastify.post<{ Body: { title: string; message: string; type?: string; link?: string; sendPush?: boolean } }>('/broadcast', async (request, reply) => {
         try {
-            const { title, message, type, link } = request.body;
+            const { title, message, type, link, sendPush } = request.body;
             const accounts = await prisma.account.findMany({ select: { id: true } });
             await prisma.notification.createMany({
                 data: accounts.map(acc => ({ accountId: acc.id, title, message, type: type || 'INFO', link }))
             });
-            return { success: true, count: accounts.length };
+
+            let pushResult = { sent: 0, failed: 0 };
+            if (sendPush) {
+                const { PushNotificationService } = await import('../services/PushNotificationService');
+                pushResult = await PushNotificationService.sendBroadcast({
+                    title,
+                    body: message,
+                    data: { url: link || '/dashboard', type: 'broadcast' }
+                });
+                Logger.info('[Admin] Broadcast with push', { accounts: accounts.length, ...pushResult });
+            }
+
+            return { success: true, count: accounts.length, pushSent: pushResult.sent, pushFailed: pushResult.failed };
         } catch (e) {
             return reply.code(500).send({ error: 'Broadcast failed' });
         }

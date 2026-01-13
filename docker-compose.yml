@@ -95,6 +95,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health/ready" ]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
     extra_hosts:
       - "host.docker.internal:host-gateway" # Allow container to reach host
     logging:
@@ -117,7 +123,14 @@ services:
       # VITE_API_URL not set so it uses proxy (relative paths)
       CHOKIDAR_USEPOLLING: "true" # Better for Docker
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5173/" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
