@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { Plus, Loader2, Calendar, FileText, DollarSign } from 'lucide-react';
+import { Plus, Loader2, FileText } from 'lucide-react';
 
 interface PurchaseOrder {
     id: string;

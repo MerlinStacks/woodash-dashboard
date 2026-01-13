@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 // Force reload
-import { ArrowLeft, Mail, ShoppingBag, Calendar, Activity, Zap, ExternalLink, MessageCircle, Users } from 'lucide-react';
+import { ArrowLeft, Mail, ShoppingBag, Calendar, Activity, Zap, Users } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';

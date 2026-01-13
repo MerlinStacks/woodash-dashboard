@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import EmailEditor, { EditorRef } from 'react-email-editor';
 import { X, Save, Mail } from 'lucide-react';
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { Plus, Search, Edit2, Package, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface SupplierItem {
     id: string;

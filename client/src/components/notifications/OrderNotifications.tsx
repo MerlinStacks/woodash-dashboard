@@ -24,6 +24,7 @@ export function OrderNotifications() {
             total: string;
             customerName: string;
         }) => {
+            console.log('[OrderNotifications] Received order:new event:', order);
             // Show browser notification if permission granted
             if (Notification.permission === 'granted') {
                 const notification = new Notification('🛒 New Order Received!', {

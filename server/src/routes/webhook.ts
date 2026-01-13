@@ -61,6 +61,11 @@ export async function processWebhookPayload(
             });
 
             // Emit socket event
+            Logger.warn(`[Webhook] Emitting order:new to room account:${accountId}`, {
+                orderId: body.id,
+                orderNumber: body.number || body.id,
+                total: body.total
+            });
             io.to(`account:${accountId}`).emit('order:new', {
                 orderId: body.id,
                 orderNumber: body.number || body.id,

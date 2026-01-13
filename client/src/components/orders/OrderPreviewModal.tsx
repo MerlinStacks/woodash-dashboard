@@ -1,4 +1,4 @@
-import { X, ExternalLink, Package, User, CreditCard } from 'lucide-react';
+import { X, ExternalLink, Package } from 'lucide-react';
 import { formatDate } from '../../utils/format';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';

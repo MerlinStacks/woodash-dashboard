@@ -1,5 +1,5 @@
 import { WidgetProps } from './WidgetRegistry';
-import { ShoppingBag, Loader2, Zap } from 'lucide-react';
+import { ShoppingBag, Loader2 } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';

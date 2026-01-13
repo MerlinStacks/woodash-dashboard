@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { Plus, Mail, Send, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Loader2, Trash2 } from 'lucide-react';
 
 export function CampaignsList({ onEdit }: { onEdit: (id: string, name: string, subject?: string) => void }) {
     const { token } = useAuth();

@@ -22,6 +22,7 @@ This document tracks planned enhancements, known bugs, and future feature ideas 
 ### PWA Enhancements
 
 - [ ] **Push Notification for Anomalies** — Send push alert when revenue anomaly detected
+- [ ] **Analytics** - The analytics isn't showing the correct information in the PWA App
 
 ---
 

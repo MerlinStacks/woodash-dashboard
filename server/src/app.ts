@@ -382,6 +382,7 @@ async function initializeApp() {
     // Socket.io Connection Logic
     io.on('connection', (socket) => {
         socket.on('join:account', (accountId) => {
+            Logger.warn(`[Socket] Client joined account room: account:${accountId}`, { socketId: socket.id });
             socket.join(`account:${accountId}`);
         });
 

@@ -3,11 +3,11 @@
  * Redesigned to display emails in a traditional email reader format (like Gmail/Outlook)
  * rather than chat bubbles. Shows sender header, date, and clean body layout.
  */
-import React, { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import DOMPurify from 'dompurify';
 import { format } from 'date-fns';
 import { cn } from '../../utils/cn';
-import { Check, AlertCircle, ChevronDown, ChevronUp, FileText, Download, Image as ImageIcon, File, Reply, CornerDownRight, User, Send, Eye } from 'lucide-react';
+import { Check, AlertCircle, ChevronDown, ChevronUp, FileText, Download, Image as ImageIcon, File, Reply, CornerDownRight, Send, Eye } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface MessageBubbleProps {

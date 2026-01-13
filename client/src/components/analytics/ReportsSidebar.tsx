@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { BarChart3, Trash2, Search, DollarSign, Globe, Users, TrendingUp, PieChart } from 'lucide-react';
 import { ReportTemplate } from '../../types/analytics';
 
@@ -72,15 +72,15 @@ export function ReportsSidebar({ templates, selectedTemplateId, onSelect, onDele
                 <button
                     onClick={() => onSelect(t)}
                     className={`w-full text-left p-3 rounded-xl transition-all duration-200 relative overflow-hidden ${isActive
-                            ? `${colors.bg} ${colors.text} shadow-xs ring-1 ${colors.ring}`
-                            : 'hover:bg-white/60 text-gray-600 hover:text-gray-900 border border-transparent hover:border-white/40'
+                        ? `${colors.bg} ${colors.text} shadow-xs ring-1 ${colors.ring}`
+                        : 'hover:bg-white/60 text-gray-600 hover:text-gray-900 border border-transparent hover:border-white/40'
                         }`}
                 >
                     {isActive && <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.bg.replace('/10', '')} rounded-l-xl`} />}
                     <div className="flex items-center gap-3 relative z-10">
                         <div className={`p-1.5 rounded-lg transition-all ${isActive
-                                ? `${colors.bg} ${colors.text}`
-                                : 'bg-gray-100 text-gray-400 group-hover/item:bg-white group-hover/item:shadow-xs'
+                            ? `${colors.bg} ${colors.text}`
+                            : 'bg-gray-100 text-gray-400 group-hover/item:bg-white group-hover/item:shadow-xs'
                             }`}>
                             {isSystem && CATEGORY_ICONS[category] ? CATEGORY_ICONS[category] : <BarChart3 size={14} />}
                         </div>

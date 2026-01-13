@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { Plus, Facebook, TrendingUp, Loader2, Trash2, ExternalLink, AlertCircle, RefreshCw, BarChart2 } from 'lucide-react';
+import { Plus, Facebook, Loader2, Trash2, ExternalLink, AlertCircle, RefreshCw, BarChart2 } from 'lucide-react';
 import { GoogleAdsCampaigns } from './GoogleAdsCampaigns';
 
 interface AdAccount {

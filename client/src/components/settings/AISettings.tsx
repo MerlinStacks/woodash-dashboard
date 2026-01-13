@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAccount } from '../../context/AccountContext';
 import { useAuth } from '../../context/AuthContext';
-import { Save, Loader2, Bot, Key, Search, ChevronDown, Check, Sparkles } from 'lucide-react';
+import { Save, Loader2, Bot, Key, ChevronDown, Check, Sparkles } from 'lucide-react';
 
 // Available embedding models from OpenRouter
 const EMBEDDING_MODELS = [

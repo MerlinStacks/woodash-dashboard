@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { GoogleAdsCampaigns } from './GoogleAdsCampaigns';
-import { Loader2, AlertCircle, Megaphone, Plus } from 'lucide-react';
+import { Loader2, Megaphone, Plus } from 'lucide-react';
 
 interface AdAccount {
     id: string;
@@ -89,8 +89,8 @@ export function AdPerformanceView() {
                             key={acc.id}
                             onClick={() => setSelectedAccountId(acc.id)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${isActive
-                                    ? 'bg-blue-600 text-white shadow-md'
-                                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
                                 }`}
                         >
                             {/* Platform icon */}

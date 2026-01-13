@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { Plus, Zap, Play, Pause, Trash2, Loader2, GitBranch } from 'lucide-react';
+import { Plus, Zap, Play, Pause, Trash2, Loader2 } from 'lucide-react';
 
 export function AutomationsList({ onEdit }: { onEdit: (id: string, name: string) => void }) {
     const { token } = useAuth();
