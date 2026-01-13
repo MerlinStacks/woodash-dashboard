@@ -148,7 +148,7 @@ const trackingIngestionRoutes: FastifyPluginAsync = async (fastify) => {
 
             let payload = {};
             if (payloadStr) {
-                try { payload = JSON.parse(decodeURIComponent(payloadStr)); } catch { /* ignore invalid payload */ }
+                try { payload = JSON.parse(decodeURIComponent(payloadStr)); } catch (_e) { /* Intentionally ignored: invalid payload is non-fatal, proceed with empty object */ }
             }
 
             await TrackingService.processEvent({

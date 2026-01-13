@@ -16,8 +16,8 @@ const level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn';
 const timestampFn = () => `,"time":"${new Date().toISOString()}"`;
 
 // Create the raw pino logger for our Logger wrapper
-// Note: Async writes (default) are required for Docker compatibility.
-// Sync writes cause buffer corruption with high log volume in containers.
+// Note: Sync writes prevent buffer interleaving in Docker containers.
+// Async writes cause corruption when multiple concurrent log calls happen.
 const createPinoLogger = () => {
     return pino({
         level,
@@ -29,7 +29,7 @@ const createPinoLogger = () => {
             pid: process.pid,
             hostname: require('os').hostname(),
         },
-    });
+    }, pino.destination({ sync: true }));
 };
 
 const pinoInstance = createPinoLogger();

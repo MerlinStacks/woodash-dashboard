@@ -911,13 +911,14 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                         break;
                     }
 
-                    case 'addLabel':
+                    case 'addLabel': {
                         if (!labelId) {
                             return reply.code(400).send({ error: 'labelId is required for addLabel action' });
                         }
                         await labelService.bulkAssignLabel(conversationIds, labelId);
                         result.updated = conversationIds.length;
                         break;
+                    }
 
                     case 'removeLabel': {
                         if (!labelId) {

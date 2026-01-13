@@ -5,35 +5,28 @@ import { createRequire } from 'module'
 
 // Force restart
 
-// Helper to resolve React paths that works in both npm workspaces and Docker
-const resolveReactPath = (pkg: string): string => {
-    try {
-        // Use createRequire for ESM-compatible resolution
-        const require = createRequire(import.meta.url)
-        return path.dirname(require.resolve(`${pkg}/package.json`))
-    } catch {
-        // Fallback for workspace setup (local dev)
-        const workspacePath = path.resolve(__dirname, '../node_modules', pkg)
-        const localPath = path.resolve(__dirname, 'node_modules', pkg)
-        // Prefer workspace path if running locally, otherwise use local
-        return require('fs').existsSync(workspacePath) ? workspacePath : localPath
-    }
-}
-
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '')
     return {
         plugins: [react()],
         resolve: {
+            dedupe: ['react', 'react-dom'],
             alias: {
-                // Use dynamic resolution that works in both npm workspaces and Docker
-                'react': resolveReactPath('react'),
-                'react-dom': resolveReactPath('react-dom'),
+                // Ensure we use the workspace root's React if available, or fall back to local
+                // But specifically avoid the duplicate instance issue by pointing to one place
+                // Note: The dedupe option above is usually sufficient for npm workspaces
             }
         },
         server: {
-            allowedHosts: (env.ALLOWED_HOSTS || env.VITE_ALLOWED_HOSTS) ? (env.ALLOWED_HOSTS || env.VITE_ALLOWED_HOSTS).split(',') : [],
+            allowedHosts: [
+                'overseek.plateit.au',
+                'localhost',
+                ...(env.ALLOWED_HOSTS ? env.ALLOWED_HOSTS.split(',') : [])
+            ],
+            hmr: {
+                clientPort: 443
+            },
             host: env.HOST === 'true' ? true : (env.HOST || true), // Default to true for Docker, or allow override
             port: parseInt(env.PORT) || 5173,
             watch: {

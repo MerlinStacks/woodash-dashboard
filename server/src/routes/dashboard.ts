@@ -120,7 +120,7 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
             layout = await prisma.dashboardLayout.create({
                 data: {
                     accountId,
-                    userId: request.user!.id,
+                    userId: request.user?.id ?? '',
                     name: 'Main Dashboard',
                     isDefault: true,
                     widgets: {

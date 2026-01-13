@@ -12,6 +12,7 @@ import { Mail, Megaphone, BarChart2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { useAccountFeature } from '../hooks/useAccountFeature';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
 type EditorMode = 'email' | null;
 
@@ -134,7 +135,11 @@ export function MarketingPage() {
 
             <div className="py-4">
                 {activeTab === 'campaigns' && <CampaignsList onEdit={handleEditCampaign} />}
-                {activeTab === 'performance' && <AdPerformanceView />}
+                {activeTab === 'performance' && (
+                    <ErrorBoundary>
+                        <AdPerformanceView />
+                    </ErrorBoundary>
+                )}
                 {activeTab === 'ads' && <AdsView />}
             </div>
         </div>

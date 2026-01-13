@@ -202,8 +202,11 @@ export class EmailService {
         let decryptedPassword: string;
         try {
             decryptedPassword = decrypt(account.password);
-        } catch (e) {
-            Logger.error('[checkEmails] Failed to decrypt email password', { emailAccountId, error: e });
+        } catch (e: any) {
+            Logger.error('[checkEmails] Failed to decrypt email password', {
+                emailAccountId,
+                error: e?.message || String(e)
+            });
             return;
         }
 

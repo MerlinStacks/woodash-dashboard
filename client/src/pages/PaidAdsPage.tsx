@@ -1,4 +1,5 @@
 import { AdPerformanceView } from '../components/marketing/AdPerformanceView';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
 export function PaidAdsPage() {
     return (
@@ -8,7 +9,9 @@ export function PaidAdsPage() {
                 <p className="text-gray-500">Monitor performance across your connected ad platforms.</p>
             </div>
 
-            <AdPerformanceView />
+            <ErrorBoundary>
+                <AdPerformanceView />
+            </ErrorBoundary>
         </div>
     );
 }

@@ -10,15 +10,18 @@ import { AdminLayout } from './components/layout/AdminLayout';
 import { SuperAdminGuard } from './components/layout/SuperAdminGuard';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 
-// Core pages (always loaded)
-import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { SetupWizard } from './pages/SetupWizard';
-import { SettingsPage } from './pages/SettingsPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { DataDeletionPage } from './pages/DataDeletionPage';
 import { TermsOfServicePage } from './pages/TermsOfServicePage';
+import { SetupWizard } from './pages/SetupWizard';
+import { DashboardPage } from './pages/DashboardPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
+
+// ... (inside App function)
+
 
 // Lazy-loaded pages (code splitting for bundle optimization)
 const OrdersPage = lazy(() => import('./pages/OrdersPage').then(m => ({ default: m.OrdersPage })));
@@ -177,7 +180,7 @@ function App() {
                                             <Route path="/setup" element={<SetupWizard />} />
 
                                             {/* Super Admin Routes */}
-                                            <Route element={<SuperAdminGuard><AdminLayout><Outlet /></AdminLayout></SuperAdminGuard>}>
+                                            <Route element={<SuperAdminGuard><AdminLayout><ErrorBoundary><Outlet /></ErrorBoundary></AdminLayout></SuperAdminGuard>}>
                                                 <Route path="/admin" element={<AdminDashboard />} />
                                                 <Route path="/admin/accounts" element={<AdminAccountsPage />} />
                                                 <Route path="/admin/logs" element={<AdminLogsPage />} />
@@ -187,7 +190,7 @@ function App() {
                                                 <Route path="/admin/settings" element={<AdminSettingsPage />} />
                                             </Route>
 
-                                            <Route element={<DashboardLayout><Outlet /></DashboardLayout>}>
+                                            <Route element={<DashboardLayout><ErrorBoundary><Outlet /></ErrorBoundary></DashboardLayout>}>
                                                 <Route path="/" element={<AccountGuard><DashboardPage /></AccountGuard>} />
                                                 <Route path="/orders" element={<AccountGuard><OrdersPage /></AccountGuard>} />
                                                 <Route path="/orders/:id" element={<AccountGuard><OrderDetailPage /></AccountGuard>} />
@@ -228,7 +231,7 @@ function App() {
 
                                         {/* Mobile PWA Routes */}
                                         <Route element={<ProtectedRoute />}>
-                                            <Route element={<MobileLayout />}>
+                                            <Route element={<MobileLayout><ErrorBoundary><Outlet /></ErrorBoundary></MobileLayout>}>
                                                 <Route path="/m/dashboard" element={<AccountGuard><MobileDashboard /></AccountGuard>} />
                                                 <Route path="/m/orders" element={<AccountGuard><MobileOrders /></AccountGuard>} />
                                                 <Route path="/m/orders/:id" element={<AccountGuard><MobileOrderDetail /></AccountGuard>} />

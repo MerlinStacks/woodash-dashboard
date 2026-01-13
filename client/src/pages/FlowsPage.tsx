@@ -8,6 +8,7 @@ import { FlowBuilder } from '../components/marketing/FlowBuilder';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
 interface EditingItem {
     id: string;
@@ -87,11 +88,13 @@ export function FlowsPage() {
                         </div>
                     </div>
                     <div className="flex-1 overflow-hidden">
-                        <FlowBuilder
-                            initialFlow={editingFlowData?.flowDefinition}
-                            onSave={handleSaveFlow}
-                            onCancel={handleCloseEditor}
-                        />
+                        <ErrorBoundary>
+                            <FlowBuilder
+                                initialFlow={editingFlowData?.flowDefinition}
+                                onSave={handleSaveFlow}
+                                onCancel={handleCloseEditor}
+                            />
+                        </ErrorBoundary>
                     </div>
                 </div>
             </div>
@@ -106,7 +109,9 @@ export function FlowsPage() {
                 <p className="text-gray-500">Create and manage automated workflows for customer engagement.</p>
             </div>
 
-            <AutomationsList onEdit={handleEditFlow} />
+            <ErrorBoundary>
+                <AutomationsList onEdit={handleEditFlow} />
+            </ErrorBoundary>
         </div>
     );
 }
