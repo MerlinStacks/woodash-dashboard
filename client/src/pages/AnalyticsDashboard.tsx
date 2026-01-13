@@ -4,7 +4,7 @@ import VisitorLogWidget from '../components/widgets/VisitorLogWidget';
 import EcommerceLogWidget from '../components/widgets/EcommerceLogWidget';
 import AnalyticsStatsWidget from '../components/widgets/AnalyticsStatsWidget';
 import FunnelWidget from '../components/widgets/FunnelWidget';
-import { BarChart3, Users, Globe, TrendingUp, PieChart } from 'lucide-react';
+import { Users, Globe, TrendingUp, PieChart } from 'lucide-react';
 
 const AnalyticsDashboard: React.FC = () => {
 

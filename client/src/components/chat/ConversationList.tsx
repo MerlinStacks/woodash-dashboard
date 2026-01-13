@@ -1,6 +1,6 @@
 
 import { formatDistanceToNow } from 'date-fns';
-import { Mail, User, MessageSquare, Filter, ChevronDown, Pencil, Eye, EyeOff, Plus, Search, X, Loader2, Tag, Check, Square, CheckSquare } from 'lucide-react';
+import { Mail, Filter, ChevronDown, Pencil, Eye, EyeOff, Plus, Search, X, Loader2, Tag, Square, CheckSquare } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useState, useEffect, useCallback } from 'react';
 import { useDrafts } from '../../hooks/useDrafts';

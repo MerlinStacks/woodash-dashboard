@@ -1,5 +1,5 @@
 
-import { PrismaClient, EmailAccount } from '@prisma/client';
+import { EmailAccount } from '@prisma/client';
 import nodemailer from 'nodemailer';
 import { ImapFlow } from 'imapflow';
 import { simpleParser, ParsedMail, Attachment } from 'mailparser';

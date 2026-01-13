@@ -42,7 +42,6 @@ const BroadcastsPage = lazy(() => import('./pages/BroadcastsPage').then(m => ({ 
 const HelpCenterHome = lazy(() => import('./pages/HelpCenter/HelpCenterHome').then(m => ({ default: m.HelpCenterHome })));
 const HelpArticle = lazy(() => import('./pages/HelpCenter/HelpArticle').then(m => ({ default: m.HelpArticle })));
 const LiveAnalyticsPage = lazy(() => import('./pages/LiveAnalyticsPage').then(m => ({ default: m.LiveAnalyticsPage })));
-const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'));
 const ProductEditPage = lazy(() => import('./pages/ProductEditPage').then(m => ({ default: m.ProductEditPage })));
 const PurchaseOrderEditPage = lazy(() => import('./pages/PurchaseOrderEditPage').then(m => ({ default: m.PurchaseOrderEditPage })));
 const InvoiceDesigner = lazy(() => import('./pages/InvoiceDesigner').then(m => ({ default: m.InvoiceDesigner })));

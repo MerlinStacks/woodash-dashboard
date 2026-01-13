@@ -65,7 +65,7 @@ export function MobileMore() {
         {
             title: 'Support',
             items: [
-                { id: 'help', label: 'Help Center', icon: HelpCircle, action: () => window.open('https://help.overseek.io', '_blank') },
+                { id: 'help', label: 'Help Center', icon: HelpCircle, path: '/help' },
             ]
         },
         {

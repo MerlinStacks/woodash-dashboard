@@ -79,7 +79,7 @@ const FlowBuilderContent: React.FC<Props> = ({ initialFlow, onSave, onCancel }) 
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-    const { screenToFlowPosition, getViewport } = useReactFlow();
+    const { getViewport } = useReactFlow();
 
     // Modal states
     const [showEventSelector, setShowEventSelector] = useState(false);

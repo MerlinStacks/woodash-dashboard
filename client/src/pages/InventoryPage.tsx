@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { Search, Package, Loader2, Layers, Truck, Calculator, Plus, Box } from 'lucide-react';
+import { Search, Package, Loader2, Layers, Truck, Calculator, Plus } from 'lucide-react';
 import { SuppliersList } from '../components/inventory/SuppliersList';
 // import { BOMEditor } from '../components/inventory/BOMEditor';
 // import { BOMEditor } from '../components/inventory/BOMEditor';

@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { formatDate } from '../utils/format';
-import { Loader2, RefreshCw, Search, Tag, X } from 'lucide-react';
+import { Loader2, RefreshCw, Search, Tag } from 'lucide-react';
 import { Pagination } from '../components/ui/Pagination';
 import { OrderPreviewModal } from '../components/orders/OrderPreviewModal';
 import { FraudIcon } from '../components/orders/FraudIcon';

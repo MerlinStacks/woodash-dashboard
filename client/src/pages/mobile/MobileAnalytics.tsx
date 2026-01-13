@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { TrendingUp, DollarSign, ShoppingCart, Users, Eye, ArrowUpRight, ArrowDownRight, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { getDateRange, DateRangeOption } from '../../utils/dateUtils';
+import { getDateRange, getComparisonRange, DateRangeOption } from '../../utils/dateUtils';
 
 interface AnalyticsData {
     revenue: { value: number; change: number };
@@ -71,16 +71,27 @@ export function MobileAnalytics() {
                 'week': '7d',
                 'month': '30d'
             };
-            const { startDate, endDate } = getDateRange(periodMap[period]);
+            const currentRange = getDateRange(periodMap[period]);
+            const comparisonRange = getComparisonRange(currentRange, 'previous_period');
 
-            // Fetch multiple analytics endpoints in parallel
+            // Fetch current period data
             const [salesRes, customerRes, liveRes] = await Promise.all([
-                fetch(`/api/analytics/sales?startDate=${startDate}&endDate=${endDate}`, { headers }),
-                fetch(`/api/analytics/customer-growth?startDate=${startDate}&endDate=${endDate}`, { headers }),
+                fetch(`/api/analytics/sales?startDate=${currentRange.startDate}&endDate=${currentRange.endDate}`, { headers }),
+                fetch(`/api/analytics/customer-growth?startDate=${currentRange.startDate}&endDate=${currentRange.endDate}`, { headers }),
                 fetch('/api/analytics/visitors/log?live=true&limit=1', { headers })
             ]);
 
-            let revenue = 0, orderCount = 0, customerCount = 0;
+            // Fetch comparison period data (if available)
+            let prevSalesRes = null, prevCustomerRes = null;
+            if (comparisonRange) {
+                [prevSalesRes, prevCustomerRes] = await Promise.all([
+                    fetch(`/api/analytics/sales?startDate=${comparisonRange.startDate}&endDate=${comparisonRange.endDate}`, { headers }),
+                    fetch(`/api/analytics/customer-growth?startDate=${comparisonRange.startDate}&endDate=${comparisonRange.endDate}`, { headers })
+                ]);
+            }
+
+            // Parse current period
+            let revenue = 0, orderCount = 0, customerCount = 0, visitorCount = 0;
 
             if (salesRes.ok) {
                 const salesData = await salesRes.json();
@@ -95,25 +106,49 @@ export function MobileAnalytics() {
 
             if (liveRes.ok) {
                 const liveData = await liveRes.json();
-                console.log('[MobileAnalytics] Live visitors API response:', liveData);
-                setLiveCount(liveData.total || 0);
-            } else {
-                console.error('[MobileAnalytics] Live visitors API failed:', liveRes.status);
+                visitorCount = liveData.total || 0;
+                setLiveCount(visitorCount);
             }
+
+            // Parse comparison period
+            let prevRevenue = 0, prevOrderCount = 0, prevCustomerCount = 0;
+
+            if (prevSalesRes?.ok) {
+                const prevSalesData = await prevSalesRes.json();
+                prevRevenue = prevSalesData.total || 0;
+                prevOrderCount = prevSalesData.count || 0;
+            }
+
+            if (prevCustomerRes?.ok) {
+                const prevCustomerData = await prevCustomerRes.json();
+                prevCustomerCount = prevCustomerData.newCustomers || prevCustomerData.total || 0;
+            }
+
+            // Calculate percentage changes
+            const calcChange = (current: number, previous: number): number => {
+                if (previous === 0) return current > 0 ? 100 : 0;
+                return ((current - previous) / previous) * 100;
+            };
+
+            const revenueChange = calcChange(revenue, prevRevenue);
+            const ordersChange = calcChange(orderCount, prevOrderCount);
+            const customersChange = calcChange(customerCount, prevCustomerCount);
 
             // Calculate AOV
             const aov = orderCount > 0 ? revenue / orderCount : 0;
+            const prevAov = prevOrderCount > 0 ? prevRevenue / prevOrderCount : 0;
+            const aovChange = calcChange(aov, prevAov);
 
-            // Use liveCount for visitors - represents unique visitors tracked
-            const visitorCount = liveCount;
+            // Conversion rate (visitors are live-only, so no comparison available)
+            const conversionRate = visitorCount > 0 ? (orderCount / visitorCount) * 100 : 0;
 
             setData({
-                revenue: { value: revenue, change: 0 },
-                orders: { value: orderCount, change: 0 },
-                visitors: { value: visitorCount, change: 0 },
-                customers: { value: customerCount, change: 0 },
-                conversionRate: { value: visitorCount > 0 ? (orderCount / visitorCount) * 100 : 0, change: 0 },
-                avgOrderValue: { value: aov, change: 0 }
+                revenue: { value: revenue, change: revenueChange },
+                orders: { value: orderCount, change: ordersChange },
+                visitors: { value: visitorCount, change: 0 }, // Live visitors have no historical comparison
+                customers: { value: customerCount, change: customersChange },
+                conversionRate: { value: conversionRate, change: 0 }, // Dependent on visitors
+                avgOrderValue: { value: aov, change: aovChange }
             });
         } catch (error) {
             console.error('[MobileAnalytics] Error:', error);

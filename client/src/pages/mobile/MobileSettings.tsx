@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -6,9 +6,6 @@ import {
     ChevronLeft,
     ChevronRight,
     Bell,
-    Palette,
-    Shield,
-    CreditCard,
     Package,
     MessageSquare,
     RefreshCw,
@@ -33,8 +30,9 @@ interface SettingItem {
 export function MobileSettings() {
     const navigate = useNavigate();
     const { token } = useAuth();
-    const { currentAccount } = useAccount();
+    const { currentAccount, accounts, setCurrentAccount } = useAccount();
     const [syncing, setSyncing] = useState(false);
+    const [showSwitcher, setShowSwitcher] = useState(false);
 
     const settingSections = [
         {
@@ -120,6 +118,11 @@ export function MobileSettings() {
             case 'inbox':
                 navigate('/m/inbox');
                 break;
+            case 'website':
+                if (accounts.length > 1) {
+                    setShowSwitcher(true);
+                }
+                break;
             default:
                 break;
         }
@@ -197,6 +200,56 @@ export function MobileSettings() {
                 <p>OverSeek Companion v1.0</p>
                 <p className="mt-1">© 2026 SLDevs</p>
             </div>
+
+            {/* Account Switcher Modal */}
+            {showSwitcher && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/50"
+                        onClick={() => setShowSwitcher(false)}
+                    />
+                    {/* Modal */}
+                    <div className="relative w-full max-w-md bg-white rounded-t-2xl p-6 pb-8 animate-slide-up">
+                        <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+                        <h2 className="text-lg font-bold text-gray-900 mb-4">Switch Store</h2>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {accounts.map((account) => (
+                                <button
+                                    key={account.id}
+                                    onClick={() => {
+                                        setCurrentAccount(account);
+                                        setShowSwitcher(false);
+                                        // Refresh the page to reload data for new account
+                                        window.location.reload();
+                                    }}
+                                    className={`w-full flex items-center gap-3 p-4 rounded-xl text-left transition-colors ${currentAccount?.id === account.id
+                                        ? 'bg-indigo-50 border-2 border-indigo-500'
+                                        : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                                        }`}
+                                >
+                                    <Globe size={20} className={currentAccount?.id === account.id ? 'text-indigo-600' : 'text-gray-400'} />
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`font-medium truncate ${currentAccount?.id === account.id ? 'text-indigo-600' : 'text-gray-900'}`}>
+                                            {account.name}
+                                        </p>
+                                        <p className="text-sm text-gray-500 truncate">{account.wooUrl}</p>
+                                    </div>
+                                    {currentAccount?.id === account.id && (
+                                        <span className="text-xs font-medium text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full">Active</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => setShowSwitcher(false)}
+                            className="w-full mt-4 py-3 bg-gray-100 rounded-xl font-medium text-gray-700 active:bg-gray-200"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

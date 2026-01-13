@@ -11,7 +11,6 @@ import {
     ChevronLeft,
     ChevronRight,
     Megaphone,
-    Shield,
     MessageSquare,
     Store,
     PieChart,
@@ -21,10 +20,8 @@ import {
     Star,
     ShieldAlert,
     LineChart,
-    FileText,
     DollarSign,
     GitBranch,
-    Repeat,
     X,
     BookOpen,
     Zap
