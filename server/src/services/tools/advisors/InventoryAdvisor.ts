@@ -7,13 +7,7 @@
 
 import { prisma } from '../../../utils/prisma';
 import { Logger } from '../../../utils/logger';
-
-interface InventorySummary {
-    total_products: number;
-    out_of_stock_count: number;
-    relevant_out_of_stock: number;
-    low_stock_count: number;
-}
+import { InventorySummary } from '../../ads/types';
 
 /**
  * Process inventory data to generate stock-related suggestions.

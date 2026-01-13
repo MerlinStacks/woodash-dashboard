@@ -18,6 +18,7 @@ import {
     processCreativeFatigue,
     processProductAdMatch
 } from './advisors';
+import { processSearchSuggestions } from './advisors/SearchAdvisor';
 
 export interface AdOptimizerOptions {
     userContext?: string;
@@ -40,6 +41,11 @@ export class AdOptimizer {
      * Infer priority from suggestion text based on emoji and keywords.
      */
     private static inferPriority(text: string): PrioritizedSuggestion {
+        // Guard against null/undefined text from malformed suggestions
+        if (!text) {
+            return { text: '', priority: 3, category: 'info' };
+        }
+
         // Urgent (priority 1): Stock alerts, performance drops, seasonal peaks
         if (text.includes('🚫') || text.includes('Stock Alert') ||
             text.includes('📉') || text.includes('Performance Drop') ||
@@ -129,6 +135,9 @@ export class AdOptimizer {
             // Standard campaign suggestions (inline - simple enough to keep here)
             if (hasGoogle) {
                 this.processGoogleSuggestions(googleAnalysis, suggestions, combinedSummary, seasonalContext);
+                if (googleAnalysis.search_analysis) {
+                    processSearchSuggestions(googleAnalysis as any, suggestions);
+                }
             }
             if (hasMeta) {
                 this.processMetaSuggestions(metaAnalysis, suggestions, combinedSummary, seasonalContext);

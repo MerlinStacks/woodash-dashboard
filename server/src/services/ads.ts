@@ -13,7 +13,7 @@ import { MetaAdsService } from './ads/MetaAdsService';
 import { GoogleAdsService } from './ads/GoogleAdsService';
 
 // Re-export types for backwards compatibility
-export { AdMetric, CampaignInsight, DailyTrend, ShoppingProductInsight } from './ads/types';
+export { AdMetric, CampaignInsight, DailyTrend, ShoppingProductInsight, SearchKeywordInsight } from './ads/types';
 
 /**
  * Unified Ads Service facade.
@@ -64,6 +64,9 @@ export class AdsService {
 
     /** @see GoogleAdsService.getCampaignProducts */
     static getGoogleCampaignProducts = GoogleAdsService.getCampaignProducts;
+
+    /** @see GoogleAdsService.getSearchKeywords */
+    static getGoogleSearchKeywords = GoogleAdsService.getSearchKeywords;
 
     // ──────────────────────────────────────────────────────────────
     // COMMON ACCOUNT MANAGEMENT

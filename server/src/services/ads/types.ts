@@ -86,6 +86,31 @@ export interface ShoppingProductInsight {
     dateStop: string;
 }
 
+/**
+ * Search Keyword performance insight.
+ */
+export interface SearchKeywordInsight {
+    campaignId: string;
+    campaignName: string;
+    adGroupId: string;
+    adGroupName: string;
+    keywordId: string;
+    keywordText: string;
+    matchType: string;
+    status: string;
+    spend: number;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    conversionsValue: number;
+    roas: number;
+    ctr: number;
+    cpc: number;
+    currency: string;
+    dateStart: string;
+    dateStop: string;
+}
+
 // =============================================================================
 // CREDENTIAL MANAGEMENT
 // =============================================================================
@@ -159,3 +184,56 @@ export function formatDateISO(d: Date): string {
 export function formatDateGAQL(d: Date): string {
     return d.toISOString().split('T')[0].replace(/-/g, '');
 }
+
+// =============================================================================
+// ADVISOR TYPES
+// =============================================================================
+
+/**
+ * Inventory analysis summary for ad optimization.
+ */
+export interface InventorySummary {
+    total_products: number;
+    out_of_stock_count: number;
+    relevant_out_of_stock: number;
+    low_stock_count: number;
+}
+
+/**
+ * Week-over-week performance trend summary.
+ */
+export interface TrendsSummary {
+    this_week_roas: string;
+    last_week_roas: string;
+    roas_change: string;
+    ctr_change: string;
+}
+
+/**
+ * Aggregated metrics for trend calculation.
+ */
+export interface TrendMetrics {
+    spend: number;
+    conversionsValue: number;
+    clicks: number;
+    impressions: number;
+}
+
+/**
+ * Shopping product reference for matching.
+ */
+export interface ShoppingProductRef {
+    product: string;
+    product_id?: string;
+    roas?: string;
+    spend?: string;
+    clicks?: number;
+}
+
+/**
+ * Shopping data structure with top products.
+ */
+export interface ShoppingAnalysisData {
+    top_products?: ShoppingProductRef[];
+}
+

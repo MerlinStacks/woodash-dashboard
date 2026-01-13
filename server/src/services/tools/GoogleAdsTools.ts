@@ -29,6 +29,7 @@ export class GoogleAdsTools {
 
             const allCampaigns: any[] = [];
             const allProducts: any[] = [];
+            const allKeywords: any[] = [];
 
             for (const adAccount of adAccounts) {
                 try {
@@ -51,6 +52,19 @@ export class GoogleAdsTools {
                         });
                     } catch (err) {
                         Logger.debug(`No shopping data for ${adAccount.id}`, { error: err });
+                    }
+
+                    // Also fetch search keyword data
+                    try {
+                        const keywords = await AdsService.getGoogleSearchKeywords(adAccount.id, days, 500);
+                        keywords.forEach((k: any) => {
+                            allKeywords.push({
+                                account: adAccount.name || adAccount.externalId,
+                                ...k
+                            });
+                        });
+                    } catch (err) {
+                        Logger.debug(`No keyword data for ${adAccount.id}`, { error: err });
                     }
                 } catch (err) {
                     Logger.warn(`Failed to fetch campaigns for ${adAccount.id}`, { error: err });
@@ -76,6 +90,7 @@ export class GoogleAdsTools {
                 .slice(0, 3);
 
             const shoppingAnalysis = this.analyzeShoppingProducts(allProducts, totals);
+            const searchAnalysis = this.analyzeSearchKeywords(allKeywords);
 
             return {
                 summary: {
@@ -112,7 +127,8 @@ export class GoogleAdsTools {
                     revenue: `$${c.conversionsValue.toFixed(2)}`,
                     suggestion: 'Consider increasing budget'
                 })),
-                shopping_products: shoppingAnalysis
+                shopping_products: shoppingAnalysis,
+                search_analysis: searchAnalysis
             };
 
         } catch (error) {
@@ -189,6 +205,57 @@ export class GoogleAdsTools {
             campaigns_with_products: Object.keys(productsByCampaign).length,
             // Return raw set of active product IDs (SKUs or IDs depending on feed setup)
             active_ad_product_ids: Array.from(new Set(allProducts.map(p => p.productId ? String(p.productId) : '')))
+        };
+    }
+
+    private static analyzeSearchKeywords(allKeywords: any[]) {
+        if (allKeywords.length === 0) return null;
+
+        const keywordTotals = allKeywords.reduce((acc, k) => ({
+            spend: acc.spend + k.spend,
+            conversionsValue: acc.conversionsValue + k.conversionsValue
+        }), { spend: 0, conversionsValue: 0 });
+
+        const topKeywords = [...allKeywords]
+            .filter(k => k.spend > 0)
+            .sort((a, b) => b.roas - a.roas)
+            .slice(0, 5);
+
+        const negativeOpportunities = [...allKeywords]
+            .filter(k => k.spend > 20 && k.conversions === 0)
+            .sort((a, b) => b.spend - a.spend)
+            .slice(0, 5);
+
+        const highSpendLowCtr = [...allKeywords]
+            .filter(k => k.impressions > 1000 && k.ctr < 1 && k.spend > 10)
+            .sort((a, b) => b.spend - a.spend)
+            .slice(0, 5);
+
+        return {
+            total_keywords_analyzed: allKeywords.length,
+            top_keywords: topKeywords.map(k => ({
+                keyword: k.keywordText,
+                campaign: k.campaignName,
+                match_type: k.matchType,
+                roas: `${k.roas.toFixed(2)}x`,
+                spend: `$${k.spend.toFixed(2)}`,
+                conversions: k.conversions.toFixed(0)
+            })),
+            negative_opportunities: negativeOpportunities.map(k => ({
+                keyword: k.keywordText,
+                campaign: k.campaignName,
+                match_type: k.matchType,
+                spend: `$${k.spend.toFixed(2)}`,
+                clicks: k.clicks,
+                issue: 'High spend with zero conversions - consider adding as negative keyword'
+            })),
+            low_ctr_keywords: highSpendLowCtr.map(k => ({
+                keyword: k.keywordText,
+                campaign: k.campaignName,
+                ctr: `${k.ctr.toFixed(2)}%`,
+                impressions: k.impressions,
+                issue: 'Low CTR - ad copy or keyword relevance may need review'
+            }))
         };
     }
 }

@@ -7,18 +7,7 @@
 
 import { prisma } from '../../../utils/prisma';
 import { Logger } from '../../../utils/logger';
-
-interface ShoppingProduct {
-    product: string;
-    product_id?: string;
-    roas?: string;
-    spend?: string;
-    clicks?: number;
-}
-
-interface ShoppingData {
-    top_products?: ShoppingProduct[];
-}
+import { ShoppingProductRef, ShoppingAnalysisData } from '../../ads/types';
 
 /**
  * Match shopping ad products to WooCommerce inventory for margin analysis.
@@ -28,7 +17,7 @@ interface ShoppingData {
  */
 export async function processProductAdMatch(
     accountId: string,
-    shoppingData: ShoppingData,
+    shoppingData: ShoppingAnalysisData,
     suggestions: string[]
 ): Promise<void> {
     try {

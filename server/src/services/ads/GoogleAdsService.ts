@@ -7,7 +7,7 @@
 
 import { prisma } from '../../utils/prisma';
 import { Logger } from '../../utils/logger';
-import { AdMetric, CampaignInsight, DailyTrend, ShoppingProductInsight, formatDateISO, formatDateGAQL } from './types';
+import { AdMetric, CampaignInsight, DailyTrend, ShoppingProductInsight, SearchKeywordInsight, formatDateISO, formatDateGAQL } from './types';
 import { createGoogleAdsClient, parseGoogleAdsError } from './GoogleAdsClient';
 import { GoogleAdsAuth } from './GoogleAdsAuth';
 
@@ -228,8 +228,73 @@ export class GoogleAdsService {
      * Filters shopping products by campaign ID.
      */
     static async getCampaignProducts(adAccountId: string, campaignId: string, days: number = 30): Promise<ShoppingProductInsight[]> {
-        const allProducts = await this.getShoppingProducts(adAccountId, days, 500);
+        const allProducts = await GoogleAdsService.getShoppingProducts(adAccountId, days, 500);
         return allProducts.filter(p => p.campaignId === campaignId);
+    }
+
+    /**
+     * Fetch search keywords performance.
+     */
+    static async getSearchKeywords(adAccountId: string, days: number = 30, limit: number = 500): Promise<SearchKeywordInsight[]> {
+        try {
+            const { customer, currency } = await createGoogleAdsClient(adAccountId);
+
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - days);
+
+            const query = `
+                SELECT
+                    campaign.id, campaign.name,
+                    ad_group.id, ad_group.name,
+                    ad_group_criterion.criterion_id,
+                    ad_group_criterion.keyword.text,
+                    ad_group_criterion.keyword.match_type,
+                    ad_group_criterion.status,
+                    metrics.cost_micros, metrics.impressions, metrics.clicks,
+                    metrics.conversions, metrics.conversions_value
+                FROM keyword_view
+                WHERE segments.date BETWEEN '${formatDateGAQL(startDate)}' AND '${formatDateGAQL(endDate)}'
+                    AND campaign.status = 'ENABLED'
+                    AND ad_group.status = 'ENABLED'
+                    AND ad_group_criterion.status = 'ENABLED'
+                    AND metrics.impressions > 0
+                ORDER BY metrics.cost_micros DESC
+                LIMIT ${limit}
+            `;
+
+            const results = await customer.query(query);
+
+            return results.map((row: any) => {
+                const spend = (row.metrics?.cost_micros || 0) / 1_000_000;
+                const impressions = (row.metrics?.impressions || 0);
+                const clicks = (row.metrics?.clicks || 0);
+                const conversions = (row.metrics?.conversions || 0);
+                const conversionsValue = (row.metrics?.conversions_value || 0);
+
+                return {
+                    campaignId: row.campaign?.id?.toString() || '',
+                    campaignName: row.campaign?.name || 'Unknown',
+                    adGroupId: row.ad_group?.id?.toString() || '',
+                    adGroupName: row.ad_group?.name || 'Unknown',
+                    keywordId: row.ad_group_criterion?.criterion_id?.toString() || '',
+                    keywordText: row.ad_group_criterion?.keyword?.text || '',
+                    matchType: row.ad_group_criterion?.keyword?.match_type || 'UNKNOWN',
+                    status: row.ad_group_criterion?.status || 'UNKNOWN',
+                    spend, impressions, clicks, conversions, conversionsValue,
+                    roas: spend > 0 ? conversionsValue / spend : 0,
+                    ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+                    cpc: clicks > 0 ? spend / clicks : 0,
+                    currency,
+                    dateStart: formatDateISO(startDate),
+                    dateStop: formatDateISO(endDate)
+                };
+            });
+
+        } catch (error: any) {
+            Logger.error('Failed to fetch Google Search Keywords', { error: error.message, adAccountId });
+            throw error; // Let caller handle strict failures, or return empty array if preferred
+        }
     }
 
     // Delegated auth methods for backward compatibility

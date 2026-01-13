@@ -8,20 +8,7 @@
 import { prisma } from '../../../utils/prisma';
 import { Logger } from '../../../utils/logger';
 import { AdsService } from '../../ads';
-
-interface TrendMetrics {
-    spend: number;
-    conversionsValue: number;
-    clicks: number;
-    impressions: number;
-}
-
-interface TrendsSummary {
-    this_week_roas: string;
-    last_week_roas: string;
-    roas_change: string;
-    ctr_change: string;
-}
+import { TrendMetrics, TrendsSummary } from '../../ads/types';
 
 /**
  * Analyze week-over-week performance trends.
