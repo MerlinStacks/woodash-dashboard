@@ -129,8 +129,20 @@ const webhookRoutes: FastifyPluginAsync = async (fastify) => {
         const topic = request.headers['x-wc-webhook-topic'] as string;
         const body = request.body as Record<string, unknown>;
 
-        // Validate required headers
+        // WooCommerce sends a ping request to verify the URL when creating a webhook
+        // These requests may not have the signature/topic headers
         if (!signature || !topic) {
+            // Check if this looks like a WooCommerce ping (has webhook_id in body or is empty)
+            if (body && (body.webhook_id || Object.keys(body).length === 0)) {
+                Logger.info('[Webhook] Received WooCommerce ping/verification request', { accountId });
+                return reply.code(200).send('Webhook URL verified');
+            }
+            Logger.warn('[Webhook] Missing required headers', {
+                accountId,
+                hasSignature: !!signature,
+                hasTopic: !!topic,
+                bodyKeys: body ? Object.keys(body) : []
+            });
             return reply.code(400).send('Missing headers');
         }
 
