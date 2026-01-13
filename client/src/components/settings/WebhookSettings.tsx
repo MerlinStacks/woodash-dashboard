@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Copy, Check, Webhook, ExternalLink, AlertCircle, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Copy, Check, Webhook, ExternalLink, Save, Loader2, Info } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface WebhookConfig {
     name: string;
@@ -43,11 +44,24 @@ const WEBHOOK_TOPICS: WebhookConfig[] = [
 
 /**
  * WebhookSettings component provides copy-paste ready webhook configuration
- * for WooCommerce integration.
+ * for WooCommerce integration, with editable webhook secret.
  */
 export function WebhookSettings() {
-    const { currentAccount } = useAccount();
+    const { currentAccount, refreshAccounts } = useAccount();
+    const { token } = useAuth();
     const [copiedField, setCopiedField] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    // Get current webhook secret from account
+    const rawData = currentAccount as unknown as { webhookSecret?: string; wooConsumerSecret?: string };
+    const [secretInput, setSecretInput] = useState(rawData?.webhookSecret || '');
+
+    // Update local state when account changes
+    useEffect(() => {
+        const data = currentAccount as unknown as { webhookSecret?: string };
+        setSecretInput(data?.webhookSecret || '');
+    }, [currentAccount]);
 
     // Get the base API URL
     const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
@@ -55,14 +69,40 @@ export function WebhookSettings() {
     // Construct the webhook URL
     const webhookUrl = `${apiUrl}/api/webhook/${currentAccount?.id || '{accountId}'}`;
 
-    // Get the webhook secret (preferring webhookSecret, falling back to hint about wooConsumerSecret)
-    const rawData = currentAccount as unknown as { webhookSecret?: string; wooConsumerSecret?: string };
-    const webhookSecret = rawData?.webhookSecret || '(Use your WooCommerce Consumer Secret)';
-
     const handleCopy = (text: string, field: string) => {
         navigator.clipboard.writeText(text);
         setCopiedField(field);
         setTimeout(() => setCopiedField(null), 2000);
+    };
+
+    const handleSaveSecret = async () => {
+        if (!currentAccount || !token) return;
+
+        setIsSaving(true);
+        setSaveMessage(null);
+
+        try {
+            const response = await fetch(`/api/account/${currentAccount.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ webhookSecret: secretInput })
+            });
+
+            if (response.ok) {
+                setSaveMessage({ type: 'success', text: 'Webhook secret saved!' });
+                refreshAccounts?.();
+            } else {
+                setSaveMessage({ type: 'error', text: 'Failed to save' });
+            }
+        } catch {
+            setSaveMessage({ type: 'error', text: 'Network error' });
+        } finally {
+            setIsSaving(false);
+            setTimeout(() => setSaveMessage(null), 3000);
+        }
     };
 
     const CopyButton = ({ text, field }: { text: string; field: string }) => (
@@ -106,19 +146,38 @@ export function WebhookSettings() {
                 <p className="text-xs text-gray-500">Use this URL for all webhook configurations in WooCommerce.</p>
             </div>
 
-            {/* Webhook Secret */}
+            {/* Webhook Secret - Editable */}
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <label className="block text-sm font-medium text-gray-700">Secret Key</label>
-                    {rawData?.webhookSecret && <CopyButton text={webhookSecret} field="secret" />}
+                    <div className="flex items-center gap-2">
+                        {saveMessage && (
+                            <span className={`text-xs ${saveMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                                {saveMessage.text}
+                            </span>
+                        )}
+                        {secretInput && <CopyButton text={secretInput} field="secret" />}
+                    </div>
                 </div>
-                <div className="relative">
-                    <pre className="bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto font-mono text-sm border border-slate-800">
-                        <code>{webhookSecret}</code>
-                    </pre>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={secretInput}
+                        onChange={(e) => setSecretInput(e.target.value)}
+                        placeholder="Paste your WooCommerce webhook secret here"
+                        className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <button
+                        onClick={handleSaveSecret}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm font-medium"
+                    >
+                        {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                        Save
+                    </button>
                 </div>
                 <p className="text-xs text-gray-500">
-                    This secret is used to verify webhook signatures. If not set, your WooCommerce Consumer Secret is used.
+                    Copy the secret from your WooCommerce webhook configuration and paste it here. This validates webhook signatures.
                 </p>
             </div>
 
