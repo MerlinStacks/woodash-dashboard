@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { Plus, Users, Edit2, Trash2, Search } from 'lucide-react';
+import { Plus, Users, Edit2, Trash2 } from 'lucide-react';
 import { SegmentBuilder, SegmentCriteria } from '../components/segments/SegmentBuilder';
 import { useNavigate } from 'react-router-dom';
 

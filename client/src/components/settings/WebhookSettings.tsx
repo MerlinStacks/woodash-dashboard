@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check, Info, Webhook, ExternalLink, AlertCircle } from 'lucide-react';
+import { Copy, Check, Webhook, ExternalLink, AlertCircle, Info } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
 
 interface WebhookConfig {
@@ -69,8 +69,8 @@ export function WebhookSettings() {
         <button
             onClick={() => handleCopy(text, field)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors shadow-xs ${copiedField === field
-                    ? 'bg-green-100 text-green-700 border border-green-200'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                ? 'bg-green-100 text-green-700 border border-green-200'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
                 }`}
         >
             {copiedField === field ? <Check size={14} /> : <Copy size={14} />}

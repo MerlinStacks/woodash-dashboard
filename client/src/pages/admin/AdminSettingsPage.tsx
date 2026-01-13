@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Settings, Upload, Check, AlertCircle, Loader2, Globe, HardDrive, Calendar, RefreshCw } from 'lucide-react';
+import { Settings, Upload, Check, AlertCircle, Loader2, Globe, HardDrive, RefreshCw } from 'lucide-react';
 
 interface DatabaseInfo {
     source: 'manual' | 'auto';

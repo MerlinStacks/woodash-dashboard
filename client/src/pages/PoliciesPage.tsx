@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { Plus, FileText, BookOpen, GraduationCap, Trash2, Edit2, Eye, EyeOff, X, Save, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, FileText, BookOpen, GraduationCap, Trash2, Edit2, EyeOff, Save, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface Policy {

@@ -13,9 +13,10 @@ export default defineConfig(({ mode }) => {
         resolve: {
             dedupe: ['react', 'react-dom'],
             alias: {
-                // Ensure we use the workspace root's React if available, or fall back to local
-                // But specifically avoid the duplicate instance issue by pointing to one place
-                // Note: The dedupe option above is usually sufficient for npm workspaces
+                // Force single React instance - critical for react-email-editor compatibility with React 19.
+                // Use package.json resolution (not directory path) to properly handle subpath exports.
+                'react': path.dirname(createRequire(import.meta.url).resolve('react/package.json')),
+                'react-dom': path.dirname(createRequire(import.meta.url).resolve('react-dom/package.json')),
             }
         },
         server: {

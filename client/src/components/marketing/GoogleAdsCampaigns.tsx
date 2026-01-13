@@ -390,7 +390,7 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
                             ) : sortedCampaigns.map(campaign => {
                                 const isExpanded = expandedCampaigns.has(campaign.campaignId);
                                 return (
-                                    <React.Fragment key={campaign.campaignId}>
+                                    <Fragment key={campaign.campaignId}>
                                         <tr
                                             className={`hover:bg-gray-50 cursor-pointer ${isExpanded ? 'bg-blue-50' : ''}`}
                                             onClick={() => {
@@ -460,7 +460,7 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
                                                 </td>
                                             </tr>
                                         )}
-                                    </React.Fragment>
+                                    </Fragment>
                                 );
                             })}
                         </tbody>

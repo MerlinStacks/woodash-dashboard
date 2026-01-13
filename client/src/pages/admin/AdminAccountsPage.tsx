@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { useNavigate } from 'react-router-dom';
-import { Shield, LogIn, Check, X, Settings, Trash2 } from 'lucide-react';
+import { LogIn, X, Trash2 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface Account {
