@@ -15,9 +15,9 @@ import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
 import { AnalyticsService } from '../services/AnalyticsService';
 
-// Import sub-plugins
 import analyticsReportsRoutes from './analyticsReports';
 import analyticsInventoryRoutes from './analyticsInventory';
+import { AnomalyDetection } from '../services/analytics/AnomalyDetection';
 
 const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.addHook('preHandler', requireAuthFastify);
@@ -198,6 +198,16 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/behaviour/funnel-dropoff', async (request, reply) => {
         try { const query = request.query as any; return await RoadblockAnalytics.getDropOffFunnel(request.accountId!, query.startDate, query.endDate); }
         catch (e) { Logger.error('Funnel Error', { error: e }); return reply.code(500).send({ error: 'Failed to fetch funnel' }); }
+    });
+
+    // --- Revenue Anomaly Detection ---
+    fastify.get('/anomalies', async (request, reply) => {
+        try {
+            return await AnomalyDetection.getRevenueAnomaly(request.accountId!);
+        } catch (e: any) {
+            Logger.error('Anomaly Detection Error', { error: e });
+            return reply.code(500).send({ error: e.message });
+        }
     });
 };
 

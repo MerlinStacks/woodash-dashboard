@@ -1537,6 +1537,8 @@ model PushSubscription {
   /// User preferences for notification types
   notifyNewMessages Boolean @default(true)
   notifyNewOrders   Boolean @default(true)
+  notifyLowStock    Boolean @default(false)
+  notifyDailySummary Boolean @default(false)
   
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)

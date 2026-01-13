@@ -40,6 +40,8 @@ export function MobileNotifications() {
             setSettings(prev => prev.map(s => {
                 if (s.id === 'newOrders') return { ...s, enabled: preferences.notifyNewOrders };
                 if (s.id === 'newMessages') return { ...s, enabled: preferences.notifyNewMessages };
+                if (s.id === 'lowStock') return { ...s, enabled: preferences.notifyLowStock };
+                if (s.id === 'dailySummary') return { ...s, enabled: preferences.notifyDailySummary };
                 return s;
             }));
         }
@@ -62,6 +64,10 @@ export function MobileNotifications() {
             await updatePreferences({ notifyNewOrders: newEnabled });
         } else if (id === 'newMessages') {
             await updatePreferences({ notifyNewMessages: newEnabled });
+        } else if (id === 'lowStock') {
+            await updatePreferences({ notifyLowStock: newEnabled });
+        } else if (id === 'dailySummary') {
+            await updatePreferences({ notifyDailySummary: newEnabled });
         }
     };
 
@@ -73,6 +79,37 @@ export function MobileNotifications() {
             await unsubscribe();
         } else {
             await subscribe();
+        }
+    };
+
+    const [testResult, setTestResult] = useState<string | null>(null);
+    const [testLoading, setTestLoading] = useState(false);
+
+    const sendTestNotification = async () => {
+        if (!token || !currentAccount) return;
+
+        setTestLoading(true);
+        setTestResult(null);
+
+        try {
+            const res = await fetch('/api/notifications/push/test', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
+                }
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setTestResult(`✅ Sent to ${data.sent} device(s)`);
+            } else {
+                setTestResult(`❌ ${data.error || 'Failed to send'}`);
+            }
+        } catch (error) {
+            setTestResult('❌ Network error');
+        } finally {
+            setTestLoading(false);
         }
     };
 
@@ -138,6 +175,22 @@ export function MobileNotifications() {
                         </button>
                     </div>
                 </div>
+
+                {/* Test Notification Button */}
+                {isSubscribed && (
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                        <button
+                            onClick={sendTestNotification}
+                            disabled={testLoading}
+                            className="w-full py-3 px-4 bg-indigo-50 text-indigo-600 font-semibold rounded-xl active:bg-indigo-100 disabled:opacity-50"
+                        >
+                            {testLoading ? 'Sending...' : '🔔 Send Test Notification'}
+                        </button>
+                        {testResult && (
+                            <p className="text-sm text-center mt-2 text-gray-600">{testResult}</p>
+                        )}
+                    </div>
+                )}
 
                 {/* Notification Types */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100">

@@ -5,6 +5,8 @@ import { useAccount } from '../context/AccountContext';
 interface PushPreferences {
     notifyNewMessages: boolean;
     notifyNewOrders: boolean;
+    notifyLowStock: boolean;
+    notifyDailySummary: boolean;
 }
 
 interface UsePushNotificationsReturn {
@@ -32,7 +34,9 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     const [isLoading, setIsLoading] = useState(true);
     const [preferences, setPreferences] = useState<PushPreferences>({
         notifyNewMessages: true,
-        notifyNewOrders: true
+        notifyNewOrders: true,
+        notifyLowStock: false,
+        notifyDailySummary: false
     });
     const [permissionState, setPermissionState] = useState<NotificationPermission | 'unsupported'>('default');
     const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);

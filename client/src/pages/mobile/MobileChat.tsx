@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Paperclip, MoreVertical, Phone, Mail, Instagram, Facebook, Music2 } from 'lucide-react';
+import { ArrowLeft, Send, Paperclip, MoreVertical, CheckCircle2, Ban, X, Mail, Instagram, Facebook, Music2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import DOMPurify from 'dompurify';
@@ -39,6 +39,7 @@ export function MobileChat() {
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -124,7 +125,7 @@ export function MobileChat() {
                     'X-Account-ID': currentAccount.id,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ body: newMessage.trim() })
+                body: JSON.stringify({ content: newMessage.trim() })
             });
 
             if (res.ok) {
@@ -142,6 +143,46 @@ export function MobileChat() {
             console.error('[MobileChat] Send error:', error);
         } finally {
             setSending(false);
+        }
+    };
+
+    /** Mark conversation as resolved/closed */
+    const handleResolve = async () => {
+        setShowMenu(false);
+        if (!currentAccount || !token) return;
+        try {
+            await fetch(`/api/chat/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: 'CLOSED' })
+            });
+            navigate('/m/inbox');
+        } catch (error) {
+            console.error('[MobileChat] Resolve error:', error);
+        }
+    };
+
+    /** Block the contact */
+    const handleBlock = async () => {
+        setShowMenu(false);
+        if (!currentAccount || !token || !conversation?.customerEmail) return;
+        try {
+            await fetch('/api/chat/block', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email: conversation.customerEmail, reason: 'Blocked from mobile' })
+            });
+            navigate('/m/inbox');
+        } catch (error) {
+            console.error('[MobileChat] Block error:', error);
         }
     };
 
@@ -222,12 +263,43 @@ export function MobileChat() {
                         <span>{channelConfig.label}</span>
                     </div>
                 </div>
-                <button className="p-2 rounded-full hover:bg-gray-100">
-                    <Phone size={20} className="text-gray-600" />
-                </button>
-                <button className="p-2 rounded-full hover:bg-gray-100">
-                    <MoreVertical size={20} className="text-gray-600" />
-                </button>
+                <div className="relative">
+                    <button
+                        onClick={() => setShowMenu(!showMenu)}
+                        className="p-2 rounded-full hover:bg-gray-100"
+                    >
+                        <MoreVertical size={20} className="text-gray-600" />
+                    </button>
+                    {/* Dropdown Menu */}
+                    {showMenu && (
+                        <>
+                            {/* Backdrop */}
+                            <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => setShowMenu(false)}
+                            />
+                            {/* Menu */}
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                                <button
+                                    onClick={handleResolve}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                                >
+                                    <CheckCircle2 size={18} className="text-emerald-600" />
+                                    <span>Mark Resolved</span>
+                                </button>
+                                {conversation?.customerEmail && (
+                                    <button
+                                        onClick={handleBlock}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 active:bg-red-100"
+                                    >
+                                        <Ban size={18} />
+                                        <span>Block Contact</span>
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
             </header>
 
             {/* Messages */}

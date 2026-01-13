@@ -62,7 +62,7 @@ export class PushNotificationService {
         userId: string,
         accountId: string,
         subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
-        preferences: { notifyNewMessages?: boolean; notifyNewOrders?: boolean } = {}
+        preferences: { notifyNewMessages?: boolean; notifyNewOrders?: boolean; notifyLowStock?: boolean; notifyDailySummary?: boolean } = {}
     ): Promise<{ success: boolean; id?: string; error?: string }> {
         try {
             const result = await prisma.pushSubscription.upsert({
@@ -78,6 +78,8 @@ export class PushNotificationService {
                     accountId,
                     notifyNewMessages: preferences.notifyNewMessages ?? true,
                     notifyNewOrders: preferences.notifyNewOrders ?? true,
+                    notifyLowStock: preferences.notifyLowStock ?? false,
+                    notifyDailySummary: preferences.notifyDailySummary ?? false,
                     updatedAt: new Date()
                 },
                 create: {
@@ -87,7 +89,9 @@ export class PushNotificationService {
                     p256dh: subscription.keys.p256dh,
                     auth: subscription.keys.auth,
                     notifyNewMessages: preferences.notifyNewMessages ?? true,
-                    notifyNewOrders: preferences.notifyNewOrders ?? true
+                    notifyNewOrders: preferences.notifyNewOrders ?? true,
+                    notifyLowStock: preferences.notifyLowStock ?? false,
+                    notifyDailySummary: preferences.notifyDailySummary ?? false
                 }
             });
 
@@ -121,14 +125,16 @@ export class PushNotificationService {
     static async updatePreferences(
         userId: string,
         endpoint: string,
-        preferences: { notifyNewMessages?: boolean; notifyNewOrders?: boolean }
+        preferences: { notifyNewMessages?: boolean; notifyNewOrders?: boolean; notifyLowStock?: boolean; notifyDailySummary?: boolean }
     ): Promise<boolean> {
         try {
             await prisma.pushSubscription.updateMany({
                 where: { userId, endpoint },
                 data: {
                     ...(preferences.notifyNewMessages !== undefined && { notifyNewMessages: preferences.notifyNewMessages }),
-                    ...(preferences.notifyNewOrders !== undefined && { notifyNewOrders: preferences.notifyNewOrders })
+                    ...(preferences.notifyNewOrders !== undefined && { notifyNewOrders: preferences.notifyNewOrders }),
+                    ...(preferences.notifyLowStock !== undefined && { notifyLowStock: preferences.notifyLowStock }),
+                    ...(preferences.notifyDailySummary !== undefined && { notifyDailySummary: preferences.notifyDailySummary })
                 }
             });
             return true;
@@ -146,7 +152,7 @@ export class PushNotificationService {
     static async getSubscription(userId: string, accountId: string, endpoint?: string): Promise<{
         isSubscribed: boolean;
         endpoint?: string;
-        preferences?: { notifyNewMessages: boolean; notifyNewOrders: boolean };
+        preferences?: { notifyNewMessages: boolean; notifyNewOrders: boolean; notifyLowStock: boolean; notifyDailySummary: boolean };
     }> {
         try {
             // If endpoint provided, check for that specific device
@@ -166,7 +172,9 @@ export class PushNotificationService {
                     endpoint: sub.endpoint,
                     preferences: {
                         notifyNewMessages: sub.notifyNewMessages,
-                        notifyNewOrders: sub.notifyNewOrders
+                        notifyNewOrders: sub.notifyNewOrders,
+                        notifyLowStock: sub.notifyLowStock,
+                        notifyDailySummary: sub.notifyDailySummary
                     }
                 };
             }
@@ -186,7 +194,9 @@ export class PushNotificationService {
                 endpoint: sub.endpoint,
                 preferences: {
                     notifyNewMessages: sub.notifyNewMessages,
-                    notifyNewOrders: sub.notifyNewOrders
+                    notifyNewOrders: sub.notifyNewOrders,
+                    notifyLowStock: sub.notifyLowStock,
+                    notifyDailySummary: sub.notifyDailySummary
                 }
             };
         } catch (error) {

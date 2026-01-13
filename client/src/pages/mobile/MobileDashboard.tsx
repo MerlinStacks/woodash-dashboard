@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { getDateRange } from '../../utils/dateUtils';
+import { RevenueAnomalyBanner } from '../../components/mobile/RevenueAnomalyBanner';
 
 /**
  * MobileDashboard - Main dashboard for the PWA companion app.
@@ -32,12 +33,20 @@ interface RecentActivity {
     time: string;
 }
 
+interface AnomalyData {
+    isAnomaly: boolean;
+    direction: 'above' | 'below' | 'normal';
+    percentChange: number;
+    message: string;
+}
+
 export function MobileDashboard() {
     const navigate = useNavigate();
     const { token } = useAuth();
     const { currentAccount } = useAccount();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [activities, setActivities] = useState<RecentActivity[]>([]);
+    const [anomaly, setAnomaly] = useState<AnomalyData | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -60,12 +69,13 @@ export function MobileDashboard() {
             // Use same date utility as desktop for timezone-aware dates
             const { startDate, endDate } = getDateRange('today');
 
-            // Fetch all data in parallel
-            const [salesRes, messagesRes, inventoryRes, ordersRes] = await Promise.all([
+            // Fetch all data in parallel (including anomaly detection)
+            const [salesRes, messagesRes, inventoryRes, ordersRes, anomalyRes] = await Promise.all([
                 fetch(`/api/analytics/sales?startDate=${startDate}&endDate=${endDate}`, { headers }),
                 fetch('/api/chat/unread-count', { headers }),
                 fetch('/api/analytics/health', { headers }),
-                fetch('/api/sync/orders/search?limit=5', { headers })
+                fetch('/api/sync/orders/search?limit=5', { headers }),
+                fetch('/api/analytics/anomalies', { headers })
             ]);
 
             let todayRevenue = 0, todayOrders = 0, pendingMessages = 0, lowStockItems = 0;
@@ -88,6 +98,12 @@ export function MobileDashboard() {
                 const data = await inventoryRes.json();
                 // Count items that are low stock (from health endpoint)
                 lowStockItems = Array.isArray(data) ? data.length : 0;
+            }
+
+            // Process anomaly data
+            if (anomalyRes.ok) {
+                const anomalyData = await anomalyRes.json();
+                setAnomaly(anomalyData);
             }
 
             setStats({ todayOrders, todayRevenue, pendingMessages, lowStockItems });
@@ -156,6 +172,9 @@ export function MobileDashboard() {
 
     return (
         <div className="space-y-6 animate-fade-slide-up">
+            {/* Revenue Anomaly Alert Banner */}
+            <RevenueAnomalyBanner anomaly={anomaly} />
+
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
