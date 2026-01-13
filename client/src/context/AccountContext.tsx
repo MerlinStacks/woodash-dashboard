@@ -63,24 +63,23 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                 setAccounts(data);
 
                 // Try to find the account we should show:
-                // 1. The account currently in state (if we are just refreshing data)
-                // 2. The account saved in localStorage (if we just reloaded the page)
-                // 3. The first account in the list (fallback)
-                const savedId = localStorage.getItem('selectedAccountId');
-                const targetId = currentAccount?.id || savedId;
-
-                const accountToSelect = data.find((a: Account) => a.id === targetId) || (data.length > 0 ? data[0] : null);
-
-                if (accountToSelect) {
-                    setCurrentAccount(accountToSelect);
-                }
+                // 1. The account saved in localStorage (if we just reloaded the page)
+                // 2. The first account in the list (fallback)
+                // Note: We use functional update to avoid stale closure while preventing infinite loops
+                setCurrentAccount(prev => {
+                    const savedId = localStorage.getItem('selectedAccountId');
+                    const targetId = prev?.id || savedId;
+                    const accountToSelect = data.find((a: Account) => a.id === targetId) || (data.length > 0 ? data[0] : null);
+                    return accountToSelect;
+                });
             }
         } catch (error) {
             console.error('Failed to fetch accounts', error);
         } finally {
             setIsLoading(false);
         }
-    }, [token, logout, currentAccount?.id]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token, logout]);
 
     // Persist selection to localStorage whenever it changes
     useEffect(() => {
