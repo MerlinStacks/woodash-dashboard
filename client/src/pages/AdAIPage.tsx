@@ -58,7 +58,7 @@ function getSuggestionStyle(suggestion: PrioritizedSuggestion) {
     }
 
     if (priority === 2) {
-        const iconMap: Record<string, JSX.Element> = {
+        const iconMap: Record<string, React.ReactNode> = {
             budget: <DollarSign className="w-5 h-5" />,
             creative: <Palette className="w-5 h-5" />,
             performance: <TrendingDown className="w-5 h-5" />,
@@ -74,7 +74,7 @@ function getSuggestionStyle(suggestion: PrioritizedSuggestion) {
     }
 
     // Priority 3 - Info
-    const iconMap: Record<string, JSX.Element> = {
+    const iconMap: Record<string, React.ReactNode> = {
         seasonal: <Calendar className="w-5 h-5" />,
         info: <Info className="w-5 h-5" />,
         performance: <TrendingUp className="w-5 h-5" />,

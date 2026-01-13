@@ -6,8 +6,7 @@ import {
     Package,
     MessageSquare,
     TrendingDown,
-    DollarSign,
-    Toggle
+    DollarSign
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';

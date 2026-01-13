@@ -18,14 +18,14 @@ export function OrderDetailPage() {
     const { currentAccount } = useAccount();
     const { hasPermission } = usePermissions();
 
-    if (!hasPermission('view_orders') && !isLoading) {
-        return <div className="p-10 text-center text-red-500">Access Denied</div>;
-    }
-
     const [order, setOrder] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [showRaw, setShowRaw] = useState(false);
+
+    if (!hasPermission('view_orders') && !isLoading) {
+        return <div className="p-10 text-center text-red-500">Access Denied</div>;
+    }
 
     useEffect(() => {
         if (id && currentAccount && token) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layers, ChevronDown, ChevronRight } from 'lucide-react';
 import { BOMPanel } from './BOMPanel';
 

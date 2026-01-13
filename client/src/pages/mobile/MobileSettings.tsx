@@ -74,7 +74,7 @@ export function MobileSettings() {
                 {
                     id: 'website',
                     label: 'Website',
-                    description: currentAccount?.website || 'No website configured',
+                    description: (currentAccount as any)?.website || 'No website configured',
                     icon: Globe,
                     color: 'bg-gray-100 text-gray-600'
                 }

@@ -235,9 +235,6 @@ export function ProductEditPage() {
                 description: formData.description,
                 cogs: formData.cogs,
                 supplierId: formData.supplierId,
-                supplierId: formData.supplierId,
-                images: formData.images,
-                supplierId: formData.supplierId,
                 images: formData.images,
                 variations: variants, // Include variations in save
                 focusKeyword: formData.focusKeyword

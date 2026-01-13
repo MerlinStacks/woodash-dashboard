@@ -187,7 +187,7 @@ export function MobileProfile() {
                     </div>
                     <div className="flex-1">
                         <p className="font-medium text-gray-900">Account Role</p>
-                        <p className="text-sm text-gray-500 capitalize">{user?.role?.toLowerCase() || 'User'}</p>
+                        <p className="text-sm text-gray-500 capitalize">{(user as any)?.role?.toLowerCase() || 'User'}</p>
                     </div>
                 </div>
 
