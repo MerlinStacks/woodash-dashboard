@@ -24,6 +24,7 @@ import { AudienceAnalyzer } from './AudienceAnalyzer';
 import { ProductOpportunityAnalyzer } from './ProductOpportunityAnalyzer';
 import { KeywordOpportunityAnalyzer } from './KeywordOpportunityAnalyzer';
 import { MarketingStrategyAdvisor } from '../advisors/MarketingStrategyAdvisor';
+import { getFeedbackContext, shouldFilterRecommendation } from '../feedback/FeedbackService';
 
 // =============================================================================
 // PIPELINE
@@ -33,9 +34,14 @@ export class AnalysisPipeline {
 
     /**
      * Run all analyzers and merge results.
+     * @param accountId - The account to analyze
+     * @param userContext - Optional business context from user (e.g., "Focus on summer products", "Upcoming sale")
      */
-    static async runAll(accountId: string): Promise<UnifiedAnalysis> {
+    static async runAll(accountId: string, userContext?: string): Promise<UnifiedAnalysis> {
         const startTime = Date.now();
+
+        // Parse user context for priority keywords
+        const contextKeywords = userContext ? this.parseContextKeywords(userContext) : [];
 
         // Run all analyzers in parallel
         const [
@@ -96,6 +102,40 @@ export class AnalysisPipeline {
             return b.confidence - a.confidence;
         });
 
+        // Apply feedback-based filtering
+        const feedbackContext = await getFeedbackContext(accountId);
+        let filteredActions = sortedActions.filter(
+            rec => !shouldFilterRecommendation(rec, feedbackContext)
+        );
+
+        // Apply user context-based priority boosting
+        if (contextKeywords.length > 0) {
+            filteredActions = filteredActions.map(rec => {
+                const headlineLower = rec.headline.toLowerCase();
+                const matchesContext = contextKeywords.some(kw => headlineLower.includes(kw));
+
+                if (matchesContext && rec.priority > 1) {
+                    // Boost priority for items matching user's stated focus
+                    return { ...rec, priority: (rec.priority - 1) as 1 | 2 | 3, contextBoosted: true };
+                }
+                return rec;
+            });
+
+            // Re-sort after boosting
+            filteredActions.sort((a, b) => {
+                if (a.priority !== b.priority) return a.priority - b.priority;
+                return b.confidence - a.confidence;
+            });
+        }
+
+        Logger.debug('Filtered recommendations based on feedback', {
+            accountId,
+            before: sortedActions.length,
+            after: filteredActions.length,
+            feedbackEntries: feedbackContext.totalFeedbackEntries,
+            contextKeywords: contextKeywords.length
+        });
+
         // Build unified result
         const hasData = multiPeriod.hasData || crossChannel.hasData ||
             ltv.hasData || funnel.hasData || audience.hasData ||
@@ -105,7 +145,7 @@ export class AnalysisPipeline {
         return {
             hasData,
             suggestions: sortedSuggestions,
-            actionableRecommendations: sortedActions,
+            actionableRecommendations: filteredActions,
             results: {
                 multiPeriod: this.toBaseResult(multiPeriod, 'MultiPeriodAnalyzer', accountId, startTime),
                 crossChannel: this.toBaseResult(crossChannel, 'CrossChannelAnalyzer', accountId, startTime),
@@ -225,5 +265,51 @@ export class AnalysisPipeline {
                 accountId,
             },
         };
+    }
+
+    /**
+     * Parse user context for priority keywords.
+     * Extracts product names, categories, and focus areas from user's notes.
+     */
+    private static parseContextKeywords(context: string): string[] {
+        const keywords: string[] = [];
+        const contextLower = context.toLowerCase();
+
+        // Extract quoted terms (e.g., "summer products")
+        const quotedMatches = context.match(/"([^"]+)"/g);
+        if (quotedMatches) {
+            for (const match of quotedMatches) {
+                keywords.push(match.replace(/"/g, '').toLowerCase().trim());
+            }
+        }
+
+        // Extract focus patterns
+        const focusPatterns = [
+            /focus on\s+(.+?)(?:\.|,|$)/gi,
+            /prioritize\s+(.+?)(?:\.|,|$)/gi,
+            /push\s+(.+?)(?:\.|,|$)/gi,
+            /promote\s+(.+?)(?:\.|,|$)/gi
+        ];
+
+        for (const pattern of focusPatterns) {
+            let match;
+            while ((match = pattern.exec(contextLower)) !== null) {
+                const term = match[1].trim();
+                if (term.length > 2 && term.length < 50) {
+                    keywords.push(term);
+                }
+            }
+        }
+
+        // Common product categories
+        const categories = ['summer', 'winter', 'holiday', 'sale', 'clearance', 'new arrival', 'best seller', 'premium', 'budget'];
+        for (const cat of categories) {
+            if (contextLower.includes(cat)) {
+                keywords.push(cat);
+            }
+        }
+
+        // Return unique keywords
+        return [...new Set(keywords)];
     }
 }

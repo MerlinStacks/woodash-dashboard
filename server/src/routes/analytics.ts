@@ -26,7 +26,7 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Mount sub-routers as nested plugins
     await fastify.register(analyticsReportsRoutes);     // /templates, /schedules, /digests
-    await fastify.register(analyticsInventoryRoutes);   // /health, /stock-velocity
+    await fastify.register(analyticsInventoryRoutes, { prefix: '/inventory' });   // /inventory/health, /inventory/stock-velocity, /inventory/sku-forecasts
     await fastify.register(cohortRoutes, { prefix: '/cohorts' }); // /cohorts/retention, /cohorts/acquisition, /cohorts/product
 
     // --- Visitor & Channel Endpoints ---

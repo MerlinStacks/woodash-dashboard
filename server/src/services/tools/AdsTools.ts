@@ -177,10 +177,17 @@ export class AdsTools {
     }
 
     static async getAdOptimizationSuggestions(accountId: string, options?: AdOptimizerOptions) {
+        // Fetch user's business context for personalized recommendations
+        const contextRecord = await prisma.adSuggestionContext.findUnique({
+            where: { accountId },
+            select: { context: true }
+        });
+        const userContext = contextRecord?.context || undefined;
+
         // Run both the legacy optimizer and the new pipeline in parallel
         const [optimizerResult, pipelineResult] = await Promise.all([
             AdOptimizer.getAdOptimizationSuggestions(accountId, options),
-            import('./analyzers/AnalysisPipeline').then(m => m.AnalysisPipeline.runAll(accountId))
+            import('./analyzers/AnalysisPipeline').then(m => m.AnalysisPipeline.runAll(accountId, userContext))
         ]);
 
         // If optimizer returned a string message (no accounts connected), return that
@@ -191,7 +198,8 @@ export class AdsTools {
         // Merge actionable recommendations from pipeline into the result
         return {
             ...optimizerResult,
-            actionableRecommendations: pipelineResult.actionableRecommendations || []
+            actionableRecommendations: pipelineResult.actionableRecommendations || [],
+            userContextApplied: !!userContext
         };
     }
 

@@ -105,6 +105,66 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
+    // POST /api/dashboard/ad-suggestions/feedback
+    // Saves user feedback on a specific recommendation for learning
+    interface FeedbackBody {
+        recommendationId: string;
+        action: 'dismiss' | 'feedback';
+        dismissReason?: string;
+        userFeedback?: string;
+        recommendation?: {
+            headline?: string;
+            category?: string;
+            platform?: string;
+            source?: string;
+            tags?: string[];
+        };
+    }
+
+    fastify.post<{ Body: FeedbackBody }>('/ad-suggestions/feedback', async (request, reply) => {
+        const accountId = request.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'No account' });
+
+        try {
+            const { recommendationId, action, dismissReason, userFeedback, recommendation } = request.body;
+
+            if (!recommendationId) {
+                return reply.code(400).send({ error: 'recommendationId is required' });
+            }
+
+            // Create a log entry for this feedback
+            await prisma.recommendationLog.create({
+                data: {
+                    accountId,
+                    recommendationId,
+                    text: recommendation?.headline || recommendationId,
+                    category: recommendation?.category || 'unknown',
+                    priority: 3,
+                    platform: recommendation?.platform,
+                    confidenceScore: 0,
+                    confidenceLevel: 'n/a',
+                    status: action === 'dismiss' ? 'dismissed' : 'pending',
+                    dismissedAt: action === 'dismiss' ? new Date() : null,
+                    dismissReason: dismissReason || null,
+                    userFeedback: userFeedback || null,
+                    tags: recommendation?.tags ? JSON.stringify(recommendation.tags) : null
+                }
+            });
+
+            Logger.info('Recommendation feedback saved', {
+                accountId,
+                recommendationId,
+                action,
+                dismissReason,
+                hasFeedback: !!userFeedback
+            });
+
+            return { success: true };
+        } catch (error) {
+            Logger.error('Failed to save recommendation feedback', { error, accountId });
+            return reply.code(500).send({ error: 'Failed to save feedback' });
+        }
+    });
 
     // GET Layout
     fastify.get('/', async (request, reply) => {

@@ -25,6 +25,8 @@ import { AdContextModal } from '../components/marketing/AdContextModal';
 import { ActionableRecommendationCard } from '../components/marketing/ActionableRecommendationCard';
 import { ActionableRecommendation } from '../types/ActionableTypes';
 import { AddKeywordModal } from '../components/marketing/AddKeywordModal';
+import { RecommendationFeedbackModal } from '../components/marketing/RecommendationFeedbackModal';
+import { ScheduleActionModal } from '../components/marketing/ScheduleActionModal';
 
 import { CampaignWizard } from '../components/marketing/CampaignWizard/CampaignWizard';
 
@@ -58,6 +60,14 @@ export function AdAIPage() {
     // Keyword Modal State
     const [keywordModalOpen, setKeywordModalOpen] = useState(false);
     const [activeKeywordRec, setActiveKeywordRec] = useState<ActionableRecommendation | null>(null);
+
+    // Feedback Modal State
+    const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+    const [activeFeedbackRec, setActiveFeedbackRec] = useState<ActionableRecommendation | null>(null);
+
+    // Schedule Modal State
+    const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+    const [activeScheduleRec, setActiveScheduleRec] = useState<ActionableRecommendation | null>(null);
 
     const fetchSuggestions = useCallback(async (isRefresh = false) => {
         if (!currentAccount || !token) return;
@@ -215,8 +225,40 @@ export function AdAIPage() {
     };
 
     const handleDismiss = (rec: ActionableRecommendation) => {
-        console.log('Dismissing recommendation:', rec);
-        // Could remove from list locally
+        // Open feedback modal instead of just dismissing
+        setActiveFeedbackRec(rec);
+        setFeedbackModalOpen(true);
+    };
+
+    const handleFeedbackSubmitted = () => {
+        // Remove the dismissed item from the list
+        if (data && data.actionableRecommendations && activeFeedbackRec) {
+            setData({
+                ...data,
+                actionableRecommendations: data.actionableRecommendations.filter(
+                    r => r.id !== activeFeedbackRec.id
+                )
+            });
+        }
+        setActiveFeedbackRec(null);
+    };
+
+    const handleSchedule = (rec: ActionableRecommendation) => {
+        setActiveScheduleRec(rec);
+        setScheduleModalOpen(true);
+    };
+
+    const handleScheduleComplete = () => {
+        // Optionally remove from list or show success toast
+        if (data && data.actionableRecommendations && activeScheduleRec) {
+            setData({
+                ...data,
+                actionableRecommendations: data.actionableRecommendations.filter(
+                    r => r.id !== activeScheduleRec.id
+                )
+            });
+        }
+        setActiveScheduleRec(null);
     };
 
     // Separate recommendations by priority
@@ -319,6 +361,33 @@ export function AdAIPage() {
                     />
                 )}
 
+                {/* Recommendation Feedback Modal */}
+                {activeFeedbackRec && (
+                    <RecommendationFeedbackModal
+                        isOpen={feedbackModalOpen}
+                        onClose={() => {
+                            setFeedbackModalOpen(false);
+                            setActiveFeedbackRec(null);
+                        }}
+                        recommendation={activeFeedbackRec}
+                        action="dismiss"
+                        onSubmitted={handleFeedbackSubmitted}
+                    />
+                )}
+
+                {/* Schedule Action Modal */}
+                {activeScheduleRec && (
+                    <ScheduleActionModal
+                        isOpen={scheduleModalOpen}
+                        onClose={() => {
+                            setScheduleModalOpen(false);
+                            setActiveScheduleRec(null);
+                        }}
+                        recommendation={activeScheduleRec}
+                        onScheduled={handleScheduleComplete}
+                    />
+                )}
+
                 {/* Error state */}
                 {error && (
                     <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-red-700 flex items-start gap-3">
@@ -347,6 +416,7 @@ export function AdAIPage() {
                                         recommendation={rec}
                                         onApply={handleApply}
                                         onDismiss={handleDismiss}
+                                        onSchedule={handleSchedule}
                                     />
                                 ))}
                             </div>
@@ -367,6 +437,7 @@ export function AdAIPage() {
                                         recommendation={rec}
                                         onApply={handleApply}
                                         onDismiss={handleDismiss}
+                                        onSchedule={handleSchedule}
                                     />
                                 ))}
                             </div>
@@ -387,6 +458,7 @@ export function AdAIPage() {
                                         recommendation={rec}
                                         onApply={handleApply}
                                         onDismiss={handleDismiss}
+                                        onSchedule={handleSchedule}
                                     />
                                 ))}
                             </div>

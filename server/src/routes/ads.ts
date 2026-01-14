@@ -447,6 +447,135 @@ const adsRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
+    // POST /api/ads/schedule-action - Schedule an action for later execution
+    interface ScheduleActionBody {
+        actionType: string;
+        platform: 'google' | 'meta';
+        campaignId: string;
+        campaignName?: string;
+        parameters: {
+            currentBudget?: number;
+            newBudget?: number;
+            changeAmount?: number;
+            adAccountId?: string;
+        };
+        scheduledFor: string; // ISO date string
+        recommendationId?: string;
+    }
+
+    fastify.post<{ Body: ScheduleActionBody }>('/schedule-action', async (request, reply) => {
+        const accountId = request.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'No account selected' });
+
+        try {
+            const { actionType, platform, campaignId, campaignName, parameters, scheduledFor, recommendationId } = request.body;
+
+            if (!scheduledFor) {
+                return reply.code(400).send({ error: 'scheduledFor date is required' });
+            }
+
+            const scheduledDate = new Date(scheduledFor);
+            if (scheduledDate <= new Date()) {
+                return reply.code(400).send({ error: 'Scheduled time must be in the future' });
+            }
+
+            // Find ad account
+            const accounts = await AdsService.getAdAccounts(accountId);
+            const platformAccounts = accounts.filter(a => a.platform === platform.toUpperCase());
+
+            let adAccountId = parameters.adAccountId;
+            if (!adAccountId && platformAccounts.length === 1) {
+                adAccountId = platformAccounts[0].id;
+            }
+
+            // Create scheduled action
+            const scheduled = await prisma.scheduledAdAction.create({
+                data: {
+                    accountId,
+                    actionType,
+                    platform,
+                    adAccountId,
+                    campaignId,
+                    campaignName,
+                    parameters: parameters as any,
+                    scheduledFor: scheduledDate,
+                    status: 'pending',
+                    recommendationId
+                }
+            });
+
+            Logger.info('Ad Action Scheduled', {
+                id: scheduled.id,
+                accountId,
+                actionType,
+                campaignId,
+                scheduledFor: scheduledDate.toISOString()
+            });
+
+            return {
+                success: true,
+                scheduledAction: {
+                    id: scheduled.id,
+                    scheduledFor: scheduled.scheduledFor,
+                    status: scheduled.status
+                }
+            };
+
+        } catch (error: any) {
+            Logger.error('Failed to schedule ad action', { error });
+            return reply.code(500).send({ error: error.message });
+        }
+    });
+
+    // GET /api/ads/scheduled-actions - List scheduled actions
+    fastify.get('/scheduled-actions', async (request, reply) => {
+        const accountId = request.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'No account selected' });
+
+        try {
+            const actions = await prisma.scheduledAdAction.findMany({
+                where: { accountId },
+                orderBy: { scheduledFor: 'asc' },
+                take: 50
+            });
+
+            return actions;
+        } catch (error: any) {
+            Logger.error('Failed to list scheduled actions', { error });
+            return reply.code(500).send({ error: error.message });
+        }
+    });
+
+    // DELETE /api/ads/scheduled-actions/:id - Cancel a scheduled action
+    fastify.delete<{ Params: { id: string } }>('/scheduled-actions/:id', async (request, reply) => {
+        const accountId = request.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'No account selected' });
+
+        try {
+            const { id } = request.params;
+
+            const action = await prisma.scheduledAdAction.findFirst({
+                where: { id, accountId, status: 'pending' }
+            });
+
+            if (!action) {
+                return reply.code(404).send({ error: 'Scheduled action not found or already executed' });
+            }
+
+            await prisma.scheduledAdAction.update({
+                where: { id },
+                data: { status: 'cancelled' }
+            });
+
+            Logger.info('Scheduled action cancelled', { id, accountId });
+
+            return { success: true };
+        } catch (error: any) {
+            Logger.error('Failed to cancel scheduled action', { error });
+            return reply.code(500).send({ error: error.message });
+        }
+    });
+
     // POST /api/ads/create-campaign - Create a new ad campaign (Wizard)
     fastify.post<{ Body: { type: 'SEARCH' | 'PMAX'; name: string; budget: number; keywords?: any[]; adCopy?: any; productIds?: string[] } }>('/create-campaign', async (request, reply) => {
         const accountId = request.accountId;

@@ -66,12 +66,16 @@ export class ProductOpportunityAnalyzer {
             summary: {
                 totalProductsAnalyzed: 0,
                 productsWithSales: 0,
-                productsInAds: activeAdProductIds?.length || 0,
+                productsInAds: 0,
                 opportunityCount: 0
             }
         };
 
         try {
+            // If no active ad product IDs provided, fetch them
+            const adProductIds = activeAdProductIds || await this.fetchActiveProductIdentifiers(accountId);
+            result.summary.productsInAds = adProductIds.length;
+
             const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
             // Get all products with their COGS data
@@ -160,16 +164,22 @@ export class ProductOpportunityAnalyzer {
             result.summary.productsWithSales = velocityData.length;
             result.hasData = velocityData.length > 0;
 
-            // Normalize ad product IDs for comparison
+            // Normalize ad product IDs for comparison (match by SKU primarily)
             const adProductSet = new Set(
-                (activeAdProductIds || []).map(id => String(id).toLowerCase())
+                adProductIds.map(id => String(id).toLowerCase().trim())
             );
 
             // Find unpromoted high-velocity products
             const unpromotedHighVelocity = velocityData
                 .filter(p => {
-                    const inAds = adProductSet.has(p.productId.toLowerCase()) ||
-                        adProductSet.has(p.sku.toLowerCase());
+                    // Check if product is in ads by ID, SKU, or name match
+                    const productIdLower = p.productId.toLowerCase().trim();
+                    const skuLower = (p.sku || '').toLowerCase().trim();
+                    const nameLower = p.productName.toLowerCase().trim();
+
+                    const inAds = adProductSet.has(productIdLower) ||
+                        (skuLower && adProductSet.has(skuLower)) ||
+                        adProductSet.has(nameLower);
                     return !inAds && p.velocity >= 0.5; // At least 0.5 units/day
                 })
                 .sort((a, b) => b.velocity - a.velocity)
@@ -311,5 +321,89 @@ export class ProductOpportunityAnalyzer {
         if (product.margin && product.margin > 20) score += 10;
 
         return Math.min(95, score);
+    }
+
+    /**
+     * Fetch active product identifiers from ad accounts.
+     * Extracts SKUs from Google Shopping data and product titles from Meta catalogs.
+     */
+    private static async fetchActiveProductIdentifiers(accountId: string): Promise<string[]> {
+        const identifiers: Set<string> = new Set();
+
+        try {
+            // Import AdsService to get shopping product data
+            const { AdsService } = await import('../../ads');
+
+            // Get all Google ad accounts for this account
+            const adAccounts = await prisma.adAccount.findMany({
+                where: { accountId, platform: 'GOOGLE' },
+                select: { id: true }
+            });
+
+            for (const adAccount of adAccounts) {
+                try {
+                    const products = await AdsService.getGoogleShoppingProducts(adAccount.id, 30, 500);
+
+                    for (const product of products) {
+                        // Extract SKU from product_id (format: online:en:US:SKU or just SKU)
+                        if (product.productId) {
+                            const parts = String(product.productId).split(':');
+                            const sku = parts.length > 3 ? parts[3] : String(product.productId);
+                            if (sku) identifiers.add(sku.toLowerCase().trim());
+                        }
+
+                        // Also add the raw product ID for direct matching
+                        if (product.productId) {
+                            identifiers.add(String(product.productId).toLowerCase().trim());
+                        }
+
+                        // Add product title for fuzzy matching if needed
+                        if (product.productTitle) {
+                            identifiers.add(String(product.productTitle).toLowerCase().trim());
+                        }
+                    }
+                } catch (err) {
+                    Logger.debug(`Failed to get shopping products for ${adAccount.id}`, { error: err });
+                }
+            }
+
+            // Also check Meta ad accounts - extract product references from campaign names
+            const metaAccounts = await prisma.adAccount.findMany({
+                where: { accountId, platform: 'META' },
+                select: { id: true }
+            });
+
+            for (const metaAcc of metaAccounts) {
+                try {
+                    const campaigns = await AdsService.getMetaCampaignInsights(metaAcc.id, 30);
+
+                    for (const campaign of campaigns) {
+                        // Meta campaign names often contain product names
+                        // E.g., "Summer Sale - Wireless Headphones" → extract "Wireless Headphones"
+                        if (campaign.campaignName) {
+                            const name = String(campaign.campaignName).toLowerCase();
+                            identifiers.add(name.trim());
+
+                            // Split by common delimiters and add each part
+                            const parts = name.split(/[-|:–—]/);
+                            for (const part of parts) {
+                                const cleaned = part.trim();
+                                if (cleaned.length > 3 && cleaned.length < 50) {
+                                    identifiers.add(cleaned);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    Logger.debug(`Failed to get Meta campaigns for ${metaAcc.id}`, { error: err });
+                }
+            }
+
+            Logger.debug(`Found ${identifiers.size} unique product identifiers in ads`, { accountId });
+        } catch (error) {
+            Logger.warn('Failed to fetch ad product identifiers', { error, accountId });
+        }
+
+        return Array.from(identifiers);
     }
 }

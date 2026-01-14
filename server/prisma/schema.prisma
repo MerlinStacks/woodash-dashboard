@@ -760,6 +760,7 @@ model RecommendationLog {
   implementedAt     DateTime?
   dismissedAt       DateTime?
   dismissReason     String?   // "not_relevant", "already_done", "disagree", "will_do_later"
+  userFeedback      String?   @db.Text  // User's explanation/context for future recommendations
   
   // Outcome tracking (populated after implementation)
   outcomeRecordedAt DateTime?
@@ -779,6 +780,44 @@ model RecommendationLog {
   @@index([accountId, createdAt])
   @@index([accountId, status])
   @@index([recommendationId])
+}
+
+// --------------------------------------
+// Scheduled Ad Actions
+// --------------------------------------
+
+/// Stores scheduled ad optimization actions (budget changes, pauses, etc.)
+model ScheduledAdAction {
+  id            String   @id @default(uuid())
+  accountId     String
+  
+  // Action details
+  actionType    String   // "budget_increase", "budget_decrease", "pause", "enable"
+  platform      String   // "google", "meta"
+  adAccountId   String?
+  campaignId    String?
+  campaignName  String?
+  
+  // Parameters
+  parameters    Json     // { currentBudget, newBudget, changeAmount, etc. }
+  
+  // Scheduling
+  scheduledFor  DateTime
+  executedAt    DateTime?
+  status        String   @default("pending")  // "pending", "executed", "failed", "cancelled"
+  
+  // Result tracking
+  error         String?  @db.Text
+  resultData    Json?    // Response from API after execution
+  
+  // Reference
+  recommendationId String?  // Links back to original recommendation
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([accountId, status])
+  @@index([scheduledFor, status])
 }
 
 model WooCustomer {

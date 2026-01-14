@@ -27,12 +27,14 @@ interface ActionableRecommendationCardProps {
     recommendation: ActionableRecommendation;
     onApply?: (recommendation: ActionableRecommendation) => void;
     onDismiss?: (recommendation: ActionableRecommendation) => void;
+    onSchedule?: (recommendation: ActionableRecommendation) => void;
 }
 
 export function ActionableRecommendationCard({
     recommendation,
     onApply,
-    onDismiss
+    onDismiss,
+    onSchedule
 }: ActionableRecommendationCardProps) {
     const { action, headline, explanation, dataPoints, priority } = recommendation;
 
@@ -177,7 +179,10 @@ export function ActionableRecommendationCard({
                         <Check className="w-4 h-4" /> Apply
                     </button>
                     {isBudgetAction(action) && (
-                        <button className="w-full py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <button
+                            onClick={() => onSchedule?.(recommendation)}
+                            className="w-full py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                        >
                             <Calendar className="w-4 h-4" /> Schedule
                         </button>
                     )}
