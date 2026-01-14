@@ -103,6 +103,60 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
+    fastify.put<{ Params: { id: string } }>('/suppliers/:id', async (request, reply) => {
+        const accountId = request.accountId;
+        const { id } = request.params;
+        if (!accountId) return reply.code(400).send({ error: 'No account' });
+
+        try {
+            // Verify supplier belongs to account
+            const existing = await prisma.supplier.findFirst({
+                where: { id, accountId }
+            });
+            if (!existing) return reply.code(404).send({ error: 'Supplier not found' });
+
+            const { name, contactName, email, phone, currency, leadTimeDefault, leadTimeMin, leadTimeMax, paymentTerms } = request.body as any;
+            const supplier = await prisma.supplier.update({
+                where: { id },
+                data: {
+                    name,
+                    contactName,
+                    email,
+                    phone,
+                    currency: currency || 'USD',
+                    leadTimeDefault: leadTimeDefault ? parseInt(leadTimeDefault) : null,
+                    leadTimeMin: leadTimeMin ? parseInt(leadTimeMin) : null,
+                    leadTimeMax: leadTimeMax ? parseInt(leadTimeMax) : null,
+                    paymentTerms
+                }
+            });
+            return supplier;
+        } catch (error) {
+            Logger.error('Error updating supplier', { error });
+            return reply.code(500).send({ error: 'Failed to update supplier' });
+        }
+    });
+
+    fastify.delete<{ Params: { id: string } }>('/suppliers/:id', async (request, reply) => {
+        const accountId = request.accountId;
+        const { id } = request.params;
+        if (!accountId) return reply.code(400).send({ error: 'No account' });
+
+        try {
+            // Verify supplier belongs to account
+            const existing = await prisma.supplier.findFirst({
+                where: { id, accountId }
+            });
+            if (!existing) return reply.code(404).send({ error: 'Supplier not found' });
+
+            await prisma.supplier.delete({ where: { id } });
+            return { success: true };
+        } catch (error) {
+            Logger.error('Error deleting supplier', { error });
+            return reply.code(500).send({ error: 'Failed to delete supplier' });
+        }
+    });
+
     fastify.post<{ Params: { id: string } }>('/suppliers/:id/items', async (request, reply) => {
         const { id } = request.params;
         try {

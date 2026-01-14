@@ -1471,6 +1471,11 @@ model AuditLog {
   resource   String // "PRODUCT", "ORDER", "SETTINGS"
   resourceId String // e.g. Product ID
   details    Json // { field: "price", from: 10, to: 20 }
+  
+  // Enhanced audit fields for stock tracking
+  source           String?  @default("USER") // USER, SYSTEM_BOM, SYSTEM_SYNC
+  previousValue    Json?    // State before change (e.g. { stock_quantity: 10 })
+  validationStatus String?  // PASSED, SKIPPED, MISMATCH_OVERRIDE
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
   user    User?   @relation(fields: [userId], references: [id])
@@ -1480,6 +1485,7 @@ model AuditLog {
   @@index([accountId, resource, resourceId])
   @@index([accountId, createdAt])
 }
+
 
 model InventorySettings {
   id        String @id @default(uuid())

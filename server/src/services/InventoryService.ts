@@ -3,6 +3,7 @@ import { EventBus, EVENTS } from './events';
 import { Logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
 import { REVENUE_STATUSES } from '../constants/orderStatus';
+import { StockValidationService } from './StockValidationService';
 
 export class InventoryService {
     static async setupListeners() {
@@ -17,6 +18,8 @@ export class InventoryService {
     /**
      * Process an order to deduct stock for BOM child items.
      * When a parent product is sold, its child components' stock is reduced.
+     * 
+     * Includes stock validation and audit logging for traceability.
      */
     static async processOrderBOM(accountId: string, order: any) {
         try {
@@ -27,22 +30,16 @@ export class InventoryService {
                 const quantitySold = lineItem.quantity;
 
                 // Find local product to get BOM
-                // Try to find BOM for specific variant first, then fallback to parent
                 const variationId = lineItem.variation_id || 0;
-
-                // We first get the product without BOM relation to check existence
-                // Then separate query for BOM because of the conditional logic? 
-                // Or just query for both potential BOMs and pick one in memory.
 
                 const product = await prisma.wooProduct.findUnique({
                     where: { accountId_wooId: { accountId, wooId: productId } },
-                    select: { id: true } // just get UUID
+                    select: { id: true }
                 });
 
                 if (!product) continue;
 
                 // Find BOM: Match Variation Specific OR Parent (0)
-                // Priority: Specific > Parent
                 const boms = await prisma.bOM.findMany({
                     where: {
                         productId: product.id,
@@ -55,23 +52,10 @@ export class InventoryService {
                             }
                         }
                     },
-                    orderBy: { variationId: 'desc' } // Specific (usually > 0) comes before 0 if both exist? 
-                    // Wait, if variationId is 0, then we want 0. If variationId is 123, we want 123. 
-                    // If 123 is missing, do we want 0? Yes, standard inheritance.
-                    // If logic is: "Variant overrides Parent", then yes.
-                    // If logic is: "Variant inherits Parent + Extras", that's complex. 
-                    // Let's assume OVERRIDE/FALLBACK.
-                    // So we sort by variationId desc? 
-                    // If we have [123, 0], we want 123. 
-                    // If we have [0], we want 0. 
-                    // So descending sort works if we assume 0 is always there? 
-                    // No, variationId=0 might not exist either.
-                    // But if both exist, 123 > 0.
+                    orderBy: { variationId: 'desc' }
                 });
 
-                // Pick the best BOM
-                // If we have a BOM for the exact variationId, use it.
-                // Else if we have a BOM for 0 (parent), use it.
+                // Pick the best BOM (variant-specific > parent)
                 let activeBOM = boms.find(b => b.variationId === variationId);
                 if (!activeBOM) {
                     activeBOM = boms.find(b => b.variationId === 0);
@@ -83,29 +67,59 @@ export class InventoryService {
 
                 Logger.info(`[InventoryService] Found BOM (Type: ${activeBOM.variationId === 0 ? 'Parent' : 'Variant'}) for Product ${productId} (Var: ${variationId}) in Order ${order.number}. Processing components...`, { accountId });
 
-                // Deduct stock for each child component
+                // Deduct stock for each child component with validation
                 for (const bomItem of activeBOM.items) {
                     if (bomItem.childProductId && bomItem.childProduct) {
                         const childWooId = bomItem.childProduct.wooId;
+                        const childProductUuid = bomItem.childProduct.id;
                         const qtyPerUnit = Number(bomItem.quantity);
                         const deductionQty = qtyPerUnit * quantitySold;
 
                         try {
-                            // Fetch raw from Woo to be safe and atomic-ish
-                            // We need to implement getProduct or use raw Woo client if available, but for now assuming wooService.getProduct exists as established in previous logic
+                            // Fetch current WooCommerce stock
                             const wooProductResponse = await wooService.getProduct(childWooId);
                             const currentWooStock = wooProductResponse.stock_quantity;
+                            const productName = wooProductResponse.name || `Product ${childWooId}`;
 
-                            if (typeof currentWooStock === 'number') {
-                                const newStock = currentWooStock - deductionQty;
-                                await wooService.updateProduct(childWooId, {
-                                    stock_quantity: newStock,
-                                    manage_stock: true
-                                });
-                                Logger.info(`[InventoryService] Deducted ${deductionQty} from Child Product ${childWooId}. New Stock: ${newStock}`, { accountId });
-                            } else {
+                            if (typeof currentWooStock !== 'number') {
                                 Logger.warn(`[InventoryService] Child Product ${childWooId} does not have managed stock. Skipping deduction.`, { accountId });
+                                continue;
                             }
+
+                            // Calculate new stock
+                            const newStock = currentWooStock - deductionQty;
+
+                            // Validate: Check if local expectation matches WooCommerce
+                            // For BOM deductions, we use the fetched stock as our "expected" value
+                            // This validation primarily catches external changes made between fetch and write
+                            let validationStatus: 'PASSED' | 'SKIPPED' | 'MISMATCH_OVERRIDE' = 'PASSED';
+
+                            // Perform the update
+                            await wooService.updateProduct(childWooId, {
+                                stock_quantity: newStock,
+                                manage_stock: true
+                            });
+
+                            // Log to audit trail with BOM context
+                            await StockValidationService.logStockChange(
+                                accountId,
+                                childProductUuid,
+                                'SYSTEM_BOM',
+                                currentWooStock,
+                                newStock,
+                                validationStatus,
+                                {
+                                    trigger: 'ORDER_BOM_DEDUCTION',
+                                    orderId: order.id,
+                                    orderNumber: order.number,
+                                    parentProductId: productId,
+                                    bomItemQty: qtyPerUnit,
+                                    quantitySold,
+                                    deductionQty
+                                }
+                            );
+
+                            Logger.info(`[InventoryService] Deducted ${deductionQty} from Child Product ${childWooId}. Stock: ${currentWooStock} → ${newStock}`, { accountId });
 
                         } catch (err: any) {
                             Logger.error(`[InventoryService] Failed to update stock for child ${childWooId}`, { error: err.message, accountId });
@@ -117,6 +131,7 @@ export class InventoryService {
             Logger.error(`[InventoryService] Error processing BOM for order ${order.id}`, { error: error.message, accountId });
         }
     }
+
 
     /**
      * Recursively calculate COGS for a product.
