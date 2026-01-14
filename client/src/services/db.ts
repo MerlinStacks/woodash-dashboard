@@ -136,19 +136,44 @@ export async function clearAccountCache(accountId: string): Promise<void> {
 }
 
 /**
- * Search products locally
+ * Search products locally with relevance-based ranking
  */
 export async function searchProductsLocal(accountId: string, query: string): Promise<CachedProduct[]> {
     const lowerQuery = query.toLowerCase();
 
-    return hotTierDB.products
+    const allProducts = await hotTierDB.products
         .where('accountId').equals(accountId)
-        .filter((p: CachedProduct) =>
-            p.name.toLowerCase().includes(lowerQuery) ||
-            Boolean(p.sku && p.sku.toLowerCase().includes(lowerQuery))
-        )
-        .limit(50)
         .toArray();
+
+    // Score and filter products based on match quality
+    const scored = allProducts
+        .map((p: CachedProduct) => {
+            const nameLower = p.name.toLowerCase();
+            const skuLower = (p.sku || '').toLowerCase();
+
+            let score = 0;
+
+            // Exact name match - highest priority
+            if (nameLower === lowerQuery) score = 100;
+            // Name starts with query - high priority
+            else if (nameLower.startsWith(lowerQuery)) score = 80;
+            // SKU exact match - high priority
+            else if (skuLower === lowerQuery) score = 75;
+            // SKU starts with query
+            else if (skuLower.startsWith(lowerQuery)) score = 60;
+            // Name contains query
+            else if (nameLower.includes(lowerQuery)) score = 40;
+            // SKU contains query
+            else if (skuLower.includes(lowerQuery)) score = 20;
+
+            return { product: p, score };
+        })
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 50)
+        .map(item => item.product);
+
+    return scored;
 }
 
 /**

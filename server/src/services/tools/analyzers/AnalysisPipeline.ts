@@ -23,6 +23,7 @@ import { FunnelAnalyzer } from './FunnelAnalyzer';
 import { AudienceAnalyzer } from './AudienceAnalyzer';
 import { ProductOpportunityAnalyzer } from './ProductOpportunityAnalyzer';
 import { KeywordOpportunityAnalyzer } from './KeywordOpportunityAnalyzer';
+import { MarketingStrategyAdvisor } from '../advisors/MarketingStrategyAdvisor';
 
 // =============================================================================
 // PIPELINE
@@ -44,15 +45,17 @@ export class AnalysisPipeline {
             funnel,
             audience,
             productOpp,
-            keywordOpp
+            keywordOpp,
+            strategy
         ] = await Promise.all([
             MultiPeriodAnalyzer.analyze(accountId),
             CrossChannelAnalyzer.analyze(accountId),
             LTVAnalyzer.analyze(accountId),
             FunnelAnalyzer.analyze(accountId),
             AudienceAnalyzer.analyze(accountId),
-            ProductOpportunityAnalyzer.analyze(accountId), // New
-            KeywordOpportunityAnalyzer.analyze(accountId)  // New
+            ProductOpportunityAnalyzer.analyze(accountId),
+            KeywordOpportunityAnalyzer.analyze(accountId),
+            MarketingStrategyAdvisor.analyze(accountId)  // Strategic layer
         ]);
 
         // Collect all suggestions
@@ -67,6 +70,9 @@ export class AnalysisPipeline {
         if (keywordOpp.keywordOpportunities) allActions.push(...keywordOpp.keywordOpportunities);
         if (keywordOpp.negativeKeywordOpportunities) allActions.push(...keywordOpp.negativeKeywordOpportunities);
         if (keywordOpp.bidAdjustments) allActions.push(...keywordOpp.bidAdjustments);
+
+        // Strategic recommendations (executive-level insights)
+        if (strategy.recommendations) allActions.push(...strategy.recommendations);
 
         // Collect actionable recommendations from existing updated analyzers
         if (multiPeriod.actionableRecommendations) {
@@ -93,7 +99,8 @@ export class AnalysisPipeline {
         // Build unified result
         const hasData = multiPeriod.hasData || crossChannel.hasData ||
             ltv.hasData || funnel.hasData || audience.hasData ||
-            productOpp.hasData || keywordOpp.hasData;
+            productOpp.hasData || keywordOpp.hasData || strategy.hasData;
+
 
         return {
             hasData,

@@ -165,7 +165,10 @@ export class ProductsService {
                 },
                 from,
                 size: limit,
-                sort: [{ date_created: { order: 'desc' } } as any]
+                // Sort by relevance score when searching, otherwise by date
+                sort: query
+                    ? [{ _score: { order: 'desc' } }, { date_created: { order: 'desc' } }] as any
+                    : [{ date_created: { order: 'desc' } }] as any
             });
 
             const hits = response.hits.hits.map(hit => ({

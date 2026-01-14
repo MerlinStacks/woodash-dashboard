@@ -19,7 +19,7 @@ export interface BudgetAction {
     actionType: 'budget_increase' | 'budget_decrease' | 'pause' | 'enable';
     campaignId: string;
     campaignName: string;
-    platform: 'google' | 'meta';
+    platform: 'google' | 'meta' | 'both';
     currentBudget: number;
     suggestedBudget: number;
     changeAmount: number;

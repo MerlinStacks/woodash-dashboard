@@ -177,6 +177,22 @@ export class AdsTools {
     }
 
     static async getAdOptimizationSuggestions(accountId: string, options?: AdOptimizerOptions) {
-        return AdOptimizer.getAdOptimizationSuggestions(accountId, options);
+        // Run both the legacy optimizer and the new pipeline in parallel
+        const [optimizerResult, pipelineResult] = await Promise.all([
+            AdOptimizer.getAdOptimizationSuggestions(accountId, options),
+            import('./analyzers/AnalysisPipeline').then(m => m.AnalysisPipeline.runAll(accountId))
+        ]);
+
+        // If optimizer returned a string message (no accounts connected), return that
+        if (typeof optimizerResult === 'string') {
+            return optimizerResult;
+        }
+
+        // Merge actionable recommendations from pipeline into the result
+        return {
+            ...optimizerResult,
+            actionableRecommendations: pipelineResult.actionableRecommendations || []
+        };
     }
+
 }

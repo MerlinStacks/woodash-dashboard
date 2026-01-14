@@ -17,6 +17,7 @@ export class SearchQueryService {
                 esClient.search({
                     index: 'products',
                     size: 5,
+                    track_scores: true,
                     query: {
                         bool: {
                             must: commonMust,
@@ -40,7 +41,8 @@ export class SearchQueryService {
                             ],
                             minimum_should_match: 1
                         }
-                    }
+                    },
+                    sort: [{ _score: { order: 'desc' } }]
                 }),
 
                 // 2. Customers Search

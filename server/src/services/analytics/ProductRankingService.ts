@@ -215,7 +215,7 @@ export class ProductRankingService {
                         aggs: {
                             by_product: {
                                 terms: {
-                                    field: 'line_items.product_id',
+                                    field: 'line_items.productId',
                                     size: 1000
                                 },
                                 aggs: {

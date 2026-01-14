@@ -40,10 +40,11 @@ const updateProductBodySchema = z.object({
     height: z.union([z.string(), z.number()]).optional(),
     description: z.string().optional(),
     short_description: z.string().optional(),
-    cogs: z.number().optional(),
+    cogs: z.union([z.string(), z.number()]).transform(val => val === '' ? undefined : Number(val)).optional(),
     supplierId: z.string().optional(),
     images: z.array(z.any()).optional(),
-    focusKeyword: z.string().optional()
+    focusKeyword: z.string().optional(),
+    variations: z.array(z.any()).optional()
 });
 
 const createProductBodySchema = z.object({
@@ -197,12 +198,12 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
         try {
             const accountId = request.accountId!;
             const { id: wooId } = productIdParamSchema.parse(request.params);
-            const { binLocation, name, stockStatus, isGoldPriceApplied, sku, price, salePrice, weight, length, width, height, description, short_description, cogs, supplierId, images, focusKeyword } = updateProductBodySchema.parse(request.body);
+            const { binLocation, name, stockStatus, isGoldPriceApplied, sku, price, salePrice, weight, length, width, height, description, short_description, cogs, supplierId, images, focusKeyword, variations } = updateProductBodySchema.parse(request.body);
 
             let product = await ProductsService.updateProduct(accountId, wooId, {
                 binLocation, name, stockStatus, isGoldPriceApplied,
                 sku, price, salePrice, weight, length, width, height, description, short_description,
-                cogs, supplierId, images
+                cogs, supplierId, images, variations
             });
 
             // Recalculate SEO if needed

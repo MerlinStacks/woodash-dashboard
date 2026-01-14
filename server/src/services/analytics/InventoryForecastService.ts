@@ -314,7 +314,7 @@ export class InventoryForecastService {
                         aggs: {
                             by_product: {
                                 terms: {
-                                    field: 'line_items.product_id',
+                                    field: 'line_items.productId',
                                     size: 10000
                                 },
                                 aggs: {
