@@ -305,6 +305,89 @@ export class PushNotificationService {
     }
 
     /**
+     * Same as sendToAccount but returns detailed diagnostics for debugging.
+     * Used by NotificationEngine for observability.
+     */
+    static async sendToAccountWithDiagnostics(
+        accountId: string,
+        notification: { title: string; body: string; data?: Record<string, unknown> },
+        type: 'message' | 'order'
+    ): Promise<{ sent: number; failed: number; diagnostics: Record<string, unknown> }> {
+        const diagnostics: Record<string, unknown> = {
+            accountId,
+            type,
+            filterApplied: type === 'order' ? 'notifyNewOrders=true' : 'notifyNewMessages=true'
+        };
+
+        const keys = await this.getVapidKeys();
+        if (!keys) {
+            diagnostics.error = 'No VAPID keys configured';
+            return { sent: 0, failed: 0, diagnostics };
+        }
+
+        webpush.setVapidDetails(
+            'mailto:notifications@overseek.io',
+            keys.publicKey,
+            keys.privateKey
+        );
+
+        // Build where clause
+        const whereClause: Record<string, unknown> = { accountId };
+        if (type === 'message') {
+            whereClause.notifyNewMessages = true;
+        } else if (type === 'order') {
+            whereClause.notifyNewOrders = true;
+        }
+
+        const subscriptions = await prisma.pushSubscription.findMany({
+            where: whereClause
+        });
+
+        diagnostics.subscriptionsFound = subscriptions.length;
+
+        if (subscriptions.length === 0) {
+            // Get all subscriptions for diagnostic comparison
+            const allSubs = await prisma.pushSubscription.findMany({
+                select: { accountId: true, notifyNewOrders: true, notifyNewMessages: true }
+            });
+
+            diagnostics.totalSubscriptionsInDb = allSubs.length;
+            diagnostics.existingAccountIds = [...new Set(allSubs.map(s => s.accountId))];
+            diagnostics.matchingPreference = type === 'order'
+                ? allSubs.filter(s => s.notifyNewOrders).length
+                : allSubs.filter(s => s.notifyNewMessages).length;
+
+            return { sent: 0, failed: 0, diagnostics };
+        }
+
+        let sent = 0;
+        let failed = 0;
+
+        for (const sub of subscriptions) {
+            try {
+                const pushSubscription: WebPushSubscription = {
+                    endpoint: sub.endpoint,
+                    keys: { p256dh: sub.p256dh, auth: sub.auth }
+                };
+
+                await webpush.sendNotification(pushSubscription, JSON.stringify(notification));
+                sent++;
+            } catch (error: unknown) {
+                failed++;
+                const statusCode = (error as { statusCode?: number })?.statusCode;
+                if (statusCode === 410 || statusCode === 404) {
+                    await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => { });
+                }
+            }
+        }
+
+        diagnostics.sent = sent;
+        diagnostics.failed = failed;
+
+        return { sent, failed, diagnostics };
+    }
+
+    /**
      * Sends a test notification to a specific user's subscribed devices.
      * Used to verify push notification setup is working correctly.
      */

@@ -11,6 +11,7 @@ import { Logger } from '../utils/logger';
 import { EmailIngestion, IncomingEmailData } from './EmailIngestion';
 import { BlockedContactService } from './BlockedContactService';
 import { AutomationEngine } from './AutomationEngine';
+import { EventBus, EVENTS } from './events';
 
 export class ChatService {
     private io: Server;
@@ -72,7 +73,17 @@ export class ChatService {
             include: {
                 messages: { orderBy: { createdAt: 'asc' } },
                 wooCustomer: true,
-                assignee: true
+                assignee: true,
+                mergedFrom: {
+                    select: {
+                        id: true,
+                        channel: true,
+                        guestEmail: true,
+                        guestName: true,
+                        wooCustomer: { select: { email: true, firstName: true, lastName: true } },
+                        socialAccount: { select: { name: true, platform: true } }
+                    }
+                }
             }
         });
 
@@ -180,12 +191,13 @@ export class ChatService {
         // Only handle autoreplies and push notifications for non-blocked customers
         if (senderType === 'CUSTOMER' && !isBlocked) {
             await this.handleAutoReply(conversation);
-            const { PushNotificationService } = require('./PushNotificationService');
-            await PushNotificationService.sendToAccount(conversation.accountId, {
-                title: '💬 New Chat Message',
-                body: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
-                data: { url: '/inbox' }
-            }, 'message');
+
+            // Emit event for NotificationEngine to handle push
+            EventBus.emit(EVENTS.CHAT.MESSAGE_RECEIVED, {
+                accountId: conversation.accountId,
+                conversationId,
+                content
+            });
 
             // Trigger automation for customer messages
             this.automationEngine.processTrigger(conversation.accountId, 'MESSAGE_RECEIVED', {

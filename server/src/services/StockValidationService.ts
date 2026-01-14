@@ -8,7 +8,7 @@
 import { Logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
 import { WooService } from './woo';
-import { PushNotificationService } from './PushNotificationService';
+import { EventBus, EVENTS } from './events';
 
 export interface StockValidationResult {
     valid: boolean;
@@ -95,23 +95,18 @@ export class StockValidationService {
                 where: { accountId, wooId: productId }
             });
 
-            // Send push notification to all users in the account
-            await PushNotificationService.sendToAccount(
+            // Emit event for NotificationEngine to handle push and in-app notification
+            EventBus.emit(EVENTS.STOCK.MISMATCH, {
                 accountId,
-                {
-                    title: '⚠️ Stock Mismatch Detected',
-                    body: `"${productName}" had stock mismatch: Expected ${expectedStock}, WooCommerce had ${wooStock}. Updated to ${newStock}.`,
-                    data: {
-                        type: 'stock_mismatch',
-                        productId: localProduct?.id,
-                        wooProductId: productId,
-                        url: localProduct ? `/products/${localProduct.id}` : '/inventory'
-                    }
-                },
-                'order' // Use 'order' type for inventory-related notifications
-            );
+                productId,
+                productName,
+                wooStock,
+                expectedStock,
+                newStock,
+                internalProductId: localProduct?.id
+            });
 
-            Logger.info(`[StockValidation] Sent mismatch notification for product ${productId}`, { accountId });
+            Logger.info(`[StockValidation] Emitted mismatch event for product ${productId}`, { accountId });
         } catch (error: any) {
             Logger.error(`[StockValidation] Failed to send mismatch notification`, { error: error.message, accountId });
         }

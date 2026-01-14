@@ -20,6 +20,9 @@ import {
 } from './advisors';
 import { processSearchSuggestions } from './advisors/SearchAdvisor';
 
+// Import multi-period analyzer (AI Marketing Co-Pilot Phase 1)
+import { MultiPeriodAnalyzer } from './analyzers';
+
 export interface AdOptimizerOptions {
     userContext?: string;
     includeInventory?: boolean;
@@ -119,7 +122,21 @@ export class AdOptimizer {
                 processBudgetSuggestions(metaAnalysis, 'Meta', suggestions);
             }
 
-            // Trend analysis (delegated to TrendAdvisor)
+            // Multi-period analysis (AI Marketing Co-Pilot Phase 1)
+            const multiPeriodAnalysis = await MultiPeriodAnalyzer.analyze(accountId);
+            if (multiPeriodAnalysis.hasData) {
+                combinedSummary.multiPeriod = {
+                    periods: multiPeriodAnalysis.combined,
+                    trends: multiPeriodAnalysis.trends,
+                    anomalyCount: multiPeriodAnalysis.anomalies.length
+                };
+                // Add multi-period suggestions (these come pre-prioritized)
+                for (const suggestion of multiPeriodAnalysis.suggestions) {
+                    suggestions.push(suggestion);
+                }
+            }
+
+            // Legacy trend analysis (kept for week-over-week CTR alerts)
             await processTrendAnalysis(accountId, suggestions, combinedSummary);
 
             // Product-Ad cross-reference (delegated to ProductAdMatcher)

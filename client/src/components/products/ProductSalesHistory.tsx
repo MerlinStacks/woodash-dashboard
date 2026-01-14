@@ -13,6 +13,7 @@ interface SaleRecord {
     customerEmail: string;
     quantity: number;
     lineTotal: number;
+    orderTotal: number;
     currency: string;
 }
 
@@ -132,7 +133,8 @@ export function ProductSalesHistory({ productWooId }: ProductSalesHistoryProps) 
                             <th className="px-6 py-3">Date</th>
                             <th className="px-6 py-3">Customer</th>
                             <th className="px-6 py-3 text-center">Qty</th>
-                            <th className="px-6 py-3 text-right">Total</th>
+                            <th className="px-6 py-3 text-right">Line Total</th>
+                            <th className="px-6 py-3 text-right">Order Total</th>
                             <th className="px-6 py-3 text-center">Status</th>
                         </tr>
                     </thead>
@@ -174,6 +176,9 @@ export function ProductSalesHistory({ productWooId }: ProductSalesHistoryProps) 
                                 </td>
                                 <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
                                     {formatCurrency(sale.lineTotal, sale.currency)}
+                                </td>
+                                <td className="px-6 py-4 text-right text-sm font-medium text-gray-700">
+                                    {formatCurrency(sale.orderTotal, sale.currency)}
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                     <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full border capitalize ${getStatusBadge(sale.status)}`}>

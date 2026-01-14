@@ -687,7 +687,50 @@ model AdAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  snapshots AdPerformanceSnapshot[]
+
   @@index([accountId])
+}
+
+// --------------------------------------
+// Ad Performance Snapshots (AI Marketing Co-Pilot)
+// --------------------------------------
+
+/// Daily snapshot of ad performance metrics for historical analysis.
+/// Used by the AI Marketing Co-Pilot for multi-period comparison (7d/30d/90d),
+/// trend detection, and seasonality analysis.
+model AdPerformanceSnapshot {
+  id          String   @id @default(uuid())
+  accountId   String
+  adAccountId String
+  platform    String   // "GOOGLE" | "META"
+  date        DateTime @db.Date
+
+  // Core metrics
+  spend           Float
+  revenue         Float
+  clicks          Int
+  impressions     Int
+  conversions     Float
+
+  // Derived metrics (calculated for query efficiency)
+  roas            Float
+  ctr             Float
+  cpc             Float
+  cpa             Float
+
+  // Optional breakdowns (JSON for flexibility)
+  campaignBreakdown Json?  // { campaignId: { spend, revenue, clicks, ... } }
+  deviceBreakdown   Json?  // { mobile: { ... }, desktop: { ... } }
+  geoBreakdown      Json?  // { AU: { ... }, US: { ... } }
+
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([adAccountId, date])
+  @@index([accountId, date])
+  @@index([adAccountId, date])
 }
 
 model WooCustomer {
@@ -1675,4 +1718,34 @@ model AdSuggestionContext {
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// --------------------------------------
+// Notification Delivery Logging
+// --------------------------------------
+
+/// Logs all notification delivery attempts for debugging and observability.
+model NotificationDelivery {
+  id             String   @id @default(uuid())
+  accountId      String
+  
+  /// Event that triggered this notification
+  eventType      String   // "ORDER_CREATED", "MESSAGE_RECEIVED", etc.
+  
+  /// Channels attempted
+  channels       Json     // ["in_app", "push"]
+  
+  /// Delivery status per channel
+  results        Json     // { "in_app": "sent", "push": { "sent": 2, "failed": 0 } }
+  
+  /// Subscription lookup debug info
+  subscriptionLookup Json? // { "accountId": "...", "found": 2, "filtered": 1 }
+  
+  /// Original event payload (truncated for size)
+  payload        Json?
+  
+  createdAt      DateTime @default(now())
+  
+  @@index([accountId, createdAt])
+  @@index([eventType, createdAt])
 }

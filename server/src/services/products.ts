@@ -37,6 +37,12 @@ export class ProductsService {
                 salePrice: fullData?.sale_price || '',
                 stockStatus: fullData?.stock_status || 'instock',
                 stockQuantity: fullData?.stock_quantity ?? null,
+                weight: fullData?.weight || '',
+                dimensions: {
+                    length: fullData?.dimensions?.length || '',
+                    width: fullData?.dimensions?.width || '',
+                    height: fullData?.dimensions?.height || ''
+                },
                 cogs: '',
                 binLocation: '',
                 image: fullData?.image || null, // Single image object { src: ... }

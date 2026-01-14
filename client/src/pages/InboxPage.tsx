@@ -266,6 +266,7 @@ export function InboxPage() {
                         assigneeId={activeConversation?.assignedTo}
                         availableChannels={availableChannels}
                         currentChannel={activeConversation?.channel || 'CHAT'}
+                        mergedRecipients={activeConversation?.mergedFrom || []}
                         onStatusChange={async (newStatus, snoozeUntil) => {
                             const res = await fetch(`/api/chat/${selectedId}`, {
                                 method: 'PUT',
@@ -368,6 +369,7 @@ export function InboxPage() {
             {selectedId && (
                 <ContactPanel
                     conversation={activeConversation}
+                    onSelectConversation={(id) => setSelectedId(id)}
                 />
             )}
 

@@ -28,6 +28,7 @@ QueueFactory.init();
 
 const automationEngine = new AutomationEngine(); // Keep for event listeners
 import { InventoryService } from './services/InventoryService';
+import { NotificationEngine } from './services/NotificationEngine';
 
 // Initialize Inventory Listeners
 InventoryService.setupListeners();
@@ -358,26 +359,8 @@ async function initializeApp() {
         await chatService.handleIncomingEmail(data);
     });
 
-    EventBus.on(EVENTS.SOCIAL.MESSAGE_RECEIVED, async (data) => {
-        Logger.warn('[Push] SOCIAL.MESSAGE_RECEIVED event received', {
-            accountId: data.accountId,
-            platform: data.platform,
-            conversationId: data.conversationId
-        });
-
-        const { PushNotificationService } = await import('./services/PushNotificationService');
-        const platformLabel = data.platform === 'FACEBOOK' ? '💬 Messenger'
-            : data.platform === 'INSTAGRAM' ? '📷 Instagram'
-                : '🎵 TikTok';
-
-        const result = await PushNotificationService.sendToAccount(data.accountId, {
-            title: `${platformLabel} Message`,
-            body: 'New message received',
-            data: { url: '/inbox', conversationId: data.conversationId }
-        }, 'message');
-
-        Logger.warn('[Push] Social message push result', { ...result, platform: data.platform });
-    });
+    // Initialize Notification Engine (handles push notifications for all events)
+    NotificationEngine.init();
 
     // Socket.io Connection Logic
     io.on('connection', (socket) => {

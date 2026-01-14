@@ -9,7 +9,7 @@ import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
 import { IndexingService } from '../services/search/IndexingService';
 import { WebhookDeliveryService } from '../services/WebhookDeliveryService';
-import { getIO } from '../socket';
+import { EventBus, EVENTS } from '../services/events';
 
 /** Verify WooCommerce HMAC signature */
 const verifySignature = (payload: unknown, signature: string, secret: string): boolean => {
@@ -50,49 +50,8 @@ export async function processWebhookPayload(
                 total: body.total
             });
 
-            // Calculate item count from line_items
-            const lineItems = body.line_items as Array<unknown> | undefined;
-            const itemCount = lineItems?.length || 0;
-            const itemText = itemCount === 1 ? '1 item' : `${itemCount} items`;
-
-            await prisma.notification.create({
-                data: {
-                    accountId,
-                    title: 'New Order Received',
-                    message: `Order #${body.number || body.id} - $${body.total} (${itemText})`,
-                    type: 'SUCCESS',
-                    link: '/orders'
-                }
-            });
-
-            // Emit socket event
-            const socketIO = getIO();
-            if (socketIO) {
-                Logger.info(`[Webhook] Emitting order:new to room account:${accountId}`, {
-                    orderId: body.id,
-                    orderNumber: body.number || body.id,
-                    total: body.total
-                });
-                socketIO.to(`account:${accountId}`).emit('order:new', {
-                    orderId: body.id,
-                    orderNumber: body.number || body.id,
-                    total: body.total,
-                    itemCount,
-                    customerName: (body.billing as Record<string, string>)?.first_name
-                        ? `${(body.billing as Record<string, string>).first_name} ${(body.billing as Record<string, string>).last_name || ''}`.trim()
-                        : 'Guest'
-                });
-            } else {
-                Logger.warn(`[Webhook] Socket.IO not initialized, cannot emit order:new`, { accountId });
-            }
-
-            // Send push notification
-            const { PushNotificationService } = require('../services/PushNotificationService');
-            await PushNotificationService.sendToAccount(accountId, {
-                title: '🛒 New Order!',
-                body: `Order #${body.number || body.id} - $${body.total} (${itemText})`,
-                data: { url: '/orders' }
-            }, 'order');
+            // Emit event - NotificationEngine handles in-app, push, and socket
+            EventBus.emit(EVENTS.ORDER.CREATED, { accountId, order: body });
         }
         Logger.info(`Indexed Order`, { orderId: body.id, accountId });
     }

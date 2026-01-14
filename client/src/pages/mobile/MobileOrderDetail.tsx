@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock, MapPin, User, Mail, Phone, CreditCard, Copy, ExternalLink, X, TrendingUp, Globe, Smartphone, Monitor, Tablet } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock, MapPin, User, Mail, Phone, CreditCard, Copy, ExternalLink, X, TrendingUp, Globe, Smartphone, Monitor, Tablet, Tag } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 
@@ -67,6 +67,7 @@ export function MobileOrderDetail() {
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [attribution, setAttribution] = useState<Attribution | null>(null);
+    const [orderTags, setOrderTags] = useState<string[]>([]);
 
     useEffect(() => {
         if (id) fetchOrder();
@@ -118,6 +119,9 @@ export function MobileOrderDetail() {
                 currency: o.currency
             });
 
+            // Store tags separately for removal functionality
+            setOrderTags(o.tags || []);
+
             // Fetch attribution data
             fetchAttribution();
         } catch (error) {
@@ -145,6 +149,22 @@ export function MobileOrderDetail() {
     const formatCurrency = (amount: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: currentAccount?.currency || 'USD' }).format(amount);
     const formatDate = (date: string) => new Date(date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); if ('vibrate' in navigator) navigator.vibrate(10); };
+
+    const removeTag = async (tag: string) => {
+        if (!currentAccount || !token || !order) return;
+        try {
+            const res = await fetch(`/api/orders/${id}/tags/${encodeURIComponent(tag)}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setOrderTags(data.tags);
+            }
+        } catch (err) {
+            console.error('Failed to remove tag', err);
+        }
+    };
 
     if (loading) return <div className="space-y-4 animate-pulse"><div className="h-10 bg-gray-200 rounded w-1/3" /><div className="h-24 bg-gray-200 rounded-xl" /><div className="h-40 bg-gray-200 rounded-xl" /></div>;
     if (!order) return <div className="text-center py-12"><Package className="mx-auto text-gray-300 mb-4" size={48} /><p className="text-gray-500">Order not found</p><button onClick={() => navigate('/m/orders')} className="mt-4 text-indigo-600 font-medium">Back to Orders</button></div>;
@@ -250,6 +270,32 @@ export function MobileOrderDetail() {
                 </div>
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100"><CreditCard size={16} className="text-gray-400" /><span className="text-sm text-gray-600">{order.paymentMethod}</span></div>
             </div>
+
+            {/* Tags Section */}
+            {orderTags.length > 0 && (
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Tag size={18} className="text-indigo-600" />
+                        <h2 className="font-semibold text-gray-900">Tags</h2>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {orderTags.map((tag) => (
+                            <span
+                                key={tag}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-sm bg-gray-100 text-gray-700 group"
+                            >
+                                {tag}
+                                <button
+                                    onClick={() => removeTag(tag)}
+                                    className="ml-1 p-0.5 rounded active:bg-gray-200 opacity-60 active:opacity-100"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Attribution Section */}
             <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">

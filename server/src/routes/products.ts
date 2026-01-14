@@ -314,6 +314,7 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
                     customerEmail: order.billing?.email,
                     quantity,
                     lineTotal,
+                    orderTotal: parseFloat(order.total) || 0,
                     currency: order.currency || 'USD'
                 };
             });

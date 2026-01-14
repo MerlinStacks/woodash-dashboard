@@ -70,9 +70,9 @@ export async function processInventorySuggestions(
         if (outOfStockCount > 0) {
             const productNames = relevantOutOfStock.slice(0, 3).map((p) => `"${p.name}"`).join(', ');
             const moreText = outOfStockCount > 3 ? ` and ${outOfStockCount - 3} more` : '';
-            suggestions.unshift(
-                `🚫 **Stock Alert**: ${outOfStockCount} advertised product(s) are out of stock: ${productNames}${moreText}. ` +
-                `You are paying for ads on these out-of-stock items. Pause them to save budget.`
+            suggestions.push(
+                `📦 **Restock Needed**: ${outOfStockCount} product(s) in your ad campaigns are out of stock: ${productNames}${moreText}. ` +
+                `Google Ads has auto-disabled these items. Restock to resume advertising and capture demand.`
             );
         }
 

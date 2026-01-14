@@ -40,6 +40,8 @@ interface ChannelOption {
     available: boolean;
 }
 
+import type { MergedRecipient } from './RecipientList';
+
 interface ChatWindowProps {
     conversationId: string;
     messages: Message[];
@@ -54,6 +56,7 @@ interface ChatWindowProps {
     assigneeId?: string;
     availableChannels?: ChannelOption[];
     currentChannel?: ConversationChannel;
+    mergedRecipients?: MergedRecipient[];
 }
 
 export function ChatWindow({
@@ -69,7 +72,8 @@ export function ChatWindow({
     onBlock,
     assigneeId,
     availableChannels,
-    currentChannel
+    currentChannel,
+    mergedRecipients = []
 }: ChatWindowProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -237,6 +241,8 @@ export function ChatWindow({
                 onShowMerge={() => setShowMergeModal(true)}
                 onBlock={onBlock}
                 otherViewers={otherViewers}
+                mergedRecipients={mergedRecipients}
+                primaryChannel={currentChannel}
             />
 
             {/* Search Bar */}

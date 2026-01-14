@@ -73,8 +73,9 @@ export async function processProductAdMatch(
         }
 
         // Find top sellers NOT in ads (opportunity)
+        // Only suggest in-stock products - Google Ads auto-disables out-of-stock items
         const topSellingProducts = await prisma.wooProduct.findMany({
-            where: { accountId },
+            where: { accountId, stockStatus: { not: 'outofstock' } },
             take: 20,
             select: { name: true, rawData: true }
         });

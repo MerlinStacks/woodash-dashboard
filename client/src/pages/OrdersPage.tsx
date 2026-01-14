@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { formatDate } from '../utils/format';
-import { Loader2, RefreshCw, Search, Tag, TrendingUp } from 'lucide-react';
+import { Loader2, RefreshCw, Search, Tag, TrendingUp, Filter, X } from 'lucide-react';
 import { Pagination } from '../components/ui/Pagination';
 import { OrderPreviewModal } from '../components/orders/OrderPreviewModal';
 import { FraudIcon } from '../components/orders/FraudIcon';
@@ -38,6 +38,7 @@ export function OrdersPage() {
     // Initialize state from URL query params
     const tagsFromUrl = searchParams.get('tags');
     const searchFromUrl = searchParams.get('q');
+    const statusFromUrl = searchParams.get('status');
 
     const [orders, setOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -62,6 +63,19 @@ export function OrdersPage() {
     const [showTagDropdown, setShowTagDropdown] = useState(false);
     const [attributions, setAttributions] = useState<Record<number, OrderAttribution | null>>({});
 
+    // Status filter
+    const [selectedStatus, setSelectedStatus] = useState(statusFromUrl || 'all');
+    const statusOptions = [
+        { value: 'all', label: 'All Statuses' },
+        { value: 'pending', label: 'Pending' },
+        { value: 'processing', label: 'Processing' },
+        { value: 'on-hold', label: 'On Hold' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'cancelled', label: 'Cancelled' },
+        { value: 'refunded', label: 'Refunded' },
+        { value: 'failed', label: 'Failed' },
+    ];
+
     const { token } = useAuth();
     const { currentAccount } = useAccount();
 
@@ -70,12 +84,13 @@ export function OrdersPage() {
         const params: Record<string, string> = {};
         if (selectedTags.length > 0) params.tags = selectedTags.join(',');
         if (searchQuery) params.q = searchQuery;
+        if (selectedStatus && selectedStatus !== 'all') params.status = selectedStatus;
         setSearchParams(params, { replace: true });
-    }, [selectedTags, searchQuery, setSearchParams]);
+    }, [selectedTags, searchQuery, selectedStatus, setSearchParams]);
 
     useEffect(() => {
         fetchOrders();
-    }, [currentAccount, token, searchQuery, page, limit, selectedTags]);
+    }, [currentAccount, token, searchQuery, page, limit, selectedTags, selectedStatus]);
 
 
     // Fetch available tags and colors
@@ -108,6 +123,7 @@ export function OrdersPage() {
             params.append('limit', limit.toString());
             if (searchQuery) params.append('q', searchQuery);
             if (selectedTags.length > 0) params.append('tags', selectedTags.join(','));
+            if (selectedStatus && selectedStatus !== 'all') params.append('status', selectedStatus);
 
             const res = await fetch(`/api/sync/orders/search?${params}`, {
                 headers: {
@@ -129,10 +145,10 @@ export function OrdersPage() {
         }
     }
 
-    // Reset page on search or tag change
+    // Reset page on search, tag, or status change
     useEffect(() => {
         setPage(1);
-    }, [searchQuery, selectedTags]);
+    }, [searchQuery, selectedTags, selectedStatus]);
 
     // Fetch attributions for visible orders
     useEffect(() => {
@@ -240,6 +256,29 @@ export function OrdersPage() {
         }
     }
 
+    async function removeTag(orderId: number, tag: string) {
+        if (!currentAccount || !token) return;
+        try {
+            const res = await fetch(`/api/orders/${orderId}/tags/${encodeURIComponent(tag)}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id
+                }
+            });
+            if (res.ok) {
+                // Update the local order state to remove the tag immediately
+                setOrders(prev => prev.map(order =>
+                    order.id === orderId
+                        ? { ...order, tags: (order.tags || []).filter(t => t !== tag) }
+                        : order
+                ));
+            }
+        } catch (err) {
+            console.error('Failed to remove tag', err);
+        }
+    }
+
     return (
         <div className="space-y-6">
             <OrderPreviewModal
@@ -339,6 +378,20 @@ export function OrdersPage() {
                         </div>
                     )}
 
+                    {/* Status Filter Dropdown */}
+                    <div className="relative">
+                        <select
+                            value={selectedStatus}
+                            onChange={(e) => setSelectedStatus(e.target.value)}
+                            className="appearance-none bg-white border border-gray-300 text-gray-700 pl-9 pr-8 py-2 rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                        >
+                            {statusOptions.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                        <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+
                     <button
                         onClick={handleSync}
                         disabled={isSyncing}
@@ -414,21 +467,29 @@ export function OrdersPage() {
                                             {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(order.total)}
                                         </td>
                                         <td className="px-3 md:px-6 py-3 md:py-4">
-                                            <div className="flex flex-wrap gap-1 max-w-[150px]">
+                                            <div className="flex flex-wrap gap-1 max-w-[180px]">
                                                 {(order.tags || []).slice(0, 3).map(tag => {
                                                     const bgColor = tagColors[tag] || '#E5E7EB';
-                                                    // Determine if text should be light or dark based on background
-                                                    const isLight = parseInt(bgColor.slice(1), 16) > 0xffffff / 2;
                                                     return (
                                                         <span
                                                             key={tag}
-                                                            className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-xs"
+                                                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm text-xs group"
                                                             style={{
                                                                 backgroundColor: bgColor,
                                                                 color: tagColors[tag] ? '#ffffff' : '#4B5563'
                                                             }}
                                                         >
                                                             {tag}
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    removeTag(order.id, tag);
+                                                                }}
+                                                                className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity"
+                                                                title="Remove tag"
+                                                            >
+                                                                <X size={10} />
+                                                            </button>
                                                         </span>
                                                     );
                                                 })}

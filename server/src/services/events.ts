@@ -18,6 +18,12 @@ export const EVENTS = {
     EMAIL: {
         RECEIVED: 'email:received'
     },
+    CHAT: {
+        MESSAGE_RECEIVED: 'chat:message_received',
+    },
+    STOCK: {
+        MISMATCH: 'stock:mismatch',
+    },
     SOCIAL: {
         MESSAGE_RECEIVED: 'social:message_received',
         MESSAGE_SENT: 'social:message_sent',

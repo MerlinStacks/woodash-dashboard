@@ -11,6 +11,12 @@ interface ProductVariant {
     binLocation?: string;
     stockStatus?: string;
     stockQuantity?: number;
+    weight?: string;
+    dimensions?: {
+        length?: string;
+        width?: string;
+        height?: string;
+    };
     image?: { src: string } | null; // Single image for variation
     images?: any[];
     attributes: any[];
@@ -81,13 +87,15 @@ export const VariationsPanel: React.FC<VariationsPanelProps> = ({ product, varia
                             <th className="px-4 py-3">SKU</th>
                             <th className="px-4 py-3 w-28">Price</th>
                             <th className="px-4 py-3 w-28">Sale Price</th>
+                            <th className="px-4 py-3 w-20">Weight</th>
+                            <th className="px-4 py-3 w-32">Dimensions</th>
                             <th className="px-4 py-3 w-32">Stock</th>
                         </tr>
                     </thead>
 
                     <tbody className="divide-y divide-gray-100/50">
                         {editingVariants.length === 0 ? (
-                            <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-400">
+                            <tr><td colSpan={9} className="px-6 py-12 text-center text-gray-400">
                                 No variations loaded. Click <strong>Sync</strong> to fetch from WooCommerce.
                             </td></tr>
                         ) : (
@@ -167,6 +175,18 @@ export const VariationsPanel: React.FC<VariationsPanelProps> = ({ product, varia
                                             </div>
                                         </td>
                                         <td className="px-4 py-2">
+                                            <span className="text-sm text-gray-700 font-mono">
+                                                {v.weight || '—'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            <span className="text-xs text-gray-600 font-mono">
+                                                {(v.dimensions?.length || v.dimensions?.width || v.dimensions?.height)
+                                                    ? `${v.dimensions.length || '—'} × ${v.dimensions.width || '—'} × ${v.dimensions.height || '—'}`
+                                                    : '—'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2">
                                             <div className="flex items-center gap-2">
                                                 {typeof v.stockQuantity === 'number' && (
                                                     <span className="font-mono text-gray-700 font-medium text-sm">{v.stockQuantity}</span>
@@ -179,7 +199,7 @@ export const VariationsPanel: React.FC<VariationsPanelProps> = ({ product, varia
                                     </tr>
                                     {expandedId === v.id && (
                                         <tr className="bg-gray-50/30">
-                                            <td colSpan={7} className="p-4 border-t border-gray-100/50">
+                                            <td colSpan={9} className="p-4 border-t border-gray-100/50">
                                                 <div className="ml-8 space-y-4">
                                                     {/* Additional fields */}
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">

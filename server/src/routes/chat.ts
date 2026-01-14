@@ -1012,6 +1012,62 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
             }
         });
 
+        // POST /conversations/bulk-merge - Merge multiple conversations into one
+        fastify.post('/conversations/bulk-merge', async (request, reply) => {
+            try {
+                const accountId = request.headers['x-account-id'] as string;
+                const userId = request.user?.id;
+                const { targetId, sourceIds } = request.body as {
+                    targetId: string;
+                    sourceIds: string[];
+                };
+
+                if (!targetId) {
+                    return reply.code(400).send({ error: 'targetId is required' });
+                }
+
+                if (!sourceIds || !Array.isArray(sourceIds) || sourceIds.length === 0) {
+                    return reply.code(400).send({ error: 'sourceIds array is required' });
+                }
+
+                // Verify target conversation exists and belongs to this account
+                const targetConv = await prisma.conversation.findFirst({
+                    where: { id: targetId, accountId }
+                });
+
+                if (!targetConv) {
+                    return reply.code(404).send({ error: 'Target conversation not found' });
+                }
+
+                // Merge each source into target sequentially
+                let mergedCount = 0;
+                for (const sourceId of sourceIds) {
+                    try {
+                        await chatService.mergeConversations(targetId, sourceId);
+                        mergedCount++;
+                    } catch (mergeError: any) {
+                        Logger.warn('Failed to merge individual conversation', {
+                            targetId,
+                            sourceId,
+                            error: mergeError.message
+                        });
+                    }
+                }
+
+                Logger.info('Bulk merge completed', {
+                    targetId,
+                    sourceCount: sourceIds.length,
+                    mergedCount,
+                    userId
+                });
+
+                return { success: true, mergedCount };
+            } catch (error) {
+                Logger.error('Failed to perform bulk merge', { error });
+                return reply.code(500).send({ error: 'Failed to perform bulk merge' });
+            }
+        });
+
         // === MESSAGE REACTIONS ===
         fastify.post<{ Params: { messageId: string } }>('/messages/:messageId/reactions', async (request, reply) => {
             try {

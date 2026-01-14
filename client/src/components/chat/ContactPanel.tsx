@@ -56,6 +56,7 @@ interface ContactPanelProps {
             messages: number;
         };
     };
+    onSelectConversation?: (conversationId: string) => void;
 }
 
 interface SectionProps {
@@ -85,11 +86,19 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
     );
 }
 
-export function ContactPanel({ conversation }: ContactPanelProps) {
+interface PreviousConversation {
+    id: string;
+    status: string;
+    updatedAt: string;
+    channel: string;
+    messages?: { content: string }[];
+}
+
+export function ContactPanel({ conversation, onSelectConversation }: ContactPanelProps) {
     const { token, user } = useAuth();
     const { currentAccount } = useAccount();
     const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-    const [conversationCount, setConversationCount] = useState<number>(0);
+    const [previousConversations, setPreviousConversations] = useState<PreviousConversation[]>([]);
     const [isLoadingOrders, setIsLoadingOrders] = useState(false);
     const [notes, setNotes] = useState<Note[]>([]);
     const [newNote, setNewNote] = useState('');
@@ -103,7 +112,7 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
             fetchCustomerOrders(customer.wooId);
         } else {
             setRecentOrders([]);
-            setConversationCount(0);
+            setPreviousConversations([]);
         }
     }, [customer?.wooId, token, currentAccount?.id]);
 
@@ -185,7 +194,7 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
                 setRecentOrders(ordersData.orders || []);
             }
 
-            // Fetch conversation count for this customer
+            // Fetch conversation list for this customer
             const convsRes = await fetch(`/api/chat/conversations?wooCustomerId=${wooCustomerId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -194,7 +203,11 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
             });
             if (convsRes.ok) {
                 const convsData = await convsRes.json();
-                setConversationCount(Array.isArray(convsData) ? convsData.length : 0);
+                // Filter out the current conversation
+                const otherConvs = Array.isArray(convsData)
+                    ? convsData.filter((c: PreviousConversation) => c.id !== conversation?.id)
+                    : [];
+                setPreviousConversations(otherConvs);
             }
         } catch (error) {
             console.error('Failed to fetch customer data:', error);
@@ -281,7 +294,7 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
                             <div className="text-xs text-gray-500">Spent</div>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-2 text-center">
-                            <div className="text-lg font-semibold text-gray-900">{conversationCount}</div>
+                            <div className="text-lg font-semibold text-gray-900">{previousConversations.length + 1}</div>
                             <div className="text-xs text-gray-500">Convos</div>
                         </div>
                     </div>
@@ -464,10 +477,38 @@ export function ContactPanel({ conversation }: ContactPanelProps) {
 
                 {/* Previous Conversations */}
                 <Section title="Previous Conversations" defaultOpen={false}>
-                    {conversationCount > 1 ? (
-                        <div className="text-sm text-gray-700">
-                            <MessageSquare size={12} className="inline mr-1" />
-                            {conversationCount - 1} other conversation{conversationCount > 2 ? 's' : ''}
+                    {previousConversations.length > 0 ? (
+                        <div className="space-y-2">
+                            {previousConversations.slice(0, 5).map((conv) => {
+                                const preview = conv.messages?.[0]?.content?.replace(/<[^>]*>/g, '').slice(0, 60) || 'No messages';
+                                return (
+                                    <button
+                                        key={conv.id}
+                                        onClick={() => onSelectConversation?.(conv.id)}
+                                        className="w-full text-left p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className={cn(
+                                                "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase",
+                                                conv.status === 'OPEN' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                            )}>
+                                                {conv.status}
+                                            </span>
+                                            <span className="text-[10px] text-gray-400">
+                                                {format(new Date(conv.updatedAt), 'MMM d')}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                            {preview}
+                                        </p>
+                                    </button>
+                                );
+                            })}
+                            {previousConversations.length > 5 && (
+                                <div className="text-xs text-gray-500 text-center pt-1">
+                                    +{previousConversations.length - 5} more
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="text-sm text-gray-500 italic">

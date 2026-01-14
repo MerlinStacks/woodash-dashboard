@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ChevronDown, Clock, CheckCircle, RotateCcw, MoreHorizontal, MoreVertical, Search, Users, Merge, Ban, Eye } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { MacrosDropdown } from './MacrosDropdown';
+import { RecipientList, MergedRecipient } from './RecipientList';
 
 interface Viewer {
     userId: string;
@@ -30,6 +31,10 @@ interface ChatHeaderProps {
     onBlock?: () => Promise<void>;
     /** Other users currently viewing this conversation */
     otherViewers?: Viewer[];
+    /** Merged recipients from merged conversations */
+    mergedRecipients?: MergedRecipient[];
+    /** Primary channel of this conversation */
+    primaryChannel?: string;
 }
 
 export function ChatHeader({
@@ -45,7 +50,9 @@ export function ChatHeader({
     onShowAssign,
     onShowMerge,
     onBlock,
-    otherViewers = []
+    otherViewers = [],
+    mergedRecipients = [],
+    primaryChannel = 'EMAIL'
 }: ChatHeaderProps) {
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -60,14 +67,12 @@ export function ChatHeader({
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium">
                     {recipientName ? recipientName.charAt(0).toUpperCase() : 'C'}
                 </div>
-                <div className="min-w-0">
-                    <div className="font-medium text-gray-900 text-sm truncate">
-                        {recipientName || recipientEmail || 'Customer'}
-                    </div>
-                    {recipientEmail && recipientName && (
-                        <div className="text-xs text-gray-500 truncate">{recipientEmail}</div>
-                    )}
-                </div>
+                <RecipientList
+                    primaryEmail={recipientEmail}
+                    primaryName={recipientName}
+                    primaryChannel={primaryChannel}
+                    mergedRecipients={mergedRecipients}
+                />
             </div>
 
             {/* Center - Other Viewers Indicator */}

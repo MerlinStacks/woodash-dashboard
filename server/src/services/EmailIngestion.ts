@@ -9,6 +9,7 @@ import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
 import { Server } from 'socket.io';
 import { BlockedContactService } from './BlockedContactService';
+import { EventBus, EVENTS } from './events';
 
 export interface IncomingEmailData {
     emailAccountId: string;
@@ -110,7 +111,15 @@ export class EmailIngestion {
 
         // Auto-reply and push (only for non-blocked contacts)
         await this.handleAutoReply(conversation);
-        await this.sendPushNotification(accountId, fromName, fromEmail, subject);
+
+        // Emit event for NotificationEngine to handle push
+        EventBus.emit(EVENTS.EMAIL.RECEIVED, {
+            accountId,
+            conversationId: conversation.id,
+            fromEmail,
+            fromName,
+            subject
+        });
 
         Logger.info('[EmailIngestion] Imported email', { fromEmail, conversationId: conversation.id });
     }
@@ -191,14 +200,5 @@ export class EmailIngestion {
         if (!schedule?.isOpen) return true;
         const time = now.toTimeString().slice(0, 5);
         return time < schedule.open || time > schedule.close;
-    }
-
-    private async sendPushNotification(accountId: string, fromName?: string, fromEmail?: string, subject?: string) {
-        const { PushNotificationService } = require('./PushNotificationService');
-        await PushNotificationService.sendToAccount(accountId, {
-            title: '📧 New Email',
-            body: `${fromName || fromEmail}: ${subject}`.substring(0, 100),
-            data: { url: '/inbox' }
-        }, 'message');
     }
 }

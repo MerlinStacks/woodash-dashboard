@@ -13,7 +13,7 @@ export class SearchQueryService {
             const commonMust = [{ term: { accountId } }];
 
             const [products, customers, orders] = await Promise.all([
-                // 1. Products Search
+                // 1. Products Search - Prioritize exact phrase matches
                 esClient.search({
                     index: 'products',
                     size: 5,
@@ -21,9 +21,22 @@ export class SearchQueryService {
                         bool: {
                             must: commonMust,
                             should: [
+                                // Highest priority: exact phrase match on name
+                                { match_phrase: { name: { query, boost: 10 } } },
+                                // High priority: all words present in name
+                                { match: { name: { query, operator: 'and', boost: 5 } } },
+                                // Medium priority: any words present in name
                                 { match: { name: { query, boost: 2 } } },
-                                { match: { sku: query } },
-                                { match: { description: query } }
+                                // Lower priority: SKU and category matches
+                                { term: { sku: { value: query.toUpperCase(), boost: 3 } } },
+                                { match: { sku: { query, boost: 1 } } },
+                                // Category name matching
+                                {
+                                    nested: {
+                                        path: 'categories',
+                                        query: { term: { 'categories.name': query } }
+                                    }
+                                }
                             ],
                             minimum_should_match: 1
                         }
