@@ -130,13 +130,26 @@ export class ProductsService {
 
         if (query) {
             must.push({
-                multi_match: {
-                    query,
-                    fields: ['name^2', 'description', 'sku'],
-                    fuzziness: 'AUTO'
+                bool: {
+                    should: [
+                        // Exact SKU match (highest priority)
+                        { term: { 'sku.keyword': { value: query.toUpperCase(), boost: 10 } } },
+                        // SKU prefix match (for partial SKU typing)
+                        { prefix: { 'sku.keyword': { value: query.toUpperCase(), boost: 5 } } },
+                        // Fuzzy multi-match on name, description, sku
+                        {
+                            multi_match: {
+                                query,
+                                fields: ['name^2', 'description', 'sku^3'],
+                                fuzziness: 'AUTO'
+                            }
+                        }
+                    ],
+                    minimum_should_match: 1
                 }
             });
         }
+
 
         try {
             const response = await esClient.search({
