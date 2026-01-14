@@ -1,8 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock, MapPin, User, Mail, Phone, CreditCard, Copy, ExternalLink, X } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock, MapPin, User, Mail, Phone, CreditCard, Copy, ExternalLink, X, TrendingUp, Globe, Smartphone, Monitor, Tablet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+
+interface Attribution {
+    firstTouchSource: string;
+    lastTouchSource: string;
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    country?: string;
+    city?: string;
+    deviceType?: string;
+}
 
 interface OrderMetaData {
     key: string;
@@ -55,6 +66,7 @@ export function MobileOrderDetail() {
     const [order, setOrder] = useState<OrderDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [attribution, setAttribution] = useState<Attribution | null>(null);
 
     useEffect(() => {
         if (id) fetchOrder();
@@ -105,10 +117,28 @@ export function MobileOrderDetail() {
                 trackingUrl: o.tracking_url,
                 currency: o.currency
             });
+
+            // Fetch attribution data
+            fetchAttribution();
         } catch (error) {
             console.error('[MobileOrderDetail] Error:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchAttribution = async () => {
+        if (!currentAccount || !token || !id) return;
+        try {
+            const res = await fetch(`/api/orders/${id}/attribution`, {
+                headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAttribution(data.attribution);
+            }
+        } catch (err) {
+            console.warn('Could not load attribution');
         }
     };
 
@@ -219,6 +249,57 @@ export function MobileOrderDetail() {
                     <div className="flex justify-between pt-2 border-t border-gray-100"><span className="font-semibold text-gray-900">Total</span><span className="font-bold text-gray-900">{formatCurrency(order.total)}</span></div>
                 </div>
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100"><CreditCard size={16} className="text-gray-400" /><span className="text-sm text-gray-600">{order.paymentMethod}</span></div>
+            </div>
+
+            {/* Attribution Section */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp size={18} className="text-indigo-600" />
+                    <h2 className="font-semibold text-gray-900">Attribution</h2>
+                </div>
+                {attribution ? (
+                    <div className="space-y-3">
+                        {/* Traffic Source */}
+                        <div className="flex flex-wrap gap-2">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                First: {attribution.firstTouchSource}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                Last: {attribution.lastTouchSource}
+                            </span>
+                        </div>
+
+                        {/* UTM Parameters */}
+                        {(attribution.utmSource || attribution.utmMedium || attribution.utmCampaign) && (
+                            <div className="text-xs text-gray-600 space-y-1 pt-2 border-t border-gray-100">
+                                {attribution.utmSource && <div>Source: <span className="text-gray-900">{attribution.utmSource}</span></div>}
+                                {attribution.utmMedium && <div>Medium: <span className="text-gray-900">{attribution.utmMedium}</span></div>}
+                                {attribution.utmCampaign && <div>Campaign: <span className="text-gray-900">{attribution.utmCampaign}</span></div>}
+                            </div>
+                        )}
+
+                        {/* Device & Location */}
+                        {(attribution.deviceType || attribution.country) && (
+                            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                                {attribution.deviceType && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-700">
+                                        {attribution.deviceType === 'mobile' ? <Smartphone size={12} /> :
+                                            attribution.deviceType === 'tablet' ? <Tablet size={12} /> : <Monitor size={12} />}
+                                        {attribution.deviceType}
+                                    </span>
+                                )}
+                                {attribution.country && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-700">
+                                        <Globe size={12} />
+                                        {attribution.city ? `${attribution.city}, ` : ''}{attribution.country}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-500 italic">No attribution data</p>
+                )}
             </div>
 
             {/* Image Preview Modal */}

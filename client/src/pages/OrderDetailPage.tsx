@@ -4,12 +4,26 @@ import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { formatDate } from '../utils/format';
-import { ArrowLeft, User, MapPin, Mail, Phone, Package, CreditCard, RefreshCw, Printer } from 'lucide-react';
+import { ArrowLeft, User, MapPin, Mail, Phone, Package, CreditCard, RefreshCw, Printer, TrendingUp, Globe, Smartphone, Monitor, Tablet } from 'lucide-react';
 import { generateInvoicePDF } from '../utils/InvoiceGenerator';
 import { Modal } from '../components/ui/Modal';
 import { HistoryTimeline } from '../components/shared/HistoryTimeline';
 import { Clock } from 'lucide-react';
 import { FraudBadge } from '../components/orders/FraudBadge';
+
+interface Attribution {
+    firstTouchSource: string;
+    lastTouchSource: string;
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    referrer?: string;
+    country?: string;
+    city?: string;
+    deviceType?: string;
+    browser?: string;
+    os?: string;
+}
 
 export function OrderDetailPage() {
     const { id } = useParams();
@@ -24,6 +38,7 @@ export function OrderDetailPage() {
     const [showRaw, setShowRaw] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [attribution, setAttribution] = useState<Attribution | null>(null);
 
 
 
@@ -46,10 +61,31 @@ export function OrderDetailPage() {
             if (!res.ok) throw new Error('Failed to fetch order');
             const data = await res.json();
             setOrder(data);
+
+            // Fetch attribution data
+            fetchAttribution();
         } catch (err) {
             setError('Could not load order details.');
         } finally {
             setIsLoading(false);
+        }
+    }
+
+    async function fetchAttribution() {
+        try {
+            const res = await fetch(`/api/orders/${id}/attribution`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount?.id || ''
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAttribution(data.attribution);
+            }
+        } catch (err) {
+            // Attribution is optional, don't fail the page
+            console.warn('Could not load attribution data');
         }
     }
 
@@ -311,6 +347,82 @@ export function OrderDetailPage() {
                                 </div>
                             )}
                         </div>
+                    </div>
+
+                    {/* Attribution Card */}
+                    <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-5 space-y-4">
+                        <div className="font-semibold text-gray-900 flex items-center gap-2 border-b border-gray-100 pb-3">
+                            <TrendingUp size={18} className="text-blue-500" />
+                            Attribution
+                        </div>
+
+                        {attribution ? (
+                            <div className="space-y-3">
+                                {/* Traffic Source */}
+                                <div>
+                                    <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Traffic Source</div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                            First: {attribution.firstTouchSource}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                            Last: {attribution.lastTouchSource}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* UTM Parameters */}
+                                {(attribution.utmSource || attribution.utmMedium || attribution.utmCampaign) && (
+                                    <div>
+                                        <div className="text-xs font-semibold text-gray-500 uppercase mb-1 pt-2 border-t border-dashed border-gray-200">UTM Parameters</div>
+                                        <div className="space-y-1 text-sm">
+                                            {attribution.utmSource && (
+                                                <div className="flex gap-2">
+                                                    <span className="text-gray-500">Source:</span>
+                                                    <span className="text-gray-900">{attribution.utmSource}</span>
+                                                </div>
+                                            )}
+                                            {attribution.utmMedium && (
+                                                <div className="flex gap-2">
+                                                    <span className="text-gray-500">Medium:</span>
+                                                    <span className="text-gray-900">{attribution.utmMedium}</span>
+                                                </div>
+                                            )}
+                                            {attribution.utmCampaign && (
+                                                <div className="flex gap-2">
+                                                    <span className="text-gray-500">Campaign:</span>
+                                                    <span className="text-gray-900">{attribution.utmCampaign}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Device & Location */}
+                                {(attribution.deviceType || attribution.country) && (
+                                    <div>
+                                        <div className="text-xs font-semibold text-gray-500 uppercase mb-1 pt-2 border-t border-dashed border-gray-200">Device & Location</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {attribution.deviceType && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-700">
+                                                    {attribution.deviceType === 'mobile' ? <Smartphone size={12} /> :
+                                                        attribution.deviceType === 'tablet' ? <Tablet size={12} /> : <Monitor size={12} />}
+                                                    {attribution.deviceType}
+                                                </span>
+                                            )}
+                                            {attribution.country && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-700">
+                                                    <Globe size={12} />
+                                                    {attribution.city ? `${attribution.city}, ` : ''}{attribution.country}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-sm text-gray-500 italic">No attribution data available</div>
+                        )}
                     </div>
                 </div>
 

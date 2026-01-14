@@ -47,7 +47,5 @@ This document tracks planned enhancements, known bugs, and future feature ideas 
 
 ### PWA App
 
-- [ ] **Live Visitors** in the PWA app we need this to show the last 50 visitors instead of the last 3 minutes, this should not change the live visitor count.
-
-
-- Visitor Profiles have the Visits Order wrong, visit 1 is actually visit 3 etc.
+### Products
+ - [ ] **Variants** - We need weights and measurements from woocommerce to show on the variants also.

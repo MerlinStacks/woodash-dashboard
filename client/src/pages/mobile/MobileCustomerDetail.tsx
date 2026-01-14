@@ -72,7 +72,29 @@ export function MobileCustomerDetail() {
 
             if (res.ok) {
                 const json = await res.json();
-                setData(json);
+                // Map API response to our expected shape
+                // API returns: { customer, orders (raw WooOrders), automations, activity }
+                const mappedData: CustomerDetails = {
+                    customer: {
+                        id: json.customer?.id || id,
+                        firstName: json.customer?.firstName || '',
+                        lastName: json.customer?.lastName || '',
+                        email: json.customer?.email || '',
+                        totalSpent: Number(json.customer?.totalSpent) || 0,
+                        ordersCount: json.customer?.ordersCount || 0,
+                        dateCreated: json.customer?.dateCreated || json.customer?.createdAt || '',
+                        rawData: json.customer?.rawData
+                    },
+                    orders: (json.orders || []).map((order: any) => ({
+                        id: order.id,
+                        number: order.rawData?.number || order.wooId || order.id,
+                        status: order.rawData?.status || order.status || 'unknown',
+                        total: Number(order.rawData?.total || order.total) || 0,
+                        dateCreated: order.rawData?.date_created || order.dateCreated || ''
+                    })),
+                    activity: json.activity || []
+                };
+                setData(mappedData);
             }
         } catch (error) {
             console.error('[MobileCustomerDetail] Error:', error);

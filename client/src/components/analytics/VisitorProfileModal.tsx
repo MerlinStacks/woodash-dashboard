@@ -160,7 +160,7 @@ const EventItem: React.FC<{ event: AnalyticsEvent }> = ({ event }) => {
 /**
  * Renders a collapsible visit section
  */
-const VisitSection: React.FC<{ visit: AnalyticsVisit; isFirst: boolean; totalVisits: number }> = ({ visit, isFirst, totalVisits }) => {
+const VisitSection: React.FC<{ visit: AnalyticsVisit; isFirst: boolean; displayNumber: number }> = ({ visit, isFirst, displayNumber }) => {
     const [expanded, setExpanded] = useState(isFirst);
 
     const duration = formatDistanceStrict(
@@ -178,9 +178,6 @@ const VisitSection: React.FC<{ visit: AnalyticsVisit; isFirst: boolean; totalVis
         if (ev.type === 'pageview' && ev.url && productViewUrls.has(ev.url)) return false;
         return true;
     });
-
-    // Reversed visit number (so newest is #1, oldest is #N)
-    const displayNumber = totalVisits - visit.visitNumber + 1;
 
     return (
         <div className="border border-gray-200 rounded-lg mb-3 overflow-hidden">
@@ -384,7 +381,7 @@ const VisitorProfileModal: React.FC<VisitorProfileModalProps> = ({ visitorId, ac
                                             key={visit.id}
                                             visit={visit}
                                             isFirst={idx === 0}
-                                            totalVisits={data.stats?.totalVisits || data.visits!.length}
+                                            displayNumber={idx + 1}
                                         />
                                     ))}
                                 </div>

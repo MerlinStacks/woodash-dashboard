@@ -65,7 +65,7 @@ interface VisitorData {
 /**
  * Mobile Visit Section - Collapsible visit with events
  */
-function VisitSection({ visit, isFirst, totalVisits }: { visit: AnalyticsVisit; isFirst: boolean; totalVisits: number }) {
+function VisitSection({ visit, isFirst, displayNumber }: { visit: AnalyticsVisit; isFirst: boolean; displayNumber: number }) {
     const [expanded, setExpanded] = useState(isFirst);
 
     const formatDuration = (start: string, end: string) => {
@@ -75,8 +75,6 @@ function VisitSection({ visit, isFirst, totalVisits }: { visit: AnalyticsVisit; 
         if (mins < 60) return `${mins} min`;
         return `${Math.floor(mins / 60)}h ${mins % 60}m`;
     };
-
-    const displayNumber = totalVisits - visit.visitNumber + 1;
 
     return (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-3">
@@ -343,7 +341,7 @@ export function MobileVisitorDetail() {
                                 key={visit.id}
                                 visit={visit}
                                 isFirst={idx === 0}
-                                totalVisits={data.stats.totalVisits || data.visits!.length}
+                                displayNumber={idx + 1}
                             />
                         ))}
                     </div>

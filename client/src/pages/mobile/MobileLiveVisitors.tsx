@@ -26,23 +26,36 @@ export function MobileLiveVisitors() {
     const { currentAccount } = useAccount();
     const [visitors, setVisitors] = useState<LiveVisitor[]>([]);
     const [loading, setLoading] = useState(true);
-    const [total, setTotal] = useState(0);
+    const [liveCount, setLiveCount] = useState(0);
 
-    const fetchLiveVisitors = useCallback(async () => {
+    const fetchVisitors = useCallback(async () => {
         if (!currentAccount || !token) return;
 
         try {
-            const res = await fetch('/api/analytics/visitors/log?live=true&limit=30', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'X-Account-ID': currentAccount.id
-                }
-            });
+            // Fetch last 50 visitors (not filtered by live status)
+            const [visitorsRes, liveRes] = await Promise.all([
+                fetch('/api/analytics/visitors/log?limit=50', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'X-Account-ID': currentAccount.id
+                    }
+                }),
+                // Separate call to get accurate live count (last 3 minutes)
+                fetch('/api/analytics/visitors/log?live=true&limit=1', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'X-Account-ID': currentAccount.id
+                    }
+                })
+            ]);
 
-            if (res.ok) {
-                const data = await res.json();
+            if (visitorsRes.ok) {
+                const data = await visitorsRes.json();
                 setVisitors(data.data || []);
-                setTotal(data.total || 0);
+            }
+            if (liveRes.ok) {
+                const liveData = await liveRes.json();
+                setLiveCount(liveData.total || 0);
             }
         } catch (error) {
             console.error('[MobileLiveVisitors] Error:', error);
@@ -52,17 +65,17 @@ export function MobileLiveVisitors() {
     }, [currentAccount, token]);
 
     useEffect(() => {
-        fetchLiveVisitors();
+        fetchVisitors();
         // Auto-refresh every 30 seconds
-        const interval = setInterval(fetchLiveVisitors, 30000);
+        const interval = setInterval(fetchVisitors, 30000);
         // Listen for pull-to-refresh events
-        const handleRefresh = () => fetchLiveVisitors();
+        const handleRefresh = () => fetchVisitors();
         window.addEventListener('mobile-refresh', handleRefresh);
         return () => {
             clearInterval(interval);
             window.removeEventListener('mobile-refresh', handleRefresh);
         };
-    }, [fetchLiveVisitors]);
+    }, [fetchVisitors]);
 
     const getDeviceIcon = (deviceType: string | null) => {
         if (deviceType === 'mobile') return <Smartphone size={14} className="text-gray-500" />;
@@ -103,10 +116,10 @@ export function MobileLiveVisitors() {
                     <ArrowLeft size={22} className="text-gray-700" />
                 </button>
                 <div className="flex-1">
-                    <h1 className="text-xl font-bold text-gray-900">Live Visitors</h1>
-                    <p className="text-sm text-gray-500">{total} online now</p>
+                    <h1 className="text-xl font-bold text-gray-900">Recent Visitors</h1>
+                    <p className="text-sm text-gray-500">{liveCount} online now</p>
                 </div>
-                <button onClick={fetchLiveVisitors} className="p-2 rounded-full hover:bg-gray-100">
+                <button onClick={fetchVisitors} className="p-2 rounded-full hover:bg-gray-100">
                     <RefreshCw size={20} className="text-gray-600" />
                 </button>
             </div>
@@ -118,7 +131,7 @@ export function MobileLiveVisitors() {
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
                 </span>
                 <span className="text-sm font-medium text-green-700">
-                    {total} {total === 1 ? 'visitor' : 'visitors'} active in last 3 minutes
+                    {liveCount} {liveCount === 1 ? 'visitor' : 'visitors'} active in last 3 minutes
                 </span>
             </div>
 

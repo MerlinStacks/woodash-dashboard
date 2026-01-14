@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { formatDate } from '../utils/format';
-import { Loader2, RefreshCw, Search, Tag } from 'lucide-react';
+import { Loader2, RefreshCw, Search, Tag, TrendingUp } from 'lucide-react';
 import { Pagination } from '../components/ui/Pagination';
 import { OrderPreviewModal } from '../components/orders/OrderPreviewModal';
 import { FraudIcon } from '../components/orders/FraudIcon';
@@ -26,6 +26,10 @@ interface Order {
         name: string;
         quantity: number;
     }>;
+}
+
+interface OrderAttribution {
+    lastTouchSource: string;
 }
 
 export function OrdersPage() {
@@ -56,6 +60,7 @@ export function OrdersPage() {
         tagsFromUrl ? tagsFromUrl.split(',').filter(Boolean) : []
     );
     const [showTagDropdown, setShowTagDropdown] = useState(false);
+    const [attributions, setAttributions] = useState<Record<number, OrderAttribution | null>>({});
 
     const { token } = useAuth();
     const { currentAccount } = useAccount();
@@ -128,6 +133,49 @@ export function OrdersPage() {
     useEffect(() => {
         setPage(1);
     }, [searchQuery, selectedTags]);
+
+    // Fetch attributions for visible orders
+    useEffect(() => {
+        if (!orders.length || !token || !currentAccount) return;
+
+        const fetchAttributions = async () => {
+            const newAttributions: Record<number, OrderAttribution | null> = {};
+
+            // Fetch attribution for each order (in parallel with a limit)
+            const batchSize = 5;
+            for (let i = 0; i < orders.length; i += batchSize) {
+                const batch = orders.slice(i, i + batchSize);
+                await Promise.all(batch.map(async (order) => {
+                    if (attributions[order.id] !== undefined) {
+                        newAttributions[order.id] = attributions[order.id];
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`/api/orders/${order.id}/attribution`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'X-Account-ID': currentAccount.id
+                            }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            newAttributions[order.id] = data.attribution ? {
+                                lastTouchSource: data.attribution.lastTouchSource
+                            } : null;
+                        } else {
+                            newAttributions[order.id] = null;
+                        }
+                    } catch {
+                        newAttributions[order.id] = null;
+                    }
+                }));
+            }
+
+            setAttributions(prev => ({ ...prev, ...newAttributions }));
+        };
+
+        fetchAttributions();
+    }, [orders, token, currentAccount]);
 
     async function handleSync() {
         if (!currentAccount || !token) return;
@@ -314,14 +362,15 @@ export function OrdersPage() {
                                 <th className="px-3 md:px-6 py-3 md:py-4">Customer</th>
                                 <th className="px-6 py-4">Total</th>
                                 <th className="px-6 py-4">Tags</th>
+                                <th className="px-6 py-4">Attribution</th>
                                 <th className="px-6 py-4">Items</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {isLoading ? (
-                                <tr><td colSpan={7} className="p-12 text-center"><Loader2 className="animate-spin inline text-blue-600" /></td></tr>
+                                <tr><td colSpan={8} className="p-12 text-center"><Loader2 className="animate-spin inline text-blue-600" /></td></tr>
                             ) : orders.length === 0 ? (
-                                <tr><td colSpan={7} className="p-12 text-center text-gray-500">No orders found. Try syncing!</td></tr>
+                                <tr><td colSpan={8} className="p-12 text-center text-gray-500">No orders found. Try syncing!</td></tr>
                             ) : (
                                 orders.map((order) => (
                                     <tr
@@ -387,6 +436,18 @@ export function OrdersPage() {
                                                     <span className="text-xs text-gray-400">+{order.tags!.length - 3}</span>
                                                 )}
                                             </div>
+                                        </td>
+                                        <td className="px-3 md:px-6 py-3 md:py-4">
+                                            {attributions[order.id] ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                                                    <TrendingUp size={10} />
+                                                    {attributions[order.id]!.lastTouchSource}
+                                                </span>
+                                            ) : attributions[order.id] === null ? (
+                                                <span className="text-xs text-gray-400">-</span>
+                                            ) : (
+                                                <span className="text-xs text-gray-300">...</span>
+                                            )}
                                         </td>
                                         <td className="px-3 md:px-6 py-3 md:py-4 text-sm text-gray-500">
                                             {order.line_items.length} items

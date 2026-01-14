@@ -149,6 +149,140 @@ const ordersRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: 'Failed to calculate fraud score' });
         }
     });
+
+    // Get Attribution data for an Order
+    fastify.get<{ Params: { id: string } }>('/:id/attribution', async (request, reply) => {
+        const { id } = orderIdParamSchema.parse(request.params);
+        const accountId = request.user?.accountId;
+
+        if (!accountId) {
+            return reply.code(400).send({ error: 'accountId header is required' });
+        }
+
+        try {
+            let order;
+
+            // Try finding by internal UUID first
+            order = await prisma.wooOrder.findUnique({ where: { id } });
+
+            // If not found and ID is numeric, try finding by WooID
+            if (!order && !isNaN(Number(id))) {
+                order = await prisma.wooOrder.findUnique({
+                    where: { accountId_wooId: { accountId, wooId: Number(id) } }
+                });
+            }
+
+            if (!order || order.accountId !== accountId) {
+                return reply.code(404).send({ error: 'Order not found' });
+            }
+
+            // Find purchase event that matches this order's wooId
+            // The purchase event stores orderId in the payload
+            const purchaseEvent = await prisma.analyticsEvent.findFirst({
+                where: {
+                    type: 'purchase',
+                    session: { accountId }
+                },
+                include: {
+                    session: {
+                        select: {
+                            firstTouchSource: true,
+                            lastTouchSource: true,
+                            utmSource: true,
+                            utmMedium: true,
+                            utmCampaign: true,
+                            referrer: true,
+                            country: true,
+                            city: true,
+                            deviceType: true,
+                            browser: true,
+                            os: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            // Filter by orderId in payload (can't do this in Prisma query easily)
+            let attribution = null;
+
+            if (purchaseEvent) {
+                const payload = purchaseEvent.payload as any;
+                // Check if this event matches our order
+                if (payload?.orderId === order.wooId || payload?.order_id === order.wooId) {
+                    const session = purchaseEvent.session;
+                    attribution = {
+                        firstTouchSource: session.firstTouchSource || 'direct',
+                        lastTouchSource: session.lastTouchSource || 'direct',
+                        utmSource: session.utmSource,
+                        utmMedium: session.utmMedium,
+                        utmCampaign: session.utmCampaign,
+                        referrer: session.referrer,
+                        country: session.country,
+                        city: session.city,
+                        deviceType: session.deviceType,
+                        browser: session.browser,
+                        os: session.os
+                    };
+                }
+            }
+
+            // If no match by payload, try to find by looking at all purchase events
+            if (!attribution) {
+                const allPurchaseEvents = await prisma.analyticsEvent.findMany({
+                    where: {
+                        type: 'purchase',
+                        session: { accountId }
+                    },
+                    include: {
+                        session: {
+                            select: {
+                                firstTouchSource: true,
+                                lastTouchSource: true,
+                                utmSource: true,
+                                utmMedium: true,
+                                utmCampaign: true,
+                                referrer: true,
+                                country: true,
+                                city: true,
+                                deviceType: true,
+                                browser: true,
+                                os: true
+                            }
+                        }
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 100
+                });
+
+                for (const event of allPurchaseEvents) {
+                    const payload = event.payload as any;
+                    if (payload?.orderId === order.wooId || payload?.order_id === order.wooId) {
+                        const session = event.session;
+                        attribution = {
+                            firstTouchSource: session.firstTouchSource || 'direct',
+                            lastTouchSource: session.lastTouchSource || 'direct',
+                            utmSource: session.utmSource,
+                            utmMedium: session.utmMedium,
+                            utmCampaign: session.utmCampaign,
+                            referrer: session.referrer,
+                            country: session.country,
+                            city: session.city,
+                            deviceType: session.deviceType,
+                            browser: session.browser,
+                            os: session.os
+                        };
+                        break;
+                    }
+                }
+            }
+
+            return { attribution };
+        } catch (error) {
+            Logger.error('Failed to fetch order attribution', { error });
+            return reply.code(500).send({ error: 'Failed to fetch order attribution' });
+        }
+    });
 };
 
 export default ordersRoutes;
