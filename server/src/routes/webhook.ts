@@ -9,7 +9,7 @@ import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
 import { IndexingService } from '../services/search/IndexingService';
 import { WebhookDeliveryService } from '../services/WebhookDeliveryService';
-import { io } from '../app';
+import { getIO } from '../socket';
 
 /** Verify WooCommerce HMAC signature */
 const verifySignature = (payload: unknown, signature: string, secret: string): boolean => {
@@ -66,20 +66,25 @@ export async function processWebhookPayload(
             });
 
             // Emit socket event
-            Logger.warn(`[Webhook] Emitting order:new to room account:${accountId}`, {
-                orderId: body.id,
-                orderNumber: body.number || body.id,
-                total: body.total
-            });
-            io.to(`account:${accountId}`).emit('order:new', {
-                orderId: body.id,
-                orderNumber: body.number || body.id,
-                total: body.total,
-                itemCount,
-                customerName: (body.billing as Record<string, string>)?.first_name
-                    ? `${(body.billing as Record<string, string>).first_name} ${(body.billing as Record<string, string>).last_name || ''}`.trim()
-                    : 'Guest'
-            });
+            const socketIO = getIO();
+            if (socketIO) {
+                Logger.info(`[Webhook] Emitting order:new to room account:${accountId}`, {
+                    orderId: body.id,
+                    orderNumber: body.number || body.id,
+                    total: body.total
+                });
+                socketIO.to(`account:${accountId}`).emit('order:new', {
+                    orderId: body.id,
+                    orderNumber: body.number || body.id,
+                    total: body.total,
+                    itemCount,
+                    customerName: (body.billing as Record<string, string>)?.first_name
+                        ? `${(body.billing as Record<string, string>).first_name} ${(body.billing as Record<string, string>).last_name || ''}`.trim()
+                        : 'Guest'
+                });
+            } else {
+                Logger.warn(`[Webhook] Socket.IO not initialized, cannot emit order:new`, { accountId });
+            }
 
             // Send push notification
             const { PushNotificationService } = require('../services/PushNotificationService');
