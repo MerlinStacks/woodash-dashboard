@@ -95,7 +95,14 @@ export class PushNotificationService {
                 }
             });
 
-            Logger.warn('[PushNotificationService] Subscription saved', { userId, accountId, subscriptionId: result.id });
+            Logger.warn('[PushNotificationService] Subscription saved', {
+                userId,
+                accountId,
+                subscriptionId: result.id,
+                // Diagnostic: Confirm the accountId that was stored
+                storedAccountId: result.accountId,
+                endpoint: subscription.endpoint.slice(0, 50) + '...'
+            });
             return { success: true, id: result.id };
         } catch (error) {
             Logger.error('[PushNotificationService] Subscribe failed', { error, userId });
@@ -235,9 +242,31 @@ export class PushNotificationService {
             whereClause.notifyNewOrders = true;
         }
 
+        // DIAGNOSTIC: Log the exact query being made
+        Logger.warn('[PushNotificationService] sendToAccount query', {
+            targetAccountId: accountId,
+            type,
+            whereClause: JSON.stringify(whereClause),
+            notificationTitle: notification.title
+        });
+
         const subscriptions = await prisma.pushSubscription.findMany({
             where: whereClause
         });
+
+        // DIAGNOSTIC: Log what subscriptions were found and their accountIds
+        if (subscriptions.length > 0) {
+            Logger.warn('[PushNotificationService] Subscriptions matched', {
+                targetAccountId: accountId,
+                foundCount: subscriptions.length,
+                subscriptionDetails: subscriptions.map(s => ({
+                    id: s.id.slice(0, 8),
+                    subAccountId: s.accountId,
+                    userId: s.userId.slice(0, 8),
+                    accountMatch: s.accountId === accountId
+                }))
+            });
+        }
 
         // Diagnostic: log when no subscriptions found (common issue)
         if (subscriptions.length === 0) {

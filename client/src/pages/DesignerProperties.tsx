@@ -1,4 +1,5 @@
-import { X, Trash2, Type, Image as ImageIcon, Table, DollarSign, Settings } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { X, Trash2, Type, Image as ImageIcon, Table, DollarSign, Settings, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface DesignerPropertiesProps {
     items: any[];
@@ -6,7 +7,10 @@ interface DesignerPropertiesProps {
     onUpdateContent: (newContent: string) => void;
     onDeleteItem: () => void;
     onClose: () => void;
+    token?: string;
+    accountId?: string;
 }
+
 
 const TYPE_CONFIG: Record<string, { icon: any; label: string; color: string }> = {
     text: { icon: Type, label: 'Text Block', color: 'text-blue-600 bg-blue-50' },
@@ -19,12 +23,82 @@ const TYPE_CONFIG: Record<string, { icon: any; label: string; color: string }> =
  * DesignerProperties - Property editor panel for selected canvas items.
  * Allows editing content and deleting items.
  */
-export function DesignerProperties({ items, selectedId, onUpdateContent, onDeleteItem, onClose }: DesignerPropertiesProps) {
+export function DesignerProperties({ items, selectedId, onUpdateContent, onDeleteItem, onClose, token, accountId }: DesignerPropertiesProps) {
     const selectedItem = items.find(i => i.id === selectedId);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
     if (!selectedItem) return null;
 
     const config = TYPE_CONFIG[selectedItem.type] || TYPE_CONFIG.text;
     const Icon = config.icon;
+
+    /**
+     * Handles image file upload to server.
+     * Uses FormData for multipart upload to /api/invoices/templates/upload-image.
+     */
+    const handleImageUpload = async (file: File) => {
+        if (!token || !accountId) {
+            setUploadError('Authentication required');
+            return;
+        }
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            setUploadError('Invalid file type. Use PNG, JPG, GIF, SVG, or WebP.');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setUploadError('File too large. Maximum size is 5MB.');
+            return;
+        }
+
+        setIsUploading(true);
+        setUploadError(null);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('/api/invoices/templates/upload-image', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': accountId
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Upload failed');
+            }
+
+            const result = await response.json();
+            onUpdateContent(result.url);
+        } catch (error: any) {
+            setUploadError(error.message || 'Failed to upload image');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) handleImageUpload(file);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) handleImageUpload(file);
+    };
 
     return (
         <div className="w-80 bg-white/90 backdrop-blur-xs border-l border-slate-200/60 flex flex-col shadow-xl z-20">
@@ -76,23 +150,56 @@ export function DesignerProperties({ items, selectedId, onUpdateContent, onDelet
                         )}
 
                         {selectedItem.type === 'image' && (
-                            <div className="space-y-3">
+                            <div className="space-y-4">
+                                {/* Upload Zone */}
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Image URL</label>
-                                    <input
-                                        type="text"
-                                        className="w-full text-sm border border-slate-200 rounded-xl shadow-xs focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 p-3 transition-all"
-                                        placeholder="https://example.com/logo.png"
-                                        value={selectedItem.content}
-                                        onChange={e => onUpdateContent(e.target.value)}
-                                    />
+                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Upload Image</label>
+                                    <div
+                                        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer
+                                            ${isDragging ? 'border-purple-500 bg-purple-50' : 'border-slate-200 hover:border-purple-400 hover:bg-purple-50/50'}
+                                            ${isUploading ? 'opacity-60 pointer-events-none' : ''}`}
+                                        onClick={() => fileInputRef.current?.click()}
+                                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                        onDragLeave={() => setIsDragging(false)}
+                                        onDrop={handleDrop}
+                                    >
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp"
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                        />
+                                        {isUploading ? (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Loader2 size={24} className="text-purple-500 animate-spin" />
+                                                <span className="text-sm text-purple-600 font-medium">Uploading...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Upload size={24} className="text-slate-400" />
+                                                <span className="text-sm text-slate-500">Drop image or click to upload</span>
+                                                <span className="text-xs text-slate-400">PNG, JPG, GIF, SVG, WebP (max 5MB)</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <p className="text-xs text-slate-400">
-                                    Enter a direct link to an image file (PNG, JPG, SVG).
-                                </p>
+
+                                {/* Error Message */}
+                                {uploadError && (
+                                    <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl border border-red-100">
+                                        <AlertCircle size={16} className="text-red-500 shrink-0" />
+                                        <span className="text-xs text-red-600">{uploadError}</span>
+                                    </div>
+                                )}
+
+                                {/* Success/Preview */}
                                 {selectedItem.content && (
-                                    <div className="mt-4 p-3 bg-slate-50 rounded-xl">
-                                        <p className="text-xs font-medium text-slate-500 mb-2">Preview:</p>
+                                    <div className="p-3 bg-slate-50 rounded-xl">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <CheckCircle size={14} className="text-emerald-500" />
+                                            <p className="text-xs font-medium text-slate-500">Image loaded</p>
+                                        </div>
                                         <img
                                             src={selectedItem.content}
                                             alt="Preview"
@@ -101,6 +208,13 @@ export function DesignerProperties({ items, selectedId, onUpdateContent, onDelet
                                                 (e.target as HTMLImageElement).style.display = 'none';
                                             }}
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => onUpdateContent('')}
+                                            className="mt-2 text-xs text-red-500 hover:text-red-600 transition-colors"
+                                        >
+                                            Remove image
+                                        </button>
                                     </div>
                                 )}
                             </div>

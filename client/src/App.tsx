@@ -65,6 +65,7 @@ const AdminBroadcastPage = lazy(() => import('./pages/admin/AdminBroadcastPage')
 const AdminCredentialsPage = lazy(() => import('./pages/admin/AdminCredentialsPage').then(m => ({ default: m.AdminCredentialsPage })));
 const AdminAIPromptsPage = lazy(() => import('./pages/admin/AdminAIPromptsPage').then(m => ({ default: m.AdminAIPromptsPage })));
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
+const AdminDiagnosticsPage = lazy(() => import('./pages/admin/AdminDiagnosticsPage').then(m => ({ default: m.AdminDiagnosticsPage })));
 
 // Mobile PWA pages
 const MobileLayout = lazy(() => import('./components/layout/MobileLayout').then(m => ({ default: m.MobileLayout })));
@@ -192,6 +193,7 @@ function App() {
                                                 <Route path="/admin/credentials" element={<AdminCredentialsPage />} />
                                                 <Route path="/admin/ai-prompts" element={<AdminAIPromptsPage />} />
                                                 <Route path="/admin/settings" element={<AdminSettingsPage />} />
+                                                <Route path="/admin/diagnostics" element={<AdminDiagnosticsPage />} />
                                             </Route>
 
                                             <Route element={<DashboardLayout><ErrorBoundary><Outlet /></ErrorBoundary></DashboardLayout>}>

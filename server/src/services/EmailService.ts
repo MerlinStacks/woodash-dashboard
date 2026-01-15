@@ -13,7 +13,13 @@ import { EventBus, EVENTS } from './events';
 import { Logger } from '../utils/logger';
 import { decrypt } from '../utils/encryption';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
+const attachmentsDir = path.join(__dirname, '../../uploads/attachments');
+if (!fs.existsSync(attachmentsDir)) {
+    fs.mkdirSync(attachmentsDir, { recursive: true });
+}
 
 export class EmailService {
 
@@ -375,21 +381,48 @@ export class EmailService {
 
                         let html = parsed.html || false;
                         const text = parsed.text || '';
+                        const processedAttachments: Array<{ filename: string; url: string; type: string }> = [];
 
-                        // Process inline images
-                        if (html && parsed.attachments && parsed.attachments.length > 0) {
+                        // Process attachments
+                        if (parsed.attachments && parsed.attachments.length > 0) {
                             for (const attachment of parsed.attachments) {
-                                if (attachment.contentId && attachment.content && attachment.contentType) {
+                                let isInline = false;
+
+                                // Handle inline images
+                                if (html && attachment.contentId && attachment.content && attachment.contentType) {
                                     const cid = attachment.contentId.replace(/^<|>$/g, '');
-                                    const base64 = attachment.content.toString('base64');
-                                    const dataUri = `data:${attachment.contentType};base64,${base64}`;
-                                    const regex = new RegExp(`cid:${cid}`, 'g');
-                                    html = html.replace(regex, dataUri);
+                                    // Only treat as inline if it's actually referenced in the HTML
+                                    if (html.includes(`cid:${cid}`)) {
+                                        const base64 = attachment.content.toString('base64');
+                                        const dataUri = `data:${attachment.contentType};base64,${base64}`;
+                                        const regex = new RegExp(`cid:${cid}`, 'g');
+                                        html = html.replace(regex, dataUri);
+                                        isInline = true;
+                                    }
+                                }
+
+                                // Handle regular attachments (or unreferenced inline ones)
+                                if (!isInline && attachment.filename && attachment.content) {
+                                    try {
+                                        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                                        const filename = uniqueSuffix + '-' + attachment.filename;
+                                        const filePath = path.join(attachmentsDir, filename);
+
+                                        fs.writeFileSync(filePath, attachment.content);
+
+                                        processedAttachments.push({
+                                            filename: attachment.filename,
+                                            url: `/uploads/attachments/${filename}`,
+                                            type: attachment.contentType || 'application/octet-stream'
+                                        });
+                                    } catch (err) {
+                                        Logger.error('[checkEmails] Failed to save attachment', { filename: attachment.filename, error: err });
+                                    }
                                 }
                             }
                         }
 
-                        Logger.info(`[checkEmails] Processing email`, { fromEmail, subject, hasHtml: !!html });
+                        Logger.info(`[checkEmails] Processing email`, { fromEmail, subject, hasHtml: !!html, attachments: processedAttachments.length });
 
                         EventBus.emit(EVENTS.EMAIL.RECEIVED, {
                             emailAccountId,
@@ -400,7 +433,8 @@ export class EmailService {
                             html: html || undefined,
                             messageId,
                             inReplyTo,
-                            references
+                            references,
+                            attachments: processedAttachments
                         });
 
                         Logger.info(`[checkEmails] Emitted EMAIL.RECEIVED event`, { fromEmail, subject });

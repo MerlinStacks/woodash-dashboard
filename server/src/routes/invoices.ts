@@ -1,13 +1,23 @@
 /**
  * Invoices Route - Fastify Plugin
+ * Handles invoice templates and image uploads for the invoice designer.
  */
 
 import { FastifyPluginAsync } from 'fastify';
 import { InvoiceService } from '../services/InvoiceService';
 import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
+import path from 'path';
+import fs from 'fs';
 
 const invoiceService = new InvoiceService();
+
+// Ensure invoice images directory exists
+const invoiceImagesDir = path.join(__dirname, '../../uploads/invoices');
+if (!fs.existsSync(invoiceImagesDir)) {
+    fs.mkdirSync(invoiceImagesDir, { recursive: true });
+}
+
 
 const invoicesRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.addHook('preHandler', requireAuthFastify);
@@ -69,6 +79,51 @@ const invoicesRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: 'Failed to update template' });
         }
     });
+
+    // Upload image for invoice template (using @fastify/multipart)
+    fastify.post('/templates/upload-image', async (request, reply) => {
+        const accountId = request.user?.accountId;
+        if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
+
+        try {
+            const data = await (request as any).file();
+            if (!data) return reply.code(400).send({ error: 'No file uploaded' });
+
+            // Validate image types
+            const allowedTypes = /jpeg|jpg|png|gif|svg|webp/i;
+            const ext = path.extname(data.filename).toLowerCase();
+            if (!allowedTypes.test(ext.slice(1))) {
+                return reply.code(400).send({ error: 'Invalid file type. Allowed: PNG, JPG, GIF, SVG, WebP' });
+            }
+
+            // Generate unique filename with account prefix for isolation
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            const safeFilename = data.filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+            const filename = `${accountId}-${uniqueSuffix}-${safeFilename}`;
+            const filePath = path.join(invoiceImagesDir, filename);
+
+            // Write file to disk
+            const writeStream = fs.createWriteStream(filePath);
+            for await (const chunk of data.file) {
+                writeStream.write(chunk);
+            }
+            writeStream.end();
+
+            const imageUrl = `/uploads/invoices/${filename}`;
+            Logger.info('Invoice image uploaded', { accountId, filename, url: imageUrl });
+
+            return {
+                success: true,
+                url: imageUrl,
+                filename: data.filename,
+                type: data.mimetype
+            };
+        } catch (error) {
+            Logger.error('Failed to upload invoice image', { error, accountId });
+            return reply.code(500).send({ error: 'Failed to upload image' });
+        }
+    });
 };
+
 
 export default invoicesRoutes;

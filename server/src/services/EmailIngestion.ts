@@ -22,6 +22,7 @@ export interface IncomingEmailData {
     messageId: string;
     inReplyTo?: string | null;
     references?: string | null;
+    attachments?: Array<{ filename: string; url: string; type: string }>;
 }
 
 export class EmailIngestion {
@@ -39,7 +40,7 @@ export class EmailIngestion {
      * Handle incoming email from IMAP ingestion.
      */
     async handleIncomingEmail(emailData: IncomingEmailData) {
-        const { emailAccountId, fromEmail, fromName, subject, body, html, messageId, inReplyTo, references } = emailData;
+        const { emailAccountId, fromEmail, fromName, subject, body, html, messageId, inReplyTo, references, attachments } = emailData;
 
         // Find Account ID
         const emailVars = await prisma.emailAccount.findUnique({
@@ -72,7 +73,13 @@ export class EmailIngestion {
 
         // Add message with emailMessageId (even for blocked contacts, for audit trail)
         // Prefer HTML if available, otherwise use text body
-        const contentBody = html || body;
+        let contentBody = html || body;
+
+        // Append attachments if present
+        if (attachments && attachments.length > 0) {
+            const attachmentLinks = attachments.map(a => `[Attachment: ${a.filename}](${a.url})`).join('\n');
+            contentBody += `\n\n${attachmentLinks}`;
+        }
 
         const message = await prisma.message.create({
             data: {

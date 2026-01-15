@@ -11,7 +11,8 @@ import {
     Settings,
     ChevronLeft,
     ChevronRight,
-    LogOut
+    LogOut,
+    Bug
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -23,6 +24,7 @@ const navItems = [
     { icon: Sparkles, label: 'AI Prompts', path: '/admin/ai-prompts' },
     { icon: FileText, label: 'System Logs', path: '/admin/logs' },
     { icon: Radio, label: 'Broadcasts', path: '/admin/broadcast' },
+    { icon: Bug, label: 'Diagnostics', path: '/admin/diagnostics' },
     { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 

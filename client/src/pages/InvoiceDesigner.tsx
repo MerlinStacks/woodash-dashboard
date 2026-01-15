@@ -170,8 +170,8 @@ export function InvoiceDesigner() {
                         type="button"
                         onClick={() => setShowPreview(!showPreview)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${showPreview
-                                ? 'bg-indigo-100 text-indigo-700 shadow-inner'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            ? 'bg-indigo-100 text-indigo-700 shadow-inner'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             }`}
                     >
                         <Eye size={16} />
@@ -203,8 +203,8 @@ export function InvoiceDesigner() {
             {/* Toast Notification */}
             {saveMessage && (
                 <div className={`fixed top-20 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl backdrop-blur-xl transition-all animate-in slide-in-from-right ${saveMessage.type === 'success'
-                        ? 'bg-emerald-50/90 border border-emerald-200 text-emerald-800'
-                        : 'bg-red-50/90 border border-red-200 text-red-800'
+                    ? 'bg-emerald-50/90 border border-emerald-200 text-emerald-800'
+                    : 'bg-red-50/90 border border-red-200 text-red-800'
                     }`}>
                     {saveMessage.type === 'success' ? (
                         <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
@@ -248,6 +248,8 @@ export function InvoiceDesigner() {
                         onUpdateContent={updateContent}
                         onDeleteItem={deleteItem}
                         onClose={() => setSelectedId(null)}
+                        token={token}
+                        accountId={currentAccount?.id}
                     />
                 )}
             </div>
