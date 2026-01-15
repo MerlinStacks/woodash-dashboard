@@ -65,6 +65,15 @@ export class PushNotificationService {
         preferences: { notifyNewMessages?: boolean; notifyNewOrders?: boolean; notifyLowStock?: boolean; notifyDailySummary?: boolean } = {}
     ): Promise<{ success: boolean; id?: string; error?: string }> {
         try {
+            // Security: Ensure this endpoint is only associated with the current user
+            // This prevents "leakage" where a shared device receives notifications for a previous user
+            await prisma.pushSubscription.deleteMany({
+                where: {
+                    endpoint: subscription.endpoint,
+                    userId: { not: userId }
+                }
+            });
+
             const result = await prisma.pushSubscription.upsert({
                 where: {
                     userId_endpoint: {
@@ -497,6 +506,49 @@ export class PushNotificationService {
 
         Logger.info('[PushNotificationService] Test notification sent', { userId, sent, failed });
         return { success: sent > 0, sent, failed };
+    }
+
+    /**
+     * Sends a specific notification to a user's devices, regardless of account context.
+     * Useful for admin testing.
+     */
+    static async sendToUser(
+        userId: string,
+        notification: { title: string; body: string; data?: Record<string, unknown> }
+    ): Promise<{ sent: number; failed: number }> {
+        const keys = await this.getVapidKeys();
+        if (!keys) return { sent: 0, failed: 0 };
+
+        webpush.setVapidDetails(
+            'mailto:notifications@overseek.io',
+            keys.publicKey,
+            keys.privateKey
+        );
+
+        const subscriptions = await prisma.pushSubscription.findMany({
+            where: { userId }
+        });
+
+        let sent = 0;
+        let failed = 0;
+
+        for (const sub of subscriptions) {
+            try {
+                await webpush.sendNotification(
+                    { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                    JSON.stringify(notification)
+                );
+                sent++;
+            } catch (error) {
+                failed++;
+                // Cleanup invalid subscriptions
+                const statusCode = (error as { statusCode?: number })?.statusCode;
+                if (statusCode === 410 || statusCode === 404) {
+                    await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => { });
+                }
+            }
+        }
+        return { sent, failed };
     }
 
     /**

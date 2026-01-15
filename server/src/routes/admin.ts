@@ -677,15 +677,25 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
             const { PushNotificationService } = await import('../services/PushNotificationService');
 
+            const notification = {
+                title: '🔧 Admin Test',
+                body: `Test ${type} notification for ${account.name}`,
+                data: { type: 'admin_test', timestamp: Date.now() }
+            };
+
             const result = await PushNotificationService.sendToAccount(
                 accountId,
-                {
-                    title: '🔧 Admin Test',
-                    body: `Test ${type} notification for ${account.name}`,
-                    data: { type: 'admin_test', timestamp: Date.now() }
-                },
+                notification,
                 type
             );
+
+            // Also send to the admin (current user) so they can verify it works
+            // This helps when the admin is not subscribed to the specific account being tested
+            const adminId = request.user?.id;
+            let adminResult = { sent: 0, failed: 0 };
+            if (adminId) {
+                adminResult = await PushNotificationService.sendToUser(adminId, notification);
+            }
 
             // Also get current subscriptions for this account
             const whereClause: any = { accountId };
@@ -698,11 +708,12 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             });
 
             return {
-                success: result.sent > 0,
+                success: result.sent > 0 || adminResult.sent > 0,
                 accountId,
                 accountName: account.name,
                 sent: result.sent,
                 failed: result.failed,
+                adminSent: adminResult.sent,
                 eligibleSubscriptions: subscriptions.length,
                 subscriptionIds: subscriptions.map(s => ({
                     id: s.id.slice(0, 8),
