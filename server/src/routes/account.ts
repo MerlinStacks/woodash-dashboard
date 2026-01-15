@@ -75,7 +75,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.put<{ Params: { accountId: string } }>('/:accountId', async (request, reply) => {
         try {
             const { accountId } = request.params;
-            const { name, domain, wooUrl, wooConsumerKey, wooConsumerSecret, webhookSecret, openRouterApiKey, aiModel, appearance, goldPrice, refreshGoldPrice } = request.body as any;
+            const { name, domain, wooUrl, wooConsumerKey, wooConsumerSecret, webhookSecret, openRouterApiKey, aiModel, appearance, goldPrice, refreshGoldPrice, revenueTaxInclusive } = request.body as any;
             const userId = request.user!.id;
 
             const membership = await prisma.accountUser.findUnique({ where: { userId_accountId: { userId, accountId } } });
@@ -84,6 +84,7 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
             }
 
             const data: any = { name, domain, wooUrl, wooConsumerKey, openRouterApiKey, aiModel, appearance };
+            if (typeof revenueTaxInclusive === 'boolean') data.revenueTaxInclusive = revenueTaxInclusive;
             if (wooConsumerSecret?.trim()) data.wooConsumerSecret = wooConsumerSecret;
             if (webhookSecret !== undefined) data.webhookSecret = webhookSecret?.trim() || null;
 
