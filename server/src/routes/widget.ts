@@ -47,15 +47,27 @@ const widgetRoutes: FastifyPluginAsync = async (fastify) => {
             const leftPos = position === 'bottom-left' ? '20px' : 'auto';
             const windowRight = position === 'bottom-right' ? 'right: 0;' : 'left: 0;';
 
+            /**
+             * Escapes a string for safe embedding inside a JavaScript single-quoted string.
+             * Handles: backslashes, single quotes, and newlines.
+             */
+            const escapeForJs = (str: string): string => {
+                return str
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'")
+                    .replace(/\n/g, '\\n')
+                    .replace(/\r/g, '\\r');
+            };
+
             const script = `
 (function() {
-    const API_URL = '${api_url}';
-    const accountId = '${accountId}';
-    const PRIMARY_COLOR = '${primaryColor}';
-    const HEADER_TEXT = '${headerText}';
-    const WELCOME_MSG = '${welcomeMessage}';
+    const API_URL = '${escapeForJs(api_url)}';
+    const accountId = '${escapeForJs(accountId)}';
+    const PRIMARY_COLOR = '${escapeForJs(primaryColor)}';
+    const HEADER_TEXT = '${escapeForJs(headerText)}';
+    const WELCOME_MSG = '${escapeForJs(welcomeMessage)}';
     const BUSINESS_HOURS = ${JSON.stringify(businessHours)};
-    const BUSINESS_TIMEZONE = '${businessTimezone}';
+    const BUSINESS_TIMEZONE = '${escapeForJs(businessTimezone)}';
 
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const isMobile = window.innerWidth <= 640;
