@@ -82,7 +82,12 @@ export function ChatWindow({
 
     // === EXTRACTED HOOKS ===
     const canned = useCannedResponses();
-    const messageSend = useMessageSend({ conversationId, onSendMessage, recipientEmail });
+    const messageSend = useMessageSend({
+        conversationId,
+        onSendMessage,
+        recipientEmail,
+        isLiveChat: currentChannel === 'CHAT'
+    });
     const { isCustomerTyping } = useTypingIndicator({ conversationId, input: messageSend.input });
     const { otherViewers } = useConversationPresence(conversationId);
 

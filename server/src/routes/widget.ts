@@ -32,6 +32,7 @@ const widgetRoutes: FastifyPluginAsync = async (fastify) => {
             const config = feature?.config as any || {};
 
             // Defaults - appearance and positioning
+            const enabled = config.enabled !== false; // Default to enabled
             const position = config.position || 'bottom-right';
             const showOnMobile = config.showOnMobile !== false;
             const primaryColor = config.primaryColor || '#2563eb';
@@ -46,6 +47,12 @@ const widgetRoutes: FastifyPluginAsync = async (fastify) => {
             const rightPos = position === 'bottom-right' ? '20px' : 'auto';
             const leftPos = position === 'bottom-left' ? '20px' : 'auto';
             const windowRight = position === 'bottom-right' ? 'right: 0;' : 'left: 0;';
+
+            if (!enabled) {
+                reply.header('Content-Type', 'application/javascript');
+                reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+                return '';
+            }
 
             /**
              * Escapes a string for safe embedding inside a JavaScript single-quoted string.
@@ -206,8 +213,8 @@ const widgetRoutes: FastifyPluginAsync = async (fastify) => {
     html += '<button id="os-prechat-submit">Start Chat</button></div><div class="os-messages" id="os-messages"></div>';
     html += '<div class="os-input-area" id="os-input-area"><div class="os-file-preview" id="os-file-preview"><span>📎</span><span class="os-file-name" id="os-file-name"></span><button class="os-file-remove" id="os-file-remove">&times;</button></div>';
     html += '<div class="os-input-row" style="position: relative;"><div class="os-input-actions">';
-    html += '<button class="os-input-btn" id="os-emoji-btn" title="Emoji"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>';
-    html += '<button class="os-input-btn" id="os-attach-btn" title="Attach file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></button>';
+    html += '<button class="os-input-btn" id="os-emoji-btn" title="Emoji"><svg viewBox="0 0 24 24" fill="none" stroke="var(--os-text-muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>';
+    html += '<button class="os-input-btn" id="os-attach-btn" title="Attach file"><svg viewBox="0 0 24 24" fill="none" stroke="var(--os-text-muted)" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></button>';
     html += '<input type="file" id="os-file-input" accept="image/*,.pdf,.doc,.docx" style="display:none" /></div>';
     html += '<div class="os-emoji-picker" id="os-emoji-picker">' + EMOJIS.map(function(e) { return "<button type=button>" + e + "</button>"; }).join("") + '</div>';
     html += '<input type="text" id="os-input" placeholder="Type a message..." autocomplete="off" />';
@@ -476,9 +483,15 @@ const widgetRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     function escapeHtml(str) {
+        // Strip HTML tags to prevent raw HTML display, but preserve newlines
+        const cleanText = str
+            .replace(/<br\\s*\\/?>/gi, '\\n')
+            .replace(/<\\/p>/gi, '\\n')
+            .replace(/<[^>]*>/g, '');
+
         const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+        div.textContent = cleanText;
+        return div.innerHTML.replace(/\\n/g, '<br>');
     }
 
     function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
