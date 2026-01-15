@@ -228,6 +228,16 @@ export class EmailService {
             return;
         }
 
+        // Debug log to verify what settings we're using
+        Logger.info('[checkEmails] IMAP config', {
+            email: account.email,
+            imapHost: account.imapHost,
+            imapPort: account.imapPort,
+            imapUsername: account.imapUsername || account.email,
+            hasPassword: !!account.imapPassword,
+            passwordLength: account.imapPassword?.length
+        });
+
         // Port 993 uses implicit TLS, port 143 uses STARTTLS
         const useImplicitTLS = account.imapPort === 993;
 
@@ -251,14 +261,34 @@ export class EmailService {
                 pass: decryptedPassword
             },
             logger: false,
+            emitLogs: false,
+            connectionTimeout: 30000, // 30 second connection timeout
+            greetingTimeout: 15000,   // 15 second greeting timeout
+            socketTimeout: 60000,     // 60 second socket timeout
             tls: {
                 rejectUnauthorized: false,
             } as any
         });
 
+        // Handle connection errors
+        client.on('error', (err: Error) => {
+            Logger.error('[checkEmails] IMAP client error event', { email: account.email, error: err.message });
+        });
+
         try {
-            Logger.info('[checkEmails] Connecting to IMAP server', { host: account.imapHost, port: account.imapPort });
+            Logger.info('[checkEmails] Connecting to IMAP server', {
+                host: account.imapHost,
+                port: account.imapPort,
+                email: account.email,
+                secure: useImplicitTLS
+            });
             await client.connect();
+
+            // Verify connection is actually open
+            if (!client.usable) {
+                throw new Error('IMAP connection not usable after connect');
+            }
+            Logger.info('[checkEmails] Connection established successfully');
 
             const lock = await client.getMailboxLock('INBOX');
             Logger.info('[checkEmails] Connected and locked INBOX');

@@ -55,9 +55,10 @@ export class SchedulerService {
             }
         };
 
-        // Run immediately on startup, then every 30 seconds
+        // Run immediately on startup, then every 2 minutes (30s was too aggressive and may trigger rate limits)
+        Logger.info('[Email Polling] Starting immediate email check on startup');
         pollEmails();
-        setInterval(pollEmails, 30 * 1000);
+        setInterval(pollEmails, 2 * 60 * 1000);
 
 
         // Report Scheduler (Check every 15 minutes)
