@@ -182,6 +182,9 @@ model Account {
   // Webhook Deliveries (for replay)
   webhookDeliveries   WebhookDelivery[]
   
+  // Notification Deliveries
+  notificationDeliveries NotificationDelivery[]
+
   // Rate Limiting
   rateLimit           AccountRateLimit?
 }
@@ -1855,6 +1858,8 @@ model NotificationDelivery {
   payload        Json?
   
   createdAt      DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
   
   @@index([accountId, createdAt])
   @@index([eventType, createdAt])
