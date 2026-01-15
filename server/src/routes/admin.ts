@@ -664,9 +664,10 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
      * POST /admin/diagnostics/test-push/:accountId
      * Send a test push notification to a specific account to verify delivery
      */
-    fastify.post<{ Params: { accountId: string } }>('/diagnostics/test-push/:accountId', async (request, reply) => {
+    fastify.post<{ Params: { accountId: string }; Body: { type?: 'order' | 'message' } }>('/diagnostics/test-push/:accountId', async (request, reply) => {
         try {
             const { accountId } = request.params;
+            const type = request.body?.type || 'order';
 
             const account = await prisma.account.findUnique({
                 where: { id: accountId },
@@ -680,15 +681,19 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
                 accountId,
                 {
                     title: '🔧 Admin Test',
-                    body: `Test notification for ${account.name}`,
+                    body: `Test ${type} notification for ${account.name}`,
                     data: { type: 'admin_test', timestamp: Date.now() }
                 },
-                'order'
+                type
             );
 
             // Also get current subscriptions for this account
+            const whereClause: any = { accountId };
+            if (type === 'order') whereClause.notifyNewOrders = true;
+            if (type === 'message') whereClause.notifyNewMessages = true;
+
             const subscriptions = await prisma.pushSubscription.findMany({
-                where: { accountId, notifyNewOrders: true },
+                where: whereClause,
                 select: { id: true, userId: true, endpoint: true }
             });
 

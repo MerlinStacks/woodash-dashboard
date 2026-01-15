@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Send, Loader2, ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Send, Loader2, ChevronDown, ChevronUp, Zap, Paperclip } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { InboxRichTextEditor } from './InboxRichTextEditor';
@@ -29,6 +29,8 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
     const [showCc, setShowCc] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [attachments, setAttachments] = useState<File[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Canned responses integration
     const {
@@ -80,6 +82,20 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
     // Get user's email signature
     const signature = user?.emailSignature || '';
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+        }
+        // Reset input so same file can be selected again
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const removeAttachment = (index: number) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleSend = async () => {
         if (!to.trim() || !subject.trim() || !body.trim()) {
             setError('Please fill in all required fields');
@@ -94,20 +110,25 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
         setError(null);
 
         try {
+            const formData = new FormData();
+            formData.append('to', to.trim());
+            formData.append('cc', cc.trim());
+            formData.append('subject', subject.trim());
+            formData.append('body', body + (signature ? `<br><br>${signature}` : ''));
+            formData.append('emailAccountId', emailAccountId);
+
+            attachments.forEach(file => {
+                formData.append('attachments', file);
+            });
+
+            // Note: We don't set Content-Type header for FormData, browser sets it with boundary
             const res = await fetch('/api/chat/compose', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                     'x-account-id': currentAccount?.id || ''
                 },
-                body: JSON.stringify({
-                    to: to.trim(),
-                    cc: cc.trim(),
-                    subject: subject.trim(),
-                    body: body + (signature ? `<br><br>${signature}` : ''),
-                    emailAccountId
-                })
+                body: formData
             });
 
             const data = await res.json();
@@ -263,8 +284,42 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
                             >
                                 <Zap size={18} />
                             </button>
+                            <div className="w-px h-4 bg-gray-300 mx-1" />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="p-2 rounded-sm hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                                title="Attach File"
+                                aria-label="Attach File"
+                            >
+                                <Paperclip size={18} />
+                            </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileSelect}
+                                className="hidden"
+                                multiple
+                            />
                         </div>
                     </div>
+
+                    {/* Attachments List */}
+                    {attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {attachments.map((file, index) => (
+                                <div key={index} className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 border border-gray-200">
+                                    <span className="truncate max-w-[200px]">{file.name}</span>
+                                    <button
+                                        onClick={() => removeAttachment(index)}
+                                        className="text-gray-400 hover:text-red-500 transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Signature Preview */}
                     {signature && (

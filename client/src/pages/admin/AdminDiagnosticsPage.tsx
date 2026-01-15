@@ -49,6 +49,7 @@ export function AdminDiagnosticsPage() {
     const [subscriptions, setSubscriptions] = useState<PushSubscriptionData | null>(null);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [selectedAccountId, setSelectedAccountId] = useState('');
+    const [testType, setTestType] = useState<'order' | 'message'>('order');
     const [testResult, setTestResult] = useState<TestPushResult | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
@@ -94,7 +95,11 @@ export function AdminDiagnosticsPage() {
         try {
             const res = await fetch(`/api/admin/diagnostics/test-push/${selectedAccountId}`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ type: testType })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Test failed');
@@ -279,6 +284,17 @@ export function AdminDiagnosticsPage() {
                             {accounts.map(acc => (
                                 <option key={acc.id} value={acc.id}>{acc.name}</option>
                             ))}
+                        </select>
+                    </div>
+                    <div className="w-48">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Notification Type</label>
+                        <select
+                            value={testType}
+                            onChange={(e) => setTestType(e.target.value as 'order' | 'message')}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="order">New Order</option>
+                            <option value="message">New Message</option>
                         </select>
                     </div>
                     <button

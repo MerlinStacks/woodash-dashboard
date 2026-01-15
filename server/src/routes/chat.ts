@@ -16,6 +16,7 @@ import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
+import { pipeline } from 'stream/promises';
 
 // Ensure attachments directory exists
 const attachmentsDir = path.join(__dirname, '../../uploads/attachments');
@@ -114,7 +115,35 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
             try {
                 const accountId = request.headers['x-account-id'] as string;
                 const userId = request.user?.id;
-                const { to, cc, subject, body, emailAccountId } = request.body as any;
+                
+                let to, cc, subject, body, emailAccountId;
+                const attachments: any[] = [];
+
+                if (request.isMultipart()) {
+                    const parts = request.parts();
+                    for await (const part of parts) {
+                        if (part.type === 'file') {
+                            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                            const filename = uniqueSuffix + '-' + part.filename;
+                            const filePath = path.join(attachmentsDir, filename);
+                            await pipeline(part.file, fs.createWriteStream(filePath));
+                            attachments.push({
+                                filename: part.filename,
+                                path: filePath,
+                                contentType: part.mimetype
+                            });
+                        } else {
+                            // Fields
+                            if (part.fieldname === 'to') to = (part as any).value;
+                            if (part.fieldname === 'cc') cc = (part as any).value;
+                            if (part.fieldname === 'subject') subject = (part as any).value;
+                            if (part.fieldname === 'body') body = (part as any).value;
+                            if (part.fieldname === 'emailAccountId') emailAccountId = (part as any).value;
+                        }
+                    }
+                } else {
+                    ({ to, cc, subject, body, emailAccountId } = request.body as any);
+                }
 
                 if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
                 if (!to || !subject || !body || !emailAccountId) {
@@ -146,7 +175,7 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
 
                 // 4. Send email via EmailService
                 const emailService = new EmailService();
-                await emailService.sendEmail(accountId, emailAccountId, to, subject, body, undefined, {
+                await emailService.sendEmail(accountId, emailAccountId, to, subject, body, attachments, {
                     source: 'INBOX',
                     sourceId: conversation.id
                 });
@@ -155,7 +184,7 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                 if (cc && cc.trim()) {
                     const ccRecipients = cc.split(',').map((e: string) => e.trim()).filter(Boolean);
                     for (const ccEmail of ccRecipients) {
-                        await emailService.sendEmail(accountId, emailAccountId, ccEmail, subject, body, undefined, {
+                        await emailService.sendEmail(accountId, emailAccountId, ccEmail, subject, body, attachments, {
                             source: 'INBOX',
                             sourceId: conversation.id
                         });
