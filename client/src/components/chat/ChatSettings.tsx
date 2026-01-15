@@ -30,6 +30,7 @@ export function ChatSettings() {
 
     // Default config with new appearance settings
     const [config, setConfig] = useState({
+        enabled: true,
         position: 'bottom-right',
         showOnMobile: true,
         primaryColor: '#2563eb',
@@ -96,8 +97,26 @@ export function ChatSettings() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-8">
             {/* Widget Appearance with Live Preview */}
             <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Widget Appearance</h3>
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Widget Appearance</h3>
+                    <div className="flex items-center gap-3">
+                        <label className="text-sm font-medium text-gray-700">Enable Live Chat Widget</label>
+                        <button
+                            type="button"
+                            onClick={() => setConfig({ ...config, enabled: config.enabled === false })}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${config.enabled !== false ? 'bg-blue-600' : 'bg-gray-200'}`}
+                            role="switch"
+                            aria-checked={config.enabled !== false}
+                        >
+                            <span
+                                aria-hidden="true"
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${config.enabled !== false ? 'translate-x-5' : 'translate-x-0'}`}
+                            />
+                        </button>
+                    </div>
+                </div>
+
+                <div className={`grid gap-6 lg:grid-cols-2 ${config.enabled === false ? 'opacity-50 pointer-events-none' : ''}`}>
                     {/* Settings Column */}
                     <div className="space-y-5">
                         {/* Primary Color */}

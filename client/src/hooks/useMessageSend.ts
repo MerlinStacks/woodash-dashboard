@@ -13,6 +13,7 @@ interface UseMessageSendOptions {
     conversationId: string;
     onSendMessage: (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel) => Promise<void>;
     recipientEmail?: string;
+    isLiveChat?: boolean;
 }
 
 interface PendingSend {
@@ -61,7 +62,8 @@ const UNDO_DELAY_MS = 5000;
 export function useMessageSend({
     conversationId,
     onSendMessage,
-    recipientEmail
+    recipientEmail,
+    isLiveChat
 }: UseMessageSendOptions): UseMessageSendReturn {
     const { token, user } = useAuth();
     const { currentAccount } = useAccount();
@@ -124,7 +126,8 @@ export function useMessageSend({
         const shouldAppendSignature = signatureEnabled &&
             user?.emailSignature &&
             !isInternal &&
-            recipientEmail;
+            recipientEmail &&
+            !isLiveChat;
 
         if (shouldAppendSignature) {
             content = `${content}\n\n---\n${user!.emailSignature}`;
