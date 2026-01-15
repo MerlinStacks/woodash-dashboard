@@ -6,6 +6,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { requireAuthFastify } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
+import { cacheDelete } from '../utils/cache';
 
 interface PolicyBody {
     title?: string;
@@ -72,6 +73,7 @@ const policiesRoutes: FastifyPluginAsync = async (fastify) => {
                     isPublished: isPublished !== undefined ? isPublished : true
                 }
             });
+            await cacheDelete(`policies:${accountId}`);
             return policy;
         } catch (error) {
             Logger.error('Failed to create policy', { error, accountId, body: request.body });
@@ -102,6 +104,7 @@ const policiesRoutes: FastifyPluginAsync = async (fastify) => {
                     ...(isPublished !== undefined && { isPublished })
                 }
             });
+            await cacheDelete(`policies:${accountId}`);
             return policy;
         } catch (error) {
             Logger.error('Failed to update policy', { error, accountId, id: request.params.id });
@@ -123,6 +126,7 @@ const policiesRoutes: FastifyPluginAsync = async (fastify) => {
             await prisma.policy.delete({
                 where: { id: request.params.id }
             });
+            await cacheDelete(`policies:${accountId}`);
             return { success: true };
         } catch (error) {
             Logger.error('Failed to delete policy', { error, accountId, id: request.params.id });

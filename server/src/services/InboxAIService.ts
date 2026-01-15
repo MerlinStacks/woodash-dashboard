@@ -7,6 +7,7 @@
 
 import { prisma } from '../utils/prisma';
 import { Logger } from '../utils/logger';
+import { cacheAside, CacheTTL } from '../utils/cache';
 
 interface DraftResult {
     draft: string;
@@ -62,10 +63,15 @@ export class InboxAIService {
             const context = this.buildConversationContext(conversation);
 
             // 4. Fetch published policies for the account
-            const policies = await prisma.policy.findMany({
-                where: { accountId, isPublished: true },
-                select: { title: true, content: true, type: true }
-            });
+            const policies = await cacheAside(
+                `policies:${accountId}`,
+                async () => prisma.policy.findMany({
+                    where: { accountId, isPublished: true },
+                    select: { title: true, content: true, type: true },
+                    orderBy: [{ type: 'asc' }, { title: 'asc' }]
+                }),
+                { ttl: CacheTTL.LONG }
+            );
 
             // 5. Fetch the inbox_draft_reply prompt template
             const promptTemplate = await prisma.aIPrompt.findUnique({
