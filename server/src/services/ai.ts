@@ -2,16 +2,64 @@ import { esClient } from '../utils/elastic';
 import { prisma } from '../utils/prisma';
 import { AIToolsService } from './ai_tools';
 import { Logger } from '../utils/logger';
+import { AI_LIMITS } from '../config/limits';
+import { AIServiceError, AIRateLimitError, ExternalAPIError, isOverseekError } from '../utils/errors';
 
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+/** Result from AI tool execution */
+interface ToolResult {
+    [key: string]: unknown;
+}
+
+/** OpenAI-compatible chat message */
+interface ChatMessage {
+    role: 'system' | 'user' | 'assistant' | 'tool';
+    content: string | null;
+    tool_calls?: ToolCall[];
+    tool_call_id?: string;
+    alias?: string;
+}
+
+/** Tool call structure from LLM */
+interface ToolCall {
+    id: string;
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
+
+/** OpenRouter API response */
+interface OpenRouterResponse {
+    choices: Array<{
+        message: ChatMessage;
+    }>;
+}
+
+/** Order billing information from rawData */
+interface OrderBilling {
+    first_name?: string;
+    last_name?: string;
+}
+
+/** Order rawData structure */
+interface OrderRawData {
+    billing?: OrderBilling;
+}
+
+/** AI response returned to client */
 interface AIResponse {
     reply: string;
-    sources?: any[];
+    sources?: ToolResult[];
 }
 
 export class AIService {
 
     static async getModels(apiKey?: string) {
-        const headers: any = {};
+        const headers: Record<string, string> = {};
         if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
         // Default models fallback if no key or key is invalid
@@ -22,7 +70,7 @@ export class AIService {
         ];
 
         try {
-            const res = await fetch('https://openrouter.ai/api/v1/models', { headers });
+            const res = await fetch(AI_LIMITS.MODELS_ENDPOINT, { headers });
             if (!res.ok) {
                 Logger.warn(`Failed to fetch models: ${res.statusText}, returning defaults.`);
                 return defaultModels;
@@ -36,7 +84,7 @@ export class AIService {
     }
 
     static async generateResponse(query: string, accountId: string, context?: { path?: string }): Promise<AIResponse> {
-        let contextData: any[] = [];
+        let contextData: ToolResult[] = [];
         let contextSummary = "";
 
         // 0. Pre-fetch Context Data based on Path
@@ -52,20 +100,16 @@ export class AIService {
                         // Note: In real app, might want a specific service call, but re-using tool logic is efficient here
                         // We can't easily call OrderTools.getRecentOrders for a specific ID, let's just query Prisma briefly
                         // Safe query for ID vs Number
-                        let whereClause: any = { accountId };
-                        if (/^\d+$/.test(orderId)) {
-                            whereClause.id = Number(orderId);
-                        } else {
-                            whereClause.number = String(orderId);
-                        }
-
+                        const isNumericId = /^\d+$/.test(orderId);
                         const order = await prisma.wooOrder.findFirst({
-                            where: whereClause,
+                            where: isNumericId
+                                ? { accountId, wooId: Number(orderId) }
+                                : { accountId, number: String(orderId) },
                             select: { number: true, status: true, total: true, currency: true, rawData: true }
                         });
                         if (order) {
-                            const raw = order.rawData as any;
-                            const billing = raw?.billing || {};
+                            const raw = order.rawData as OrderRawData;
+                            const billing = raw?.billing ?? {};
                             contextSummary += `\n\n**CURRENTLY VIEWING:** Order #${order.number} (Status: ${order.status}, Total: ${order.currency} ${order.total}, Customer: ${billing?.first_name} ${billing?.last_name}). Answer questions relative to this order if implied (e.g., "Is THIS profitable?").`;
                         }
                     }
@@ -162,18 +206,17 @@ Current Date: ${new Date().toISOString().split('T')[0]}`;
         }
 
         const apiKey = account?.openRouterApiKey || process.env.OPENAI_API_KEY;
-        const model = account?.aiModel || 'openai/gpt-4o'; // Default to a smart model for tools
+        const model = account?.aiModel || AI_LIMITS.DEFAULT_MODEL;
 
-        let messages: any[] = [
+        const messages: ChatMessage[] = [
             { role: "system", content: systemPrompt },
             { role: "user", content: query }
         ];
 
         // 2. Main Loop: LLM -> Tool Call -> LLM
-        // We limit to 5 turns to prevent infinite loops
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < AI_LIMITS.MAX_TOOL_ITERATIONS; i++) {
             try {
-                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                const response = await fetch(AI_LIMITS.API_ENDPOINT, {
                     method: "POST",
                     headers: {
                         "Authorization": `Bearer ${apiKey}`,
@@ -192,9 +235,24 @@ Current Date: ${new Date().toISOString().split('T')[0]}`;
                 });
 
                 if (!response.ok) {
-                    const err = await response.text();
-                    Logger.error('OpenRouter Error', { error: err });
-                    return { reply: "I encountered an error connecting to the AI provider." };
+                    const errorText = await response.text();
+                    const isRateLimit = response.status === 429;
+                    Logger.error('OpenRouter Error', {
+                        status: response.status,
+                        error: errorText,
+                        accountId
+                    });
+
+                    if (isRateLimit) {
+                        return {
+                            reply: "I'm currently experiencing high demand. Please wait a moment and try again.",
+                            sources: []
+                        };
+                    }
+                    return {
+                        reply: "I encountered an error connecting to the AI provider. Please check your API key in Settings > AI.",
+                        sources: []
+                    };
                 }
 
                 const data = await response.json();
@@ -216,9 +274,9 @@ Current Date: ${new Date().toISOString().split('T')[0]}`;
 
                         // Capture data for "sources"
                         if (Array.isArray(toolResult)) {
-                            contextData = [...contextData, ...toolResult];
-                        } else if (typeof toolResult === 'object') {
-                            contextData.push(toolResult);
+                            contextData = [...contextData, ...(toolResult as ToolResult[])];
+                        } else if (typeof toolResult === 'object' && toolResult !== null) {
+                            contextData.push(toolResult as ToolResult);
                         }
 
                         // Add Tool output to history
@@ -239,11 +297,25 @@ Current Date: ${new Date().toISOString().split('T')[0]}`;
                 }
 
             } catch (error) {
-                Logger.error('AI Loop Error', { error });
-                return { reply: "I'm sorry, I encountered an internal error processing your request." };
+                const err = error as Error;
+                Logger.error('AI Loop Error', {
+                    error: err.message,
+                    stack: err.stack,
+                    iteration: i,
+                    accountId
+                });
+                return {
+                    reply: "I'm sorry, I encountered an error while processing your request. Please try again or rephrase your question.",
+                    sources: contextData
+                };
             }
         }
 
-        return { reply: "I'm thinking too much without an answer. Let's try a simpler question." };
+        // Max iterations reached - prevent infinite loops
+        Logger.warn('AI max iterations reached', { accountId, maxIterations: AI_LIMITS.MAX_TOOL_ITERATIONS });
+        return {
+            reply: "I've gathered a lot of information but need to stop here. Could you ask a more specific question?",
+            sources: contextData
+        };
     }
 }

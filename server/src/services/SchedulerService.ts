@@ -32,8 +32,8 @@ export class SchedulerService {
             automationEngine.runTicker().catch(e => Logger.error('Marketing Ticker Error', { error: e }));
         }, 60 * 1000); // 1 Min
 
-        // Email Polling (Check every 2 minutes)
-        setInterval(async () => {
+        // Email Polling (Check every 30 seconds for near-realtime inbox)
+        const pollEmails = async () => {
             try {
                 const accounts = await prisma.emailAccount.findMany({ where: { imapEnabled: true } });
                 Logger.info(`[Email Polling] Starting check - found ${accounts.length} IMAP-enabled account(s)`);
@@ -53,7 +53,11 @@ export class SchedulerService {
             } catch (error) {
                 Logger.error('Email Polling Error', { error });
             }
-        }, 2 * 60 * 1000);
+        };
+
+        // Run immediately on startup, then every 30 seconds
+        pollEmails();
+        setInterval(pollEmails, 30 * 1000);
 
 
         // Report Scheduler (Check every 15 minutes)

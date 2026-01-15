@@ -45,7 +45,7 @@ import type { MergedRecipient } from './RecipientList';
 interface ChatWindowProps {
     conversationId: string;
     messages: Message[];
-    onSendMessage: (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel) => Promise<void>;
+    onSendMessage: (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel, emailAccountId?: string) => Promise<void>;
     recipientEmail?: string;
     recipientName?: string;
     status?: string;
@@ -80,13 +80,51 @@ export function ChatWindow({
     const { token } = useAuth();
     const { currentAccount } = useAccount();
 
+    // === EMAIL ACCOUNTS STATE ===
+    interface EmailAccount {
+        id: string;
+        name: string;
+        email: string;
+        isDefault?: boolean;
+    }
+    const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
+    const [selectedEmailAccountId, setSelectedEmailAccountId] = useState<string>('');
+
+    // Fetch email accounts for the From dropdown
+    useEffect(() => {
+        if (!currentAccount || !token) return;
+        const fetchEmailAccounts = async () => {
+            try {
+                const res = await fetch('/api/chat/email-accounts', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'x-account-id': currentAccount.id
+                    }
+                });
+                if (res.ok) {
+                    const accounts = await res.json();
+                    setEmailAccounts(accounts);
+                    // Set default selection to first account or the default one
+                    if (accounts.length > 0) {
+                        const defaultAccount = accounts.find((a: EmailAccount) => a.isDefault) || accounts[0];
+                        setSelectedEmailAccountId(defaultAccount.id);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch email accounts', err);
+            }
+        };
+        fetchEmailAccounts();
+    }, [currentAccount, token]);
+
     // === EXTRACTED HOOKS ===
     const canned = useCannedResponses();
     const messageSend = useMessageSend({
         conversationId,
         onSendMessage,
         recipientEmail,
-        isLiveChat: currentChannel === 'CHAT'
+        isLiveChat: currentChannel === 'CHAT',
+        emailAccountId: selectedEmailAccountId
     });
     const { isCustomerTyping } = useTypingIndicator({ conversationId, input: messageSend.input });
     const { otherViewers } = useConversationPresence(conversationId);
@@ -271,6 +309,7 @@ export function ChatWindow({
                         key={msg.id}
                         message={msg}
                         recipientName={recipientName}
+                        recipientEmail={recipientEmail}
                         onImageClick={(src) => setLightboxImage(src)}
                         onQuoteReply={(msg) => messageSend.setQuotedMessage(msg)}
                         onReactionToggle={handleReactionToggle}
@@ -328,6 +367,9 @@ export function ChatWindow({
                 onOpenSchedule={() => setShowScheduleModal(true)}
                 availableChannels={availableChannels}
                 currentChannel={currentChannel}
+                emailAccounts={emailAccounts}
+                selectedEmailAccountId={selectedEmailAccountId}
+                onEmailAccountChange={setSelectedEmailAccountId}
             />
 
             {/* All Modals */}

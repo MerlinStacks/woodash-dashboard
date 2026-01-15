@@ -6,31 +6,6 @@ This document tracks planned enhancements, known bugs, and future feature ideas 
 
 ## Implemented
 
-### AI & Intelligence ✅
-- [x] **AI Marketing Co-Pilot** — Intelligent ad optimization replacing traditional marketing agents
-  - Phase 1: Multi-Period Analysis (7d/30d/90d), Historical Snapshots, Statistical Significance
-  - Phase 2: Cross-Channel Attribution, LTV-Based Optimization
-  - Phase 3: Funnel-Aware Recommendations, Audience/Geo/Device Analyzer
-  - Phase 4: Marketing Knowledge Base, Confidence Scoring, Explainability
-  - Phase 5: Recommendation Tracking, Feedback-Based Learning Loop
-  - Phase 6: Proactive Alert System
-  - Cross-platform comparison (Google Ads vs Meta Ads)
-
-### Reporting & Analytics ✅
-- [x] **Scheduled Email Reports** — Daily/Weekly digest delivered to inbox
-  - `DigestReportService` with period-over-period change detection
-  - Core metrics: Revenue, Order Count, AOV, New Customers
-  - Top 5 traffic sources and Top 5 products
-  - Color-coded trend indicators (Green ↑ / Red ↓)
-- [x] **Enhanced Cohort Analysis** — Order-based behavioral analysis
-  - Retention cohorts (monthly repeat purchase rates over 12-month horizon)
-  - Acquisition cohorts by source (Google Ads, Meta, Organic retention)
-  - Product-based cohorts (retention by first product line purchased)
-- [x] **Product Performance Ranking** — High-velocity benchmarking
-  - Top/Bottom performers with multi-period trends (7d/30d/90d/YTD)
-  - Profit margin visibility via COGS subtraction
-  - Revenue, Units Sold, and Order Count rankings
-
 ---
 
 ## Planned
@@ -119,14 +94,3 @@ This document tracks planned enhancements, known bugs, and future feature ideas 
 - [ ] Bulk order status update
 - [ ] Order timeline (events log)
 - [ ] Export customer segments to CSV
-
-
-Gold price needs option for 18ct and 9ct in both gold and white, we also need to add at 10% margin on top of the market price, this will need to have the different fields in the settings to allow us to enter them / have them updated via market. The products will also need to have a drop down to select which one applies to the product.
-
-COGS need a misc add field with a notes for what they are for, this field should be repeatable on the item.
-
-Revenue needs to be tax inclusive and state that, this should be an option in the settings.
-
-If there is a way to pull payment fees for the woocommerce order and include in the profitibilty report it would be good.
-
-saving a product is very slow.

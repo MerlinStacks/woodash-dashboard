@@ -381,7 +381,7 @@ const VisitorProfileModal: React.FC<VisitorProfileModalProps> = ({ visitorId, ac
                                             key={visit.id}
                                             visit={visit}
                                             isFirst={idx === 0}
-                                            displayNumber={idx + 1}
+                                            displayNumber={data.visits!.length - idx}
                                         />
                                     ))}
                                 </div>

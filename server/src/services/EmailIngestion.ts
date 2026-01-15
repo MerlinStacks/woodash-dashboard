@@ -54,6 +54,17 @@ export class EmailIngestion {
 
         const accountId = emailVars.accountId;
 
+        // LOOP PREVENTION: Skip emails from our own email accounts
+        const ownEmailAccounts = await prisma.emailAccount.findMany({
+            where: { accountId },
+            select: { email: true }
+        });
+        const ownEmails = ownEmailAccounts.map(a => a.email.toLowerCase());
+        if (ownEmails.includes(fromEmail.toLowerCase())) {
+            Logger.info('[EmailIngestion] Skipping email from own account (loop prevention)', { fromEmail });
+            return;
+        }
+
         // Check if sender is blocked
         const isBlocked = await BlockedContactService.isBlocked(accountId, fromEmail);
 
@@ -113,7 +124,7 @@ export class EmailIngestion {
         });
 
         // Auto-reply and push (only for non-blocked contacts)
-        await this.handleAutoReply(conversation, fromEmail, subject, messageId);
+        await this.handleAutoReply(conversation, fromEmail, subject, messageId, emailAccountId);
 
         // Emit event for NotificationEngine to handle push
         EventBus.emit(EVENTS.EMAIL.RECEIVED, {
@@ -188,7 +199,7 @@ export class EmailIngestion {
      * 1. Sends an actual email reply to the customer
      * 2. Adds a system message to the conversation for visibility
      */
-    private async handleAutoReply(conversation: any, fromEmail: string, originalSubject: string, inReplyToMessageId: string) {
+    private async handleAutoReply(conversation: any, fromEmail: string, originalSubject: string, inReplyToMessageId: string, emailAccountId: string) {
         const config = await prisma.accountFeature.findFirst({
             where: { accountId: conversation.accountId, featureKey: 'CHAT_SETTINGS' }
         });
@@ -198,9 +209,27 @@ export class EmailIngestion {
         if (!settings.businessHours?.enabled) return;
 
         if (this.isOutsideBusinessHours(settings.businessHours, settings.businessTimezone) && settings.businessHours.offlineMessage) {
+            // LOOP PREVENTION: Check if we already sent an auto-reply for this conversation recently (within 5 minutes)
+            const recentAutoReply = await prisma.emailLog.findFirst({
+                where: {
+                    sourceId: conversation.id,
+                    source: 'AUTO_REPLY',
+                    createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) } // 5 minutes ago
+                }
+            });
+
+            if (recentAutoReply) {
+                Logger.info('[EmailIngestion] Skipping auto-reply, one was sent recently (loop prevention)', {
+                    conversationId: conversation.id,
+                    lastAutoReply: recentAutoReply.createdAt
+                });
+                return;
+            }
+
             // Send actual email reply
             await this.sendOfflineEmailReply(
                 conversation.accountId,
+                emailAccountId,
                 fromEmail,
                 originalSubject,
                 settings.businessHours.offlineMessage,
@@ -208,8 +237,12 @@ export class EmailIngestion {
                 conversation.id
             );
 
-            // Add system message for visibility in inbox
-            await this.addMessageFn(conversation.id, `[Auto-reply sent] ${settings.businessHours.offlineMessage}`, 'SYSTEM');
+            // Add system message for visibility in inbox (strip HTML for clean display)
+            const plainTextMessage = settings.businessHours.offlineMessage
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            await this.addMessageFn(conversation.id, `[Auto-reply sent] ${plainTextMessage}`, 'SYSTEM');
 
             Logger.info('[EmailIngestion] Sent offline auto-reply email', {
                 conversationId: conversation.id,
@@ -223,6 +256,7 @@ export class EmailIngestion {
      */
     private async sendOfflineEmailReply(
         accountId: string,
+        emailAccountId: string,
         toEmail: string,
         originalSubject: string,
         message: string,
@@ -230,13 +264,13 @@ export class EmailIngestion {
         conversationId: string
     ) {
         try {
-            // Get default email account for sending (SMTP enabled)
-            const emailAccount = await prisma.emailAccount.findFirst({
-                where: { accountId, isDefault: true, smtpEnabled: true }
+            // Use the email account that received the email (must have SMTP enabled)
+            const emailAccount = await prisma.emailAccount.findUnique({
+                where: { id: emailAccountId }
             });
 
-            if (!emailAccount) {
-                Logger.warn('[EmailIngestion] No default SMTP account for auto-reply', { accountId });
+            if (!emailAccount || !emailAccount.smtpEnabled) {
+                Logger.warn('[EmailIngestion] Receiving email account has no SMTP, skipping auto-reply', { emailAccountId });
                 return;
             }
 

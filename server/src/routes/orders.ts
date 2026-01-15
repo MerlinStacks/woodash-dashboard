@@ -19,6 +19,63 @@ const ordersRoutes: FastifyPluginAsync = async (fastify) => {
     // Protect all order routes
     fastify.addHook('preHandler', requireAuthFastify);
 
+    // List Orders with optional filters
+    // GET /api/orders?customerId=123&limit=5
+    // GET /api/orders?billingEmail=guest@example.com&limit=5
+    fastify.get('/', async (request, reply) => {
+        const accountId = request.user?.accountId;
+        if (!accountId) {
+            return reply.code(400).send({ error: 'accountId header is required' });
+        }
+
+        const query = request.query as {
+            customerId?: string;
+            billingEmail?: string;
+            limit?: string;
+        };
+
+        const limit = Math.min(parseInt(query.limit || '20', 10), 100);
+
+        try {
+            let whereClause: any = { accountId };
+
+            if (query.customerId) {
+                // Filter by WooCommerce customer_id in rawData
+                whereClause.rawData = {
+                    path: ['customer_id'],
+                    equals: parseInt(query.customerId, 10)
+                };
+            } else if (query.billingEmail) {
+                // Filter by billing email in rawData for guest checkouts
+                // WooCommerce stores email at rawData.billing.email
+                whereClause.rawData = {
+                    path: ['billing', 'email'],
+                    string_contains: query.billingEmail.toLowerCase()
+                };
+            }
+
+            const orders = await prisma.wooOrder.findMany({
+                where: whereClause,
+                orderBy: { dateCreated: 'desc' },
+                take: limit,
+                select: {
+                    id: true,
+                    wooId: true,
+                    number: true,
+                    status: true,
+                    total: true,
+                    currency: true,
+                    dateCreated: true
+                }
+            });
+
+            return { orders };
+        } catch (error) {
+            Logger.error('Failed to list orders', { error });
+            return reply.code(500).send({ error: 'Failed to list orders' });
+        }
+    });
+
     // Get Order by ID (Internal ID or WooID)
     fastify.get<{ Params: { id: string } }>('/:id', async (request, reply) => {
         const { id } = orderIdParamSchema.parse(request.params);

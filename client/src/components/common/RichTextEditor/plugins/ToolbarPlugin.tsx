@@ -2,7 +2,7 @@
  * ToolbarPlugin - Configurable toolbar with formatting buttons.
  * Renders buttons based on enabled features.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
     $getSelection,
@@ -43,6 +43,13 @@ interface ToolbarPluginProps {
     features: ToolbarFeature[];
 }
 
+// Common emojis for quick access
+const EMOJI_LIST = [
+    '😊', '😂', '❤️', '👍', '🙏', '🎉', '🔥', '✨',
+    '👏', '💯', '🤝', '💪', '🙌', '✅', '⭐', '💡',
+    '📦', '🚚', '💳', '📧', '📞', '🛒', '💰', '🎁',
+];
+
 export function ToolbarPlugin({ features }: ToolbarPluginProps) {
     const [editor] = useLexicalComposerContext();
     const [isBold, setIsBold] = useState(false);
@@ -52,6 +59,8 @@ export function ToolbarPlugin({ features }: ToolbarPluginProps) {
     const [listType, setListType] = useState<'bullet' | 'number' | null>(null);
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [linkUrl, setLinkUrl] = useState('');
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
 
     const updateToolbar = useCallback(() => {
         const selection = $getSelection();
@@ -94,6 +103,19 @@ export function ToolbarPlugin({ features }: ToolbarPluginProps) {
         );
     }, [editor, updateToolbar]);
 
+    // Close emoji picker when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+                setShowEmojiPicker(false);
+            }
+        };
+        if (showEmojiPicker) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [showEmojiPicker]);
+
     const formatBold = () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
     const formatItalic = () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
     const formatUnderline = () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
@@ -117,6 +139,17 @@ export function ToolbarPlugin({ features }: ToolbarPluginProps) {
 
     const insertBulletList = () => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
     const insertNumberedList = () => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
+
+    // Insert emoji at cursor position
+    const insertEmoji = (emoji: string) => {
+        editor.update(() => {
+            const selection = $getSelection();
+            if ($isRangeSelection(selection)) {
+                selection.insertText(emoji);
+            }
+        });
+        setShowEmojiPicker(false);
+    };
 
     const has = (feature: ToolbarFeature) => features.includes(feature);
 
@@ -201,18 +234,33 @@ export function ToolbarPlugin({ features }: ToolbarPluginProps) {
                     </div>
                 )}
 
-                {/* Emoji (placeholder for future) */}
+                {/* Emoji Picker */}
                 {has('emoji') && (
-                    <div className="rte-toolbar-group">
+                    <div className="rte-toolbar-group" style={{ position: 'relative' }} ref={emojiPickerRef}>
                         <button
                             type="button"
-                            className="rte-toolbar-btn"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            className={`rte-toolbar-btn ${showEmojiPicker ? 'active' : ''}`}
                             title="Insert Emoji"
                             aria-label="Insert Emoji"
-                            disabled
                         >
                             <Smile size={16} />
                         </button>
+                        {showEmojiPicker && (
+                            <div className="rte-emoji-picker">
+                                {EMOJI_LIST.map((emoji) => (
+                                    <button
+                                        key={emoji}
+                                        type="button"
+                                        className="rte-emoji-btn"
+                                        onClick={() => insertEmoji(emoji)}
+                                        title={emoji}
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

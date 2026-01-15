@@ -245,65 +245,57 @@ export class AIToolsService {
         ];
     }
 
-    static async executeTool(name: string, args: any, accountId: string): Promise<any> {
+    // ========================================================================
+    // Tool Registry - Maps tool names to their execution handlers
+    // ========================================================================
+
+    private static readonly TOOL_REGISTRY: Record<string, (args: Record<string, unknown>, accountId: string) => Promise<unknown>> = {
+        // Orders & Sales
+        get_recent_orders: (args, accountId) => OrderTools.getRecentOrders(accountId, args.limit as number | undefined, args.status as string | undefined),
+        get_sales_analytics: (args, accountId) => SalesTools.getSalesAnalytics(accountId, args.period as string),
+        get_revenue_breakdown: (args, accountId) => WooCommerceTools.getRevenueBreakdown(accountId, args.period as string | undefined),
+
+        // Products & Inventory
+        get_inventory_summary: (args, accountId) => InventoryTools.getInventorySummary(accountId, args.limit as number | undefined),
+        search_products: (args, accountId) => ProductTools.searchProducts(accountId, args.query as string),
+        get_top_products: (args, accountId) => WooCommerceTools.getTopProducts(accountId, args.limit as number | undefined),
+
+        // Customers & Reviews
+        find_customer: (args, accountId) => CustomerTools.findCustomer(accountId, args.query as string),
+        get_top_customers: (args, accountId) => WooCommerceTools.getTopCustomers(accountId, args.limit as number | undefined),
+        get_review_summary: (args, accountId) => WooCommerceTools.getReviewSummary(accountId, args.limit as number | undefined),
+
+        // Store Overview
+        get_store_overview: (_args, accountId) => WooCommerceTools.getStoreOverview(accountId),
+
+        // Advertising
+        get_ad_performance: (args, accountId) => AdsTools.getAdPerformance(accountId, args.platform as string | undefined),
+        compare_ad_platforms: (_args, accountId) => AdsTools.compareAdPlatforms(accountId),
+        analyze_google_ads_campaigns: (args, accountId) => AdsTools.analyzeGoogleAdsCampaigns(accountId, (args.days as number) || 30),
+        analyze_meta_ads_campaigns: (args, accountId) => AdsTools.analyzeMetaAdsCampaigns(accountId, (args.days as number) || 30),
+        get_ad_optimization_suggestions: (_args, accountId) => AdsTools.getAdOptimizationSuggestions(accountId),
+
+        // Advanced Analytics
+        get_visitor_traffic: (_args, accountId) => AnalyticsTools.getVisitorTraffic(accountId),
+        get_search_insights: (_args, accountId) => AnalyticsTools.getSearchInsights(accountId),
+        get_profitability: (args, accountId) => AnalyticsTools.getProfitability(accountId, args.period as string),
+        forecast_sales: (_args, accountId) => AnalyticsTools.forecastSales(accountId),
+        analyze_customer_segment: (args, accountId) => AnalyticsTools.analyzeCustomerSegments(accountId, args.segment as 'at_risk' | 'whales' | 'new'),
+    };
+
+    /**
+     * Execute a tool by name with the given arguments.
+     * Uses a registry pattern instead of switch for maintainability.
+     */
+    static async executeTool(name: string, args: Record<string, unknown>, accountId: string): Promise<unknown> {
         Logger.debug(`[AITools] Executing ${name} for account ${accountId}`, { args });
 
-        switch (name) {
-            // Orders & Sales
-            case 'get_recent_orders':
-                return OrderTools.getRecentOrders(accountId, args.limit, args.status);
-            case 'get_sales_analytics':
-                return SalesTools.getSalesAnalytics(accountId, args.period);
-            case 'get_revenue_breakdown':
-                return WooCommerceTools.getRevenueBreakdown(accountId, args.period);
-
-            // Products & Inventory
-            case 'get_inventory_summary':
-                return InventoryTools.getInventorySummary(accountId, args.limit);
-            case 'search_products':
-                return ProductTools.searchProducts(accountId, args.query);
-            case 'get_top_products':
-                return WooCommerceTools.getTopProducts(accountId, args.limit);
-
-            // Customers & Reviews
-            case 'find_customer':
-                return CustomerTools.findCustomer(accountId, args.query);
-            case 'get_top_customers':
-                return WooCommerceTools.getTopCustomers(accountId, args.limit);
-            case 'get_review_summary':
-                return WooCommerceTools.getReviewSummary(accountId, args.limit);
-
-            // Store Overview
-            case 'get_store_overview':
-                return WooCommerceTools.getStoreOverview(accountId);
-
-
-            // Advertising
-            case 'get_ad_performance':
-                return AdsTools.getAdPerformance(accountId, args.platform);
-            case 'compare_ad_platforms':
-                return AdsTools.compareAdPlatforms(accountId);
-            case 'analyze_google_ads_campaigns':
-                return AdsTools.analyzeGoogleAdsCampaigns(accountId, args.days || 30);
-            case 'analyze_meta_ads_campaigns':
-                return AdsTools.analyzeMetaAdsCampaigns(accountId, args.days || 30);
-            case 'get_ad_optimization_suggestions':
-                return AdsTools.getAdOptimizationSuggestions(accountId);
-
-            // Advanced Analytics
-            case 'get_visitor_traffic':
-                return AnalyticsTools.getVisitorTraffic(accountId);
-            case 'get_search_insights':
-                return AnalyticsTools.getSearchInsights(accountId);
-            case 'get_profitability':
-                return AnalyticsTools.getProfitability(accountId, args.period);
-            case 'forecast_sales':
-                return AnalyticsTools.forecastSales(accountId);
-            case 'analyze_customer_segment':
-                return AnalyticsTools.analyzeCustomerSegments(accountId, args.segment);
-
-            default:
-                throw new Error(`Unknown tool: ${name}`);
+        const handler = this.TOOL_REGISTRY[name];
+        if (!handler) {
+            throw new Error(`Unknown tool: ${name}`);
         }
+
+        return handler(args, accountId);
     }
 }
+

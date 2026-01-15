@@ -17,6 +17,12 @@ interface ChannelOption {
     available: boolean;
 }
 
+interface EmailAccountOption {
+    id: string;
+    name: string;
+    email: string;
+}
+
 interface ChatComposerProps {
     conversationId: string;
     recipientEmail?: string;
@@ -57,6 +63,10 @@ interface ChatComposerProps {
     // Channel selection
     availableChannels?: ChannelOption[];
     currentChannel?: ConversationChannel;
+    // Email account selection (From dropdown)
+    emailAccounts?: EmailAccountOption[];
+    selectedEmailAccountId?: string;
+    onEmailAccountChange?: (accountId: string) => void;
 }
 
 /**
@@ -90,7 +100,10 @@ export function ChatComposer({
     fileInputRef,
     onOpenSchedule,
     availableChannels,
-    currentChannel
+    currentChannel,
+    emailAccounts,
+    selectedEmailAccountId,
+    onEmailAccountChange
 }: ChatComposerProps) {
     const { user } = useAuth();
     const [selectedChannel, setSelectedChannel] = useState<ConversationChannel>(currentChannel || 'CHAT');
@@ -197,11 +210,31 @@ export function ChatComposer({
                 </div>
             )}
 
+            {/* From field (Email Account Selector) - show when using EMAIL channel */}
+            {!isInternal && recipientEmail && emailAccounts && emailAccounts.length > 1 && (
+                <div className="px-4 py-2 border-b border-gray-100 text-sm">
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-400 w-12">FROM</span>
+                        <select
+                            value={selectedEmailAccountId}
+                            onChange={(e) => onEmailAccountChange?.(e.target.value)}
+                            className="flex-1 text-gray-700 bg-transparent border-none outline-none cursor-pointer hover:text-blue-600 text-sm"
+                        >
+                            {emailAccounts.map(account => (
+                                <option key={account.id} value={account.id}>
+                                    {account.name} ({account.email})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            )}
+
             {/* Fallback: Simple TO field when no channel options */}
             {!isInternal && (!availableChannels || availableChannels.length === 0) && recipientEmail && (
                 <div className="px-4 py-2 border-b border-gray-100 text-sm">
                     <div className="flex items-center gap-2">
-                        <span className="text-gray-400 w-8">TO</span>
+                        <span className="text-gray-400 w-12">TO</span>
                         <span className="text-gray-700">{recipientEmail}</span>
                     </div>
                 </div>

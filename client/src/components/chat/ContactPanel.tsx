@@ -106,15 +106,18 @@ export function ContactPanel({ conversation, onSelectConversation }: ContactPane
 
     const customer = conversation?.wooCustomer;
 
-    // Fetch recent orders when customer changes
+    // Fetch recent orders when customer changes or for guest emails
     useEffect(() => {
         if (customer?.wooId && token && currentAccount?.id) {
             fetchCustomerOrders(customer.wooId);
+        } else if (conversation?.guestEmail && token && currentAccount?.id) {
+            // For guests without a WooCustomer link, try to find orders by billing email
+            fetchOrdersByEmail(conversation.guestEmail);
         } else {
             setRecentOrders([]);
             setPreviousConversations([]);
         }
-    }, [customer?.wooId, token, currentAccount?.id]);
+    }, [customer?.wooId, conversation?.guestEmail, token, currentAccount?.id]);
 
     // Fetch notes when conversation changes
     useEffect(() => {
@@ -211,6 +214,27 @@ export function ContactPanel({ conversation, onSelectConversation }: ContactPane
             }
         } catch (error) {
             console.error('Failed to fetch customer data:', error);
+        } finally {
+            setIsLoadingOrders(false);
+        }
+    };
+
+    // Fetch orders by billing email for guest checkouts
+    const fetchOrdersByEmail = async (email: string) => {
+        setIsLoadingOrders(true);
+        try {
+            const ordersRes = await fetch(`/api/orders?billingEmail=${encodeURIComponent(email)}&limit=5`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount?.id || '',
+                },
+            });
+            if (ordersRes.ok) {
+                const ordersData = await ordersRes.json();
+                setRecentOrders(ordersData.orders || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch orders by email:', error);
         } finally {
             setIsLoadingOrders(false);
         }
@@ -313,9 +337,9 @@ export function ContactPanel({ conversation, onSelectConversation }: ContactPane
             {/* Scrollable Sections */}
             <div className="flex-1 overflow-y-auto">
 
-                {/* Order History */}
-                {customer && (
-                    <Section title="Recent Orders" defaultOpen={true}>
+                {/* Order History - show for linked customers OR guests with orders */}
+                {(customer || (conversation?.guestEmail && recentOrders.length > 0) || isLoadingOrders) && (
+                    <Section title={customer ? "Recent Orders" : "Orders by Email"} defaultOpen={true}>
                         {isLoadingOrders ? (
                             <div className="text-sm text-gray-500 italic">Loading orders...</div>
                         ) : recentOrders.length === 0 ? (
@@ -350,7 +374,7 @@ export function ContactPanel({ conversation, onSelectConversation }: ContactPane
                                         </div>
                                     </a>
                                 ))}
-                                {customer.ordersCount && customer.ordersCount > 5 && (
+                                {customer?.ordersCount && customer.ordersCount > 5 && (
                                     <a
                                         href={`/customers/${customer.id}`}
                                         className="flex items-center justify-center gap-1 text-xs text-blue-600 hover:underline mt-2"

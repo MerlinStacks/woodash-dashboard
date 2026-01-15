@@ -21,6 +21,7 @@ import { QueueFactory, QUEUES } from './services/queue/QueueFactory';
 import { EventBus, EVENTS } from './services/events';
 import { AutomationEngine } from './services/AutomationEngine';
 import { setIO } from './socket';
+import { RATE_LIMITS, UPLOAD_LIMITS, SCHEDULER_LIMITS } from './config/limits';
 const { Logger, fastifyLoggerConfig } = require('./utils/logger');
 
 // Init Queues for Bull Board
@@ -61,10 +62,10 @@ async function build() {
         allowedHeaders: ['Content-Type', 'Authorization', 'x-account-id', 'x-wc-webhook-signature', 'x-wc-webhook-topic'],
     });
 
-    // Rate Limiting: 2000 requests per 15 minutes per IP
+    // Rate Limiting
     await fastify.register(rateLimit, {
-        max: 2000,
-        timeWindow: '15 minutes',
+        max: RATE_LIMITS.MAX_REQUESTS,
+        timeWindow: RATE_LIMITS.WINDOW,
         errorResponseBuilder: () => ({
             error: 'Too many requests, please try again later.'
         })
@@ -100,7 +101,7 @@ async function build() {
     // Multipart file uploads (replaces multer)
     await fastify.register(fastifyMultipart, {
         limits: {
-            fileSize: 100 * 1024 * 1024, // 100MB max
+            fileSize: UPLOAD_LIMITS.MAX_FILE_SIZE,
         },
     });
 
@@ -467,7 +468,7 @@ async function initializeApp() {
         } catch (e) {
             Logger.error('Ticker Error', { error: e as Error });
         }
-    }, 60000);
+    }, SCHEDULER_LIMITS.TICKER_INTERVAL_MS);
 }
 
 // Initialize on import

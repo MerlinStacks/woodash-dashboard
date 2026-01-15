@@ -501,7 +501,7 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
 
         // POST /:id/messages
         fastify.post<{ Params: { id: string } }>('/:id/messages', async (request, reply) => {
-            const { content, type, isInternal, channel } = request.body as any;
+            const { content, type, isInternal, channel, emailAccountId } = request.body as any;
             const userId = request.user?.id;
             const accountId = request.headers['x-account-id'] as string;
 
@@ -534,9 +534,17 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                         // Route via email
                         const recipientEmail = conversation.wooCustomer?.email || conversation.guestEmail;
                         if (recipientEmail && accountId) {
-                            // Find the default SMTP account for this tenant
-                            const { getDefaultEmailAccount } = await import('../utils/getDefaultEmailAccount');
-                            const emailAccount = await getDefaultEmailAccount(accountId);
+                            // Use provided emailAccountId or fall back to default SMTP account
+                            let emailAccount = null;
+                            if (emailAccountId) {
+                                emailAccount = await prisma.emailAccount.findUnique({
+                                    where: { id: emailAccountId }
+                                });
+                            }
+                            if (!emailAccount) {
+                                const { getDefaultEmailAccount } = await import('../utils/getDefaultEmailAccount');
+                                emailAccount = await getDefaultEmailAccount(accountId);
+                            }
                             if (emailAccount) {
                                 const emailService = new EmailService();
                                 // Extract subject from content if it starts with Subject:

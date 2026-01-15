@@ -46,31 +46,36 @@ export class CustomerSync extends BaseSync {
                 continue;
             }
 
-            // Batch prepare upsert operations
-            const upsertOperations = customers.map((c) => {
-                wooCustomerIds.add(c.id);
-                return prisma.wooCustomer.upsert({
-                    where: { accountId_wooId: { accountId, wooId: c.id } },
-                    update: {
-                        totalSpent: c.total_spent ?? 0,
-                        ordersCount: c.orders_count ?? 0,
-                        rawData: c as any
-                    },
-                    create: {
-                        accountId,
-                        wooId: c.id,
-                        email: c.email,
-                        firstName: c.first_name,
-                        lastName: c.last_name,
-                        totalSpent: c.total_spent ?? 0,
-                        ordersCount: c.orders_count ?? 0,
-                        rawData: c as any
-                    }
+            // Batch prepare upsert operations and execute in sub-batches to avoid transaction timeout
+            // Split into chunks of 10 to stay well within the 5-second transaction limit
+            const SUB_BATCH_SIZE = 10;
+            for (let i = 0; i < customers.length; i += SUB_BATCH_SIZE) {
+                const batch = customers.slice(i, i + SUB_BATCH_SIZE);
+                const upsertOperations = batch.map((c) => {
+                    wooCustomerIds.add(c.id);
+                    return prisma.wooCustomer.upsert({
+                        where: { accountId_wooId: { accountId, wooId: c.id } },
+                        update: {
+                            totalSpent: c.total_spent ?? 0,
+                            ordersCount: c.orders_count ?? 0,
+                            rawData: c as any
+                        },
+                        create: {
+                            accountId,
+                            wooId: c.id,
+                            email: c.email,
+                            firstName: c.first_name,
+                            lastName: c.last_name,
+                            totalSpent: c.total_spent ?? 0,
+                            ordersCount: c.orders_count ?? 0,
+                            rawData: c as any
+                        }
+                    });
                 });
-            });
 
-            // Execute batch transaction
-            await prisma.$transaction(upsertOperations);
+                // Execute sub-batch transaction
+                await prisma.$transaction(upsertOperations);
+            }
 
             // Index customers in parallel
             const indexPromises = customers.map((c) =>

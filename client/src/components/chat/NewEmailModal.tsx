@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Send, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Send, Loader2, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { RichTextEditor } from '../common/RichTextEditor/RichTextEditor';
+import { InboxRichTextEditor } from './InboxRichTextEditor';
+import { useCannedResponses } from '../../hooks/useCannedResponses';
 
 interface EmailAccount {
     id: string;
@@ -28,6 +29,28 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
     const [showCc, setShowCc] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Canned responses integration
+    const {
+        cannedResponses,
+        filteredCanned,
+        showCanned,
+        handleInputForCanned,
+        selectCanned,
+        setShowCanned
+    } = useCannedResponses();
+
+    // Handle body change and check for canned response trigger
+    const handleBodyChange = (value: string) => {
+        setBody(value);
+        handleInputForCanned(value);
+    };
+
+    // Select a canned response and replace the body
+    const handleSelectCanned = (response: { id: string; shortcut: string; content: string }) => {
+        const content = selectCanned(response as any);
+        setBody(content);
+    };
 
     // Fetch available email accounts
     useEffect(() => {
@@ -188,16 +211,59 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
                         </div>
                     )}
 
-                    {/* Body - Rich Text Editor */}
+                    {/* Canned Responses Dropdown */}
+                    {showCanned && (
+                        <div className="border border-gray-200 rounded-lg bg-white max-h-48 overflow-y-auto">
+                            <div className="p-2 text-xs text-gray-500 border-b bg-gray-50 flex items-center justify-between">
+                                <span>Canned Responses (type to filter)</span>
+                            </div>
+                            {filteredCanned.length > 0 ? (
+                                filteredCanned.map(r => (
+                                    <button
+                                        key={r.id}
+                                        onClick={() => handleSelectCanned(r)}
+                                        className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
+                                    >
+                                        <span className="text-xs font-mono bg-gray-100 px-1.5 py-0.5 rounded-sm text-gray-600">
+                                            /{r.shortcut}
+                                        </span>
+                                        <p className="text-sm text-gray-700 mt-1 line-clamp-1">{r.content}</p>
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                                    {cannedResponses.length === 0 ? (
+                                        'No canned responses yet.'
+                                    ) : (
+                                        'No matches found'
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Body - Rich Text Editor with Canned Response trigger */}
                     <div className="border border-gray-300 rounded-lg overflow-hidden">
-                        <RichTextEditor
-                            value={body}
-                            onChange={setBody}
-                            placeholder="Write your message here..."
-                            variant="standard"
-                            features={['bold', 'italic', 'underline', 'link', 'list']}
-                            className="min-h-[200px]"
-                        />
+                        <div className="p-3">
+                            <InboxRichTextEditor
+                                value={body}
+                                onChange={handleBodyChange}
+                                placeholder="Type your message... (/ for canned responses)"
+                                cannedPickerOpen={showCanned}
+                            />
+                        </div>
+                        {/* Toolbar with Canned Response button */}
+                        <div className="flex items-center gap-1 px-3 py-2 border-t border-gray-100 bg-gray-50">
+                            <button
+                                type="button"
+                                onClick={() => setBody('/')}
+                                className="p-2 rounded-sm hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                                title="Canned Responses"
+                                aria-label="Insert canned response"
+                            >
+                                <Zap size={18} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Signature Preview */}

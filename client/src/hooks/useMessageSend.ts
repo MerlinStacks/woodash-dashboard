@@ -11,9 +11,10 @@ import { ConversationChannel } from '../components/chat/ChannelSelector';
 
 interface UseMessageSendOptions {
     conversationId: string;
-    onSendMessage: (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel) => Promise<void>;
+    onSendMessage: (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel, emailAccountId?: string) => Promise<void>;
     recipientEmail?: string;
     isLiveChat?: boolean;
+    emailAccountId?: string;
 }
 
 interface PendingSend {
@@ -63,7 +64,8 @@ export function useMessageSend({
     conversationId,
     onSendMessage,
     recipientEmail,
-    isLiveChat
+    isLiveChat,
+    emailAccountId
 }: UseMessageSendOptions): UseMessageSendReturn {
     const { token, user } = useAuth();
     const { currentAccount } = useAccount();
@@ -152,7 +154,7 @@ export function useMessageSend({
         const timeout = setTimeout(async () => {
             setIsSending(true);
             try {
-                await onSendMessage(finalContent, 'AGENT', isInternal, channel);
+                await onSendMessage(finalContent, 'AGENT', isInternal, channel, emailAccountId);
                 clearDraft(conversationId);
             } finally {
                 setIsSending(false);
@@ -168,7 +170,7 @@ export function useMessageSend({
         if (socket && conversationId) {
             socket.emit('typing:stop', { conversationId });
         }
-    }, [input, isSending, pendingSend, prepareContent, onSendMessage, isInternal, clearDraft, conversationId, socket]);
+    }, [input, isSending, pendingSend, prepareContent, onSendMessage, isInternal, clearDraft, conversationId, socket, emailAccountId]);
 
     /**
      * Schedule a message for later delivery.

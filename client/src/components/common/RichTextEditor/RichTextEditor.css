@@ -87,7 +87,7 @@
     align-items: center;
 }
 
-.rte-toolbar-group + .rte-toolbar-group {
+.rte-toolbar-group+.rte-toolbar-group {
     margin-left: 8px;
     padding-left: 8px;
     border-left: 1px solid #e5e7eb;
@@ -204,7 +204,9 @@
     line-height: 1.4;
 }
 
-.rte-h4, .rte-h5, .rte-h6 {
+.rte-h4,
+.rte-h5,
+.rte-h6 {
     font-size: 1.1em;
     font-weight: 600;
     margin: 10px 0 4px 0;
@@ -218,6 +220,11 @@
 
 .rte-paragraph:last-child {
     margin-bottom: 0;
+}
+
+/* ========== Editor Container ========== */
+.rte-editor-container {
+    position: relative;
 }
 
 /* ========== Placeholder ========== */
@@ -336,4 +343,45 @@
 
 .rich-text-editor.internal-mode .rte-placeholder {
     color: rgba(202, 138, 4, 0.5);
+}
+
+/* ========== Emoji Picker ========== */
+.rte-emoji-picker {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 4px;
+    z-index: 100;
+    min-width: 280px;
+}
+
+.rte-emoji-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.15s ease;
+}
+
+.rte-emoji-btn:hover {
+    background: #f3f4f6;
+    transform: scale(1.15);
+}
+
+.rte-emoji-btn:active {
+    transform: scale(0.95);
 }

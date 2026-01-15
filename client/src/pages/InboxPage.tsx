@@ -183,7 +183,7 @@ export function InboxPage() {
         };
     }, [selectedId, token, socket, currentAccount]);
 
-    const handleSendMessage = async (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel) => {
+    const handleSendMessage = async (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel, emailAccountId?: string) => {
         if (!selectedId) return;
 
         const res = await fetch(`/api/chat/${selectedId}/messages`, {
@@ -193,7 +193,7 @@ export function InboxPage() {
                 'Authorization': `Bearer ${token}`,
                 'x-account-id': currentAccount?.id || ''
             },
-            body: JSON.stringify({ content, type, isInternal, channel })
+            body: JSON.stringify({ content, type, isInternal, channel, emailAccountId })
         });
 
         if (!res.ok) {
