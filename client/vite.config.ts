@@ -26,8 +26,8 @@ export default defineConfig(({ mode }) => {
             alias: {
                 // Force single React instance - critical for react-email-editor compatibility with React 19.
                 // Use package.json resolution (not directory path) to properly handle subpath exports.
-                'react': path.dirname(createRequire(import.meta.url).resolve('react/package.json')),
-                'react-dom': path.dirname(createRequire(import.meta.url).resolve('react-dom/package.json')),
+                // 'react': path.dirname(createRequire(import.meta.url).resolve('react/package.json')),
+                // 'react-dom': path.dirname(createRequire(import.meta.url).resolve('react-dom/package.json')),
             }
         },
         server: {
@@ -88,7 +88,7 @@ export default defineConfig(({ mode }) => {
                             if (id.includes('lucide-react')) return 'icons';
 
                             // Vendor chunk for React core
-                            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router-dom/')) {
+                            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/react-router-dom/')) {
                                 return 'vendor';
                             }
                         }

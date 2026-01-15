@@ -16,6 +16,14 @@ interface NewEmailModalProps {
     onSent: (conversationId: string) => void;
 }
 
+const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
 export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
     const { token, user } = useAuth();
     const { currentAccount } = useAccount();
@@ -310,6 +318,7 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
                             {attachments.map((file, index) => (
                                 <div key={index} className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 border border-gray-200">
                                     <span className="truncate max-w-[200px]">{file.name}</span>
+                                    <span className="text-xs text-gray-500 whitespace-nowrap">({formatFileSize(file.size)})</span>
                                     <button
                                         onClick={() => removeAttachment(index)}
                                         className="text-gray-400 hover:text-red-500 transition-colors"
