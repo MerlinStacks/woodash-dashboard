@@ -1,6 +1,6 @@
 import { BaseSync, SyncResult } from './BaseSync';
 import { WooService } from '../woo';
-import { prisma } from '../../utils/prisma';
+import { prisma, Prisma } from '../../utils/prisma';
 import { IndexingService } from '../search/IndexingService';
 import { OrderTaggingService } from '../OrderTaggingService';
 import { EventBus, EVENTS } from '../events';
@@ -160,6 +160,12 @@ export class OrderSync extends BaseSync {
         }
 
         // After all orders are synced, recalculate customer order counts from local data
+        await this.updateCustomerOrderCounts(accountId, syncId);
+
+        return { itemsProcessed: totalProcessed, itemsDeleted: totalDeleted };
+    }
+
+    public async updateCustomerOrderCounts(accountId: string, syncId?: string): Promise<void> {
         Logger.info('Recalculating customer order counts from local orders...', { accountId, syncId });
         try {
             const ordersWithCustomers = await prisma.wooOrder.findMany({
@@ -176,23 +182,20 @@ export class OrderSync extends BaseSync {
             }
 
             // Batch update customer order counts
-            const updatePromises: Promise<any>[] = [];
-            for (const [wooId, count] of customerOrderCounts) {
-                updatePromises.push(
-                    prisma.wooCustomer.updateMany({
-                        where: { accountId, wooId },
-                        data: { ordersCount: count }
-                    })
-                );
-            }
+            if (customerOrderCounts.size > 0) {
+                const values = Array.from(customerOrderCounts.entries()).map(([wooId, count]) => Prisma.sql`(${wooId}::int, ${count}::int)`);
 
-            await Promise.allSettled(updatePromises);
+                await prisma.$executeRaw`
+                    UPDATE "WooCustomer" AS c
+                    SET "ordersCount" = v.count
+                    FROM (VALUES ${Prisma.join(values)}) AS v(woo_id, count)
+                    WHERE c."accountId" = ${accountId} AND c."wooId" = v.woo_id
+                `;
+            }
             Logger.info(`Updated order counts for ${customerOrderCounts.size} customers`, { accountId, syncId });
         } catch (error: any) {
             Logger.warn('Failed to recalculate customer order counts', { accountId, syncId, error: error.message });
         }
-
-        return { itemsProcessed: totalProcessed, itemsDeleted: totalDeleted };
     }
 }
 
