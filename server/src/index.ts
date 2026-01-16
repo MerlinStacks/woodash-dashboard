@@ -5,6 +5,7 @@ import { appPromise, app } from './app';
 import { SchedulerService } from './services/SchedulerService';
 import { startWorkers } from './workers';
 import { IndexingService } from './services/search/IndexingService';
+import { esClient } from './utils/elastic';
 import { Logger } from './utils/logger';
 import { validateEnvironment } from './utils/env';
 import { initGracefulShutdown } from './utils/shutdown';
@@ -53,6 +54,26 @@ async function start() {
   try {
     await IndexingService.initializeIndices();
     Logger.info('[Startup] Elasticsearch indices initialized');
+
+    // Check if products index is empty (e.g. after mapping reset) and trigger sync
+    try {
+      const { count } = await esClient.count({ index: 'products' });
+      if (count === 0) {
+        Logger.info('[Startup] Products index is empty. Triggering initial sync...');
+        const { SyncService } = await import('./services/sync');
+        const syncService = new SyncService();
+        const { prisma } = await import('./utils/prisma');
+        const account = await prisma.account.findFirst();
+        if (account) {
+          // Run in background so server startup isn't blocked too long
+          syncService.runSync(account.id, { types: ['products'], incremental: false })
+            .catch(err => Logger.error('[Startup] Failed to trigger initial sync', { error: err }));
+        }
+      }
+    } catch (err) {
+      Logger.warn('[Startup] Failed to check product index count', { error: err });
+    }
+
   } catch (error) {
     Logger.error('[Startup] Failed to initialize Elasticsearch indices', { error });
   }
