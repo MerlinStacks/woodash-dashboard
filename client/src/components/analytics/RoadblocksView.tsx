@@ -8,6 +8,7 @@ import { Logger } from '../../utils/logger';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { AlertTriangle, TrendingDown, DollarSign, ExternalLink } from 'lucide-react';
+import { getDateRange } from '../../utils/dateUtils';
 
 interface RoadblockPage {
     url: string;
@@ -44,24 +45,14 @@ export const RoadblocksView = ({ dateRange }: RoadblocksViewProps) => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Calculate date range
-            const end = new Date();
-            const start = new Date();
-            if (dateRange === '7d') start.setDate(start.getDate() - 7);
-            if (dateRange === '30d') start.setDate(start.getDate() - 30);
-            if (dateRange === 'today') start.setHours(0, 0, 0, 0);
-            if (dateRange === 'yesterday') {
-                start.setDate(start.getDate() - 1);
-                start.setHours(0, 0, 0, 0);
-                end.setDate(end.getDate() - 1);
-                end.setHours(23, 59, 59, 999);
-            }
+            // Use shared date utility for consistent timezone handling
+            const range = getDateRange(dateRange as any);
 
             const [roadblocksRes, funnelRes] = await Promise.all([
-                fetch(`/api/analytics/behaviour/roadblocks?startDate=${start.toISOString()}&endDate=${end.toISOString()}`, {
+                fetch(`/api/analytics/behaviour/roadblocks?startDate=${range.startDate}&endDate=${range.endDate}`, {
                     headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount!.id }
                 }),
-                fetch(`/api/analytics/behaviour/funnel-dropoff?startDate=${start.toISOString()}&endDate=${end.toISOString()}`, {
+                fetch(`/api/analytics/behaviour/funnel-dropoff?startDate=${range.startDate}&endDate=${range.endDate}`, {
                     headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount!.id }
                 })
             ]);

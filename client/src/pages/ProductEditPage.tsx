@@ -401,7 +401,7 @@ export function ProductEditPage() {
                     {/* BOM for Simple Products */}
                     {product.type !== 'variable' && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-                            <BOMPanel ref={bomPanelRef} productId={product.id} variants={[]} fixedVariationId={0} />
+                            <BOMPanel ref={bomPanelRef} productId={product.id} variants={[]} fixedVariationId={0} onSaveComplete={() => fetchProduct(true)} />
                         </div>
                     )}
                 </div>

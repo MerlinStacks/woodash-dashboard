@@ -37,6 +37,16 @@ import { RecommendationFeedbackModal } from '../components/marketing/Recommendat
 import { ScheduleActionModal } from '../components/marketing/ScheduleActionModal';
 import { CampaignWizard } from '../components/marketing/CampaignWizard/CampaignWizard';
 
+// Cache duration: 5 minutes (in milliseconds)
+const CACHE_DURATION_MS = 5 * 60 * 1000;
+const CACHE_KEY_PREFIX = 'adai_suggestions_';
+
+interface CachedData {
+    data: SuggestionsData;
+    timestamp: number;
+    accountId: string;
+}
+
 interface SuggestionsData {
     suggestions: string[];
     prioritized: { text: string; priority: 1 | 2 | 3; category: string }[];
@@ -113,6 +123,30 @@ export function AdAIPage() {
     const fetchSuggestions = useCallback(async (isRefresh = false) => {
         if (!currentAccount || !token) return;
 
+        const cacheKey = `${CACHE_KEY_PREFIX}${currentAccount.id}`;
+
+        // Check cache first (unless explicitly refreshing)
+        if (!isRefresh) {
+            try {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    const parsedCache: CachedData = JSON.parse(cached);
+                    const now = Date.now();
+
+                    // Use cached data if it's still valid and for the same account
+                    if (parsedCache.accountId === currentAccount.id &&
+                        (now - parsedCache.timestamp) < CACHE_DURATION_MS) {
+                        setData(parsedCache.data);
+                        setError(null);
+                        setLoading(false);
+                        return;
+                    }
+                }
+            } catch (e) {
+                // Cache read failed, continue to fetch
+            }
+        }
+
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
 
@@ -128,6 +162,18 @@ export function AdAIPage() {
                 setData(result);
                 setError(null);
                 setActiveIndex(0); // Reset to first card on refresh
+
+                // Cache the result
+                try {
+                    const cacheEntry: CachedData = {
+                        data: result,
+                        timestamp: Date.now(),
+                        accountId: currentAccount.id
+                    };
+                    localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
+                } catch (e) {
+                    // Cache write failed, ignore
+                }
             } else {
                 setError('Failed to load suggestions');
             }
@@ -314,7 +360,7 @@ export function AdAIPage() {
     // Loading state with premium animation
     if (loading) {
         return (
-            <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center overflow-hidden">
+            <div className="-m-4 md:-m-6 lg:-m-8 min-h-[calc(100vh-4rem)] bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center overflow-hidden relative">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent" />
                 <div className="relative flex flex-col items-center gap-6 z-10">
                     <div className="relative">
@@ -336,7 +382,7 @@ export function AdAIPage() {
     const currentRec = recommendations[activeIndex];
 
     return (
-        <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 overflow-hidden">
+        <div className="-m-4 md:-m-6 lg:-m-8 min-h-[calc(100vh-4rem)] bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 overflow-hidden relative">
             {/* Ambient background effects */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-3xl" />

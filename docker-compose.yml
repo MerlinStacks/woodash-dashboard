@@ -85,6 +85,7 @@ services:
       REDIS_HOST: redis
     volumes:
       - uploads_data:/app/server/uploads
+      - geoip_data:/app/server/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -140,3 +141,6 @@ volumes:
   redis_data:
   server_node_modules:
   uploads_data:
+  geoip_data:
+
+

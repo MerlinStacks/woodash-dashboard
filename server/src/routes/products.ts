@@ -15,6 +15,7 @@ import { esClient } from '../utils/elastic';
 import { marked } from 'marked';
 import { z } from 'zod';
 import { REVENUE_STATUSES } from '../constants/orderStatus';
+import { AuditService } from '../services/AuditService';
 
 const searchQuerySchema = z.object({
     page: z.coerce.number().int().positive().default(1),
@@ -206,6 +207,32 @@ const productsRoutes: FastifyPluginAsync = async (fastify) => {
                 sku, price, salePrice, weight, length, width, height, description, short_description,
                 cogs, supplierId, images, variations
             });
+
+            // Log the update to audit trail for Edit History
+            const changedFields: Record<string, any> = {};
+            if (binLocation !== undefined) changedFields.binLocation = binLocation;
+            if (name !== undefined) changedFields.name = name;
+            if (stockStatus !== undefined) changedFields.stockStatus = stockStatus;
+            if (isGoldPriceApplied !== undefined) changedFields.isGoldPriceApplied = isGoldPriceApplied;
+            if (sku !== undefined) changedFields.sku = sku;
+            if (price !== undefined) changedFields.price = price;
+            if (salePrice !== undefined) changedFields.salePrice = salePrice;
+            if (cogs !== undefined) changedFields.cogs = cogs;
+            if (supplierId !== undefined) changedFields.supplierId = supplierId;
+            if (focusKeyword !== undefined) changedFields.focusKeyword = focusKeyword;
+            if (description !== undefined) changedFields.description = '[updated]';
+            if (short_description !== undefined) changedFields.short_description = '[updated]';
+
+            if (Object.keys(changedFields).length > 0) {
+                await AuditService.log(
+                    accountId,
+                    request.user?.id || null,
+                    'UPDATE',
+                    'PRODUCT',
+                    wooId.toString(),
+                    changedFields
+                );
+            }
 
             // Recalculate SEO if needed
             // We use the updated product data plus the focus keyword from body (or existing)

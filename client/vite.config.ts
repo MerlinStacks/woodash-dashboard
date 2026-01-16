@@ -30,8 +30,8 @@ export default defineConfig(({ mode }) => {
             alias: {
                 // Force single React instance - critical for react-email-editor compatibility with React 19.
                 // Use package.json resolution (not directory path) to properly handle subpath exports.
-                // 'react': path.dirname(createRequire(import.meta.url).resolve('react/package.json')),
-                // 'react-dom': path.dirname(createRequire(import.meta.url).resolve('react-dom/package.json')),
+                'react': path.dirname(createRequire(import.meta.url).resolve('react/package.json')),
+                'react-dom': path.dirname(createRequire(import.meta.url).resolve('react-dom/package.json')),
             }
         },
         server: {

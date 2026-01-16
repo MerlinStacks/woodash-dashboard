@@ -4,6 +4,7 @@ import { Logger } from '../utils/logger';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { Globe, LayoutDashboard, Link, FileText, MousePointer, LogOut, LogIn, History, Search, AlertTriangle } from 'lucide-react';
+import { getDateRange } from '../utils/dateUtils';
 import { LiveSession } from '../types/analytics';
 import { VisitorsTable } from '../components/analytics/VisitorsTable';
 import { ReportsTable } from '../components/analytics/ReportsTable';
@@ -97,20 +98,10 @@ export function LiveAnalyticsPage() {
             if (viewId === 'entry') endpoint = '/api/analytics/behaviour/entry';
             if (viewId === 'exit') endpoint = '/api/analytics/behaviour/exit';
 
-            // Calculate dates
-            const end = new Date();
-            const start = new Date();
-            if (dateRange === '7d') start.setDate(start.getDate() - 7);
-            if (dateRange === '30d') start.setDate(start.getDate() - 30);
-            if (dateRange === 'today') start.setHours(0, 0, 0, 0);
-            if (dateRange === 'yesterday') {
-                start.setDate(start.getDate() - 1);
-                start.setHours(0, 0, 0, 0);
-                end.setDate(end.getDate() - 1);
-                end.setHours(23, 59, 59, 999);
-            }
+            // Use shared date utility for consistent timezone handling
+            const range = getDateRange(dateRange as any);
 
-            const res = await fetch(`${endpoint}?startDate=${start.toISOString()}&endDate=${end.toISOString()}`, {
+            const res = await fetch(`${endpoint}?startDate=${range.startDate}&endDate=${range.endDate}`, {
                 headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount!.id }
             });
 
