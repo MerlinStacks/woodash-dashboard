@@ -52,7 +52,9 @@ export function MobileInventory() {
                 id: p.id,
                 name: p.name || 'Unnamed Product',
                 sku: p.sku || '-',
-                stockQuantity: p.stock_quantity ?? p.stockQuantity ?? 0,
+                stockQuantity: (p.variations && p.variations.length > 0)
+                    ? p.variations.reduce((sum: number, v: any) => sum + (v.stock_quantity || v.stockQuantity || 0), 0)
+                    : (p.stock_quantity ?? p.stockQuantity ?? 0),
                 lowStockThreshold: p.low_stock_amount ?? p.lowStockThreshold ?? 5,
                 price: p.price || 0,
                 image: p.mainImage || p.images?.[0]?.src
