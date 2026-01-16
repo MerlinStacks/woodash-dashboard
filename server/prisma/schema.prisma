@@ -905,6 +905,7 @@ enum ConversationChannel {
   FACEBOOK
   INSTAGRAM
   TIKTOK
+  SMS
 }
 
 model Conversation {
