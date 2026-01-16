@@ -1,7 +1,7 @@
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { GripVertical, Image as ImageIcon, Type, Table, DollarSign, User, LayoutTemplate, Heading } from 'lucide-react';
+import { GripVertical, Image as ImageIcon, Type, Table, DollarSign, User, LayoutTemplate, Heading, FileText } from 'lucide-react';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -105,6 +105,29 @@ export function DesignerCanvas({ layout, items, selectedId, onLayoutChange, onSe
                         <div className="hidden image-error:flex absolute inset-0 flex-col items-center justify-center text-red-400 bg-red-50">
                             <ImageIcon size={24} className="mb-2 opacity-50" />
                             <span className="text-xs font-medium">Failed to load image</span>
+                        </div>
+                    </div>
+                );
+            case 'order_details':
+                return (
+                    <div className="p-4 h-full bg-linear-to-br from-sky-50 to-cyan-50 flex flex-col rounded-lg border border-dashed border-sky-300">
+                        <div className="flex items-center gap-2 text-sky-600 mb-3">
+                            <FileText size={16} />
+                            <span className="text-xs font-semibold uppercase tracking-wider">Order Details</span>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex gap-4 text-xs">
+                                <span className="text-sky-500 w-24">Order Number:</span>
+                                <span className="h-3 w-16 bg-sky-200/50 rounded-sm"></span>
+                            </div>
+                            <div className="flex gap-4 text-xs">
+                                <span className="text-sky-500 w-24">Order Date:</span>
+                                <span className="h-3 w-20 bg-sky-200/50 rounded-sm"></span>
+                            </div>
+                            <div className="flex gap-4 text-xs">
+                                <span className="text-sky-500 w-24">Payment Method:</span>
+                                <span className="h-3 w-16 bg-sky-200/50 rounded-sm"></span>
+                            </div>
                         </div>
                     </div>
                 );

@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import EmailEditor, { EditorRef } from 'react-email-editor';
 import { X, Save, Mail } from 'lucide-react';
+import { registerWooCommerceTools, getWooCommerceMergeTags } from '../../lib/unlayerWooCommerceTools';
 
 interface Props {
     initialDesign?: any;
@@ -33,6 +34,16 @@ export const EmailDesignEditor: React.FC<Props> = ({ initialDesign, onSave, onCa
     const onReady = () => {
         // Editor is fully ready - hide loading
         setLoading(false);
+
+        const editor = emailEditorRef.current?.editor;
+        if (editor) {
+            // Register WooCommerce custom tools
+            registerWooCommerceTools(editor);
+
+            // Set merge tags for autocomplete
+            editor.setMergeTags(getWooCommerceMergeTags());
+        }
+
         if (initialDesign && emailEditorRef.current?.editor) {
             emailEditorRef.current.editor.loadDesign(initialDesign);
         }
@@ -119,7 +130,28 @@ export const EmailDesignEditor: React.FC<Props> = ({ initialDesign, onSave, onCa
                                     spellChecker: true
                                 }
                             },
-                            displayMode: 'email'
+                            displayMode: 'email',
+                            // Enable WooCommerce custom tools
+                            tools: {
+                                'custom#woo_product': {
+                                    position: 1,
+                                },
+                                'custom#woo_coupon': {
+                                    position: 2,
+                                },
+                                'custom#woo_address': {
+                                    position: 3,
+                                },
+                                'custom#woo_order_summary': {
+                                    position: 4,
+                                },
+                                'custom#woo_customer_notes': {
+                                    position: 5,
+                                },
+                                'custom#woo_order_downloads': {
+                                    position: 6,
+                                },
+                            },
                         }}
                     />
                 </div>

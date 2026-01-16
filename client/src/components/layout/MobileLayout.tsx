@@ -1,25 +1,34 @@
 import { ReactNode, useState, useEffect, useCallback } from 'react';
 import { useLocation, Outlet } from 'react-router-dom';
-import { RefreshCw, WifiOff } from 'lucide-react';
+import { RefreshCw, WifiOff, Download, X } from 'lucide-react';
 import { MobileNav } from './MobileNav';
 import { MobileErrorBoundary } from '../mobile/MobileErrorBoundary';
 import { OrderNotifications } from '../notifications/OrderNotifications';
+import { PWAUpdateModal, usePWAUpdate, PWAUpdateBanner } from '../mobile/PWAUpdateModal';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { Logger } from '../../utils/logger';
 
 /**
- * MobileLayout - Touch-optimized layout for the PWA companion app.
+ * MobileLayout - Premium dark glassmorphism layout for the PWA companion app.
  * 
  * Features:
+ * - Dark theme with gradient backgrounds
+ * - Glassmorphism cards throughout
  * - Bottom navigation with badge counts
  * - iOS safe areas handling
  * - Pull-to-refresh with visual feedback
+ * - Custom install prompt
  * - Haptic feedback where supported
  */
 
 interface MobileLayoutProps {
     children?: ReactNode;
+}
+
+interface BeforeInstallPromptEvent extends Event {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
 export function MobileLayout({ children }: MobileLayoutProps) {
@@ -39,8 +48,18 @@ export function MobileLayout({ children }: MobileLayoutProps) {
     // Network status
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-    // PWA update available
-    const [updateAvailable, setUpdateAvailable] = useState(false);
+    // PWA update system
+    const {
+        updateAvailable,
+        showModal: showUpdateModal,
+        updateInfo,
+        handleUpdate,
+        dismissModal
+    } = usePWAUpdate();
+
+    // Install prompt
+    const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+    const [showInstallBanner, setShowInstallBanner] = useState(false);
 
     // Fetch badge counts
     const fetchBadgeCounts = useCallback(async () => {
@@ -89,17 +108,44 @@ export function MobileLayout({ children }: MobileLayoutProps) {
         };
     }, []);
 
-    // PWA update available listener
+    // Note: PWA update detection is handled by usePWAUpdate hook
+
+    // Install prompt listener
     useEffect(() => {
-        const handleUpdateAvailable = () => {
-            Logger.debug('[MobileLayout] PWA update available');
-            setUpdateAvailable(true);
+        const handleBeforeInstall = (e: Event) => {
+            e.preventDefault();
+            setInstallPrompt(e as BeforeInstallPromptEvent);
+            // Check if user hasn't dismissed recently
+            const dismissed = localStorage.getItem('pwa-install-dismissed');
+            const dismissedTime = dismissed ? parseInt(dismissed) : 0;
+            const hoursSinceDismissed = (Date.now() - dismissedTime) / (1000 * 60 * 60);
+            if (hoursSinceDismissed > 24) {
+                setShowInstallBanner(true);
+            }
         };
-        window.addEventListener('pwa-update-available', handleUpdateAvailable);
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstall);
         return () => {
-            window.removeEventListener('pwa-update-available', handleUpdateAvailable);
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
         };
     }, []);
+
+    // Handle install
+    const handleInstall = async () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        const { outcome } = await installPrompt.userChoice;
+        if (outcome === 'accepted') {
+            setShowInstallBanner(false);
+        }
+        setInstallPrompt(null);
+    };
+
+    // Dismiss install banner
+    const dismissInstallBanner = () => {
+        setShowInstallBanner(false);
+        localStorage.setItem('pwa-install-dismissed', Date.now().toString());
+    };
 
     // Handle update tap - force reload to activate new SW
     const handleUpdateTap = () => {
@@ -152,7 +198,7 @@ export function MobileLayout({ children }: MobileLayoutProps) {
 
     return (
         <div
-            className="min-h-screen bg-gray-50 flex flex-col"
+            className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col"
             style={{
                 paddingTop: 'env(safe-area-inset-top)',
                 paddingBottom: 'calc(env(safe-area-inset-bottom) + 64px)'
@@ -163,25 +209,57 @@ export function MobileLayout({ children }: MobileLayoutProps) {
 
             {/* Offline Banner */}
             {!isOnline && (
-                <div className="bg-amber-500 text-white text-center py-2.5 px-4 flex items-center justify-center gap-2 text-sm font-medium">
+                <div className="bg-amber-500/90 backdrop-blur-sm text-white text-center py-2.5 px-4 flex items-center justify-center gap-2 text-sm font-medium">
                     <WifiOff size={16} />
                     You're offline - some features may be unavailable
                 </div>
             )}
 
-            {/* PWA Update Available Banner */}
-            {updateAvailable && isOnline && (
-                <button
-                    onClick={handleUpdateTap}
-                    className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-center py-3 px-4 flex items-center justify-center gap-2 text-sm font-medium hover:from-blue-600 hover:to-indigo-700 active:scale-[0.99] transition-all"
-                >
-                    <RefreshCw size={16} className="animate-spin" />
-                    New version available — tap to update
-                </button>
+            {/* PWA Update Modal */}
+            <PWAUpdateModal
+                isOpen={showUpdateModal}
+                onClose={dismissModal}
+                onUpdate={handleUpdate}
+                updateInfo={updateInfo}
+            />
+
+            {/* PWA Update Available Banner (only if modal not shown) */}
+            {updateAvailable && isOnline && !showUpdateModal && (
+                <PWAUpdateBanner onTap={handleUpdate} />
             )}
+
+            {/* Install App Banner */}
+            {showInstallBanner && installPrompt && (
+                <div className="bg-gradient-to-r from-emerald-500/90 to-teal-500/90 backdrop-blur-sm text-white py-3 px-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white/20 rounded-xl">
+                            <Download size={20} />
+                        </div>
+                        <div>
+                            <p className="text-sm font-semibold">Install OverSeek</p>
+                            <p className="text-xs text-white/80">Add to home screen for the best experience</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleInstall}
+                            className="px-4 py-1.5 bg-white text-emerald-600 rounded-lg text-sm font-semibold hover:bg-white/90 active:scale-95 transition-all"
+                        >
+                            Install
+                        </button>
+                        <button
+                            onClick={dismissInstallBanner}
+                            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Pull-to-refresh indicator */}
             <div
-                className={`fixed top-0 left-0 right-0 flex items-center justify-center z-50 transition-all duration-200 ${pullDistance > 0 ? 'bg-indigo-600' : 'bg-transparent'
+                className={`fixed top-0 left-0 right-0 flex items-center justify-center z-50 transition-all duration-200 ${pullDistance > 0 ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-transparent'
                     }`}
                 style={{
                     height: Math.max(pullDistance, 0),
@@ -190,7 +268,7 @@ export function MobileLayout({ children }: MobileLayoutProps) {
                 }}
             >
                 <div
-                    className={`p-2 rounded-full bg-white/20 ${refreshing ? 'animate-spin' : ''}`}
+                    className={`p-2 rounded-full bg-white/20 backdrop-blur-sm ${refreshing ? 'animate-spin' : ''}`}
                     style={{
                         transform: `rotate(${pullProgress * 360}deg) scale(${0.5 + pullProgress * 0.5})`,
                         transition: refreshing ? 'none' : 'transform 0.1s'

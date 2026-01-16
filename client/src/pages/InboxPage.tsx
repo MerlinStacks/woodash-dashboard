@@ -268,6 +268,14 @@ export function InboxPage() {
                         availableChannels={availableChannels}
                         currentChannel={activeConversation?.channel || 'CHAT'}
                         mergedRecipients={activeConversation?.mergedFrom || []}
+                        customerData={activeConversation?.wooCustomer ? {
+                            firstName: activeConversation.wooCustomer.firstName,
+                            lastName: activeConversation.wooCustomer.lastName,
+                            email: activeConversation.wooCustomer.email,
+                            ordersCount: activeConversation.wooCustomer.ordersCount,
+                            totalSpent: activeConversation.wooCustomer.totalSpent,
+                            wooId: activeConversation.wooCustomer.wooId
+                        } : undefined}
                         onStatusChange={async (newStatus, snoozeUntil) => {
                             const res = await fetch(`/api/chat/${selectedId}`, {
                                 method: 'PUT',

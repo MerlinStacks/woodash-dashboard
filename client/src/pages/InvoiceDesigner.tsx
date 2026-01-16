@@ -164,7 +164,10 @@ export function InvoiceDesigner() {
             h = 2;
         } else if (type === 'header') {
             w = 12;
-            h = 2;
+            h = 3;
+        } else if (type === 'order_details') {
+            w = 6;
+            h = 3;
         } else if (type === 'customer_details') {
             w = 6;
             h = 4;
@@ -382,8 +385,8 @@ export function InvoiceDesigner() {
                                         type="button"
                                         onClick={() => setPageMode('single')}
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${pageMode === 'single'
-                                                ? 'bg-white text-indigo-600 shadow-sm'
-                                                : 'text-slate-500 hover:text-slate-700'
+                                            ? 'bg-white text-indigo-600 shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-700'
                                             }`}
                                     >
                                         <File size={14} />
@@ -393,8 +396,8 @@ export function InvoiceDesigner() {
                                         type="button"
                                         onClick={() => setPageMode('multi')}
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${pageMode === 'multi'
-                                                ? 'bg-white text-indigo-600 shadow-sm'
-                                                : 'text-slate-500 hover:text-slate-700'
+                                            ? 'bg-white text-indigo-600 shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-700'
                                             }`}
                                     >
                                         <FileStack size={14} />
@@ -439,9 +442,9 @@ export function InvoiceDesigner() {
                                         {new Date(previewOrder.date_created).toLocaleDateString()}
                                     </span>
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${previewOrder.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                                            previewOrder.status === 'processing' ? 'bg-blue-100 text-blue-700' :
-                                                previewOrder.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                                                    'bg-slate-100 text-slate-600'
+                                        previewOrder.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                                            previewOrder.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                                'bg-slate-100 text-slate-600'
                                         }`}>
                                         {previewOrder.status}
                                     </span>

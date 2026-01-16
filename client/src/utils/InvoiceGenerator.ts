@@ -174,6 +174,42 @@ export const generateInvoicePDF = async (order: OrderData, grid: any[], items: a
                 doc.setTextColor(0);
             }
         }
+        else if (type === 'order_details') {
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+
+            const orderNumber = order.number || order.order_number || 'N/A';
+            const orderDate = order.date_created
+                ? new Date(order.date_created).toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                : 'N/A';
+            const paymentMethod = order.payment_method_title || order.payment_method || 'N/A';
+
+            let currentY = y + 5;
+
+            doc.setTextColor(100);
+            doc.text("Order Number:", x + 2, currentY);
+            doc.setTextColor(0);
+            doc.setFont("helvetica", "bold");
+            doc.text(String(orderNumber), x + 35, currentY);
+
+            currentY += 5;
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100);
+            doc.text("Order Date:", x + 2, currentY);
+            doc.setTextColor(0);
+            doc.setFont("helvetica", "bold");
+            doc.text(orderDate, x + 35, currentY);
+
+            currentY += 5;
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100);
+            doc.text("Payment Method:", x + 2, currentY);
+            doc.setTextColor(0);
+            doc.setFont("helvetica", "bold");
+            doc.text(paymentMethod, x + 35, currentY);
+
+            doc.setFont("helvetica", "normal");
+        }
         else if (type === 'customer_details') {
             doc.setFontSize(10);
             doc.setFont("helvetica", "bold");

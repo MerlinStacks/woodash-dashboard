@@ -43,6 +43,15 @@ interface ChannelOption {
 
 import type { MergedRecipient } from './RecipientList';
 
+interface CustomerData {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    ordersCount?: number;
+    totalSpent?: number;
+    wooId?: number;
+}
+
 interface ChatWindowProps {
     conversationId: string;
     messages: Message[];
@@ -58,6 +67,8 @@ interface ChatWindowProps {
     availableChannels?: ChannelOption[];
     currentChannel?: ConversationChannel;
     mergedRecipients?: MergedRecipient[];
+    /** Customer data for canned response merge tags */
+    customerData?: CustomerData;
 }
 
 export function ChatWindow({
@@ -74,11 +85,12 @@ export function ChatWindow({
     assigneeId,
     availableChannels,
     currentChannel,
-    mergedRecipients = []
+    mergedRecipients = [],
+    customerData
 }: ChatWindowProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const { currentAccount } = useAccount();
 
     // === EMAIL ACCOUNTS STATE ===
@@ -358,7 +370,19 @@ export function ChatWindow({
                 showCanned={canned.showCanned}
                 filteredCanned={canned.filteredCanned}
                 cannedResponses={canned.cannedResponses}
-                onSelectCanned={(r) => messageSend.setInput(canned.selectCanned(r))}
+                onSelectCanned={(r) => {
+                    const context = {
+                        firstName: customerData?.firstName,
+                        lastName: customerData?.lastName,
+                        email: customerData?.email || recipientEmail,
+                        ordersCount: customerData?.ordersCount,
+                        totalSpent: customerData?.totalSpent,
+                        wooCustomerId: customerData?.wooId,
+                        agentFirstName: user?.fullName?.split(' ')[0],
+                        agentFullName: user?.fullName || undefined
+                    };
+                    messageSend.setInput(canned.selectCanned(r, context));
+                }}
                 onOpenCannedManager={() => canned.setShowCannedManager(true)}
                 isGeneratingDraft={isGeneratingDraft}
                 onGenerateAIDraft={handleGenerateAIDraft}

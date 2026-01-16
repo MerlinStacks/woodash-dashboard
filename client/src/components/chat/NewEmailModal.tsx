@@ -59,7 +59,11 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
 
     // Select a canned response and replace the body
     const handleSelectCanned = (response: { id: string; shortcut: string; content: string }) => {
-        const content = selectCanned(response as any);
+        const context = {
+            agentFirstName: user?.fullName?.split(' ')[0],
+            agentFullName: user?.fullName ?? undefined
+        };
+        const content = selectCanned(response as any, context);
         setBody(content);
     };
 

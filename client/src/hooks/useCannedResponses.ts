@@ -21,10 +21,17 @@ export interface CannedResponse {
 }
 
 
-interface CustomerContext {
+export interface CustomerContext {
     firstName?: string;
     lastName?: string;
     email?: string;
+    // Extended context
+    ordersCount?: number;
+    totalSpent?: number;
+    wooCustomerId?: number;
+    // Agent context
+    agentFirstName?: string;
+    agentFullName?: string;
 }
 
 interface UseCannedResponsesReturn {
@@ -52,19 +59,31 @@ interface UseCannedResponsesReturn {
 
 /**
  * Replaces placeholders in content with actual customer values.
- * Supports: {{customer.firstName}}, {{customer.lastName}}, {{customer.email}}
+ * Supports customer, order, and agent placeholders.
  */
 function replacePlaceholders(content: string, context?: CustomerContext): string {
     if (!context) return content;
 
+    const fullName = [context.firstName, context.lastName].filter(Boolean).join(' ');
+    const greeting = context.firstName ? `Hi ${context.firstName}` : 'Hi there';
+    const formattedSpent = context.totalSpent != null
+        ? `$${context.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : '';
+
     return content
+        // Customer placeholders
         .replace(/\{\{customer\.firstName\}\}/gi, context.firstName || 'there')
         .replace(/\{\{customer\.lastName\}\}/gi, context.lastName || '')
         .replace(/\{\{customer\.email\}\}/gi, context.email || '')
-        .replace(/\{\{customer\.name\}\}/gi,
-            [context.firstName, context.lastName].filter(Boolean).join(' ') || 'there'
-        );
+        .replace(/\{\{customer\.name\}\}/gi, fullName || 'there')
+        .replace(/\{\{customer\.greeting\}\}/gi, greeting)
+        .replace(/\{\{customer\.ordersCount\}\}/gi, context.ordersCount?.toString() || '0')
+        .replace(/\{\{customer\.totalSpent\}\}/gi, formattedSpent)
+        // Agent placeholders
+        .replace(/\{\{agent\.firstName\}\}/gi, context.agentFirstName || '')
+        .replace(/\{\{agent\.fullName\}\}/gi, context.agentFullName || '');
 }
+
 
 /**
  * Manages canned response state and logic.

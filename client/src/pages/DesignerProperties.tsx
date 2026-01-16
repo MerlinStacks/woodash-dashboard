@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, Trash2, Type, Image as ImageIcon, Table, DollarSign, Settings, Upload, Loader2, CheckCircle, AlertCircle, User, LayoutTemplate, Bold, Italic, AlignLeft, AlignCenter, AlignRight, Heading } from 'lucide-react';
+import { X, Trash2, Type, Image as ImageIcon, Table, DollarSign, Settings, Upload, Loader2, CheckCircle, AlertCircle, User, LayoutTemplate, Bold, Italic, AlignLeft, AlignCenter, AlignRight, Heading, FileText } from 'lucide-react';
 
 interface DesignerPropertiesProps {
     items: any[];
@@ -16,6 +16,7 @@ const TYPE_CONFIG: Record<string, { icon: any; label: string; color: string }> =
     header: { icon: Heading, label: 'Header', color: 'text-slate-600 bg-slate-50' },
     text: { icon: Type, label: 'Text Block', color: 'text-blue-600 bg-blue-50' },
     image: { icon: ImageIcon, label: 'Image', color: 'text-purple-600 bg-purple-50' },
+    order_details: { icon: FileText, label: 'Order Details', color: 'text-sky-600 bg-sky-50' },
     customer_details: { icon: User, label: 'Customer Details', color: 'text-indigo-600 bg-indigo-50' },
     order_table: { icon: Table, label: 'Order Items', color: 'text-emerald-600 bg-emerald-50' },
     totals: { icon: DollarSign, label: 'Totals', color: 'text-amber-600 bg-amber-50' },
@@ -405,11 +406,20 @@ export function DesignerProperties({ items, selectedId, onUpdateItem, onDeleteIt
                             </div>
                         )}
 
+                        {selectedItem.type === 'order_details' && (
+                            <div className="p-4 bg-sky-50 rounded-xl border border-sky-100">
+                                <p className="text-sm font-medium text-sky-700 mb-1">Order Information</p>
+                                <p className="text-xs text-sky-600 leading-relaxed">
+                                    Displays order number, date, and payment method. Data is pulled automatically from the selected order.
+                                </p>
+                            </div>
+                        )}
+
                         {selectedItem.type === 'order_table' && (
                             <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                                <p className="text-sm font-medium text-emerald-700 mb-1">Auto-Generated</p>
+                                <p className="text-sm font-medium text-emerald-700 mb-1">Auto-Generated Table</p>
                                 <p className="text-xs text-emerald-600 leading-relaxed">
-                                    This table automatically displays order line items including product name, quantity, price, and total.
+                                    Displays order line items with product name, SKU, metadata, quantity, price, and total.
                                 </p>
                             </div>
                         )}

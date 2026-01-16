@@ -459,9 +459,24 @@ export function CannedResponsesSettings() {
                         variant="standard"
                     />
                 </div>
-                <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-                    <Zap size={12} className="text-amber-500" />
-                    Supports placeholders: {`{{customer.firstName}}`}, {`{{customer.email}}`}
+                <div className="mt-3 bg-amber-50 rounded-lg p-3 border border-amber-200">
+                    <div className="flex items-start gap-2">
+                        <Zap size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                        <div className="text-xs">
+                            <p className="font-medium text-amber-800 mb-2">Available Merge Tags</p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-amber-700">
+                                <div><code className="bg-amber-100 px-1 rounded">{'{{customer.firstName}}'}</code> Customer's first name</div>
+                                <div><code className="bg-amber-100 px-1 rounded">{'{{customer.lastName}}'}</code> Last name</div>
+                                <div><code className="bg-amber-100 px-1 rounded">{'{{customer.name}}'}</code> Full name</div>
+                                <div><code className="bg-amber-100 px-1 rounded">{'{{customer.email}}'}</code> Email address</div>
+                                <div><code className="bg-amber-100 px-1 rounded">{'{{customer.greeting}}'}</code> "Hi John" or "Hi there"</div>
+                                <div><code className="bg-amber-100 px-1 rounded">{'{{customer.ordersCount}}'}</code> Number of orders</div>
+                                <div><code className="bg-amber-100 px-1 rounded">{'{{customer.totalSpent}}'}</code> Lifetime spend</div>
+                                <div><code className="bg-amber-100 px-1 rounded">{'{{agent.firstName}}'}</code> Your first name</div>
+                                <div><code className="bg-amber-100 px-1 rounded">{'{{agent.fullName}}'}</code> Your full name</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

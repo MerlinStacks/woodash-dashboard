@@ -1,7 +1,7 @@
 
 import * as React from 'react';
 import { clsx } from 'clsx';
-import { GripVertical, Image as ImageIcon, Type, Table, DollarSign, User, LayoutTemplate, Heading } from 'lucide-react';
+import { Image as ImageIcon, Type, Table, DollarSign, User, LayoutTemplate, Heading, FileText } from 'lucide-react';
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -18,48 +18,64 @@ interface InvoiceRendererProps {
 
 /**
  * InvoiceRenderer - Renders the invoice template with order data.
- * Matches the visual styling of DesignerCanvas for consistent preview.
+ * Shows a clean, print-ready preview (no designer styling).
  */
 export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode = 'single' }: InvoiceRendererProps) {
 
-    // Helper to render content based on type - mirroring DesignerCanvas styling
+    // Helper to render content - clean print-ready styling
     const renderContent = (itemConfig: any) => {
         if (!itemConfig) return <div className="p-3 text-red-500 text-sm">Error: Item config missing</div>;
 
         switch (itemConfig.type) {
             case 'header':
                 return (
-                    <div className="p-4 h-full bg-linear-to-br from-slate-50 to-gray-50 flex flex-col rounded-lg border border-dashed border-slate-300">
-                        <div className="flex items-center gap-2 text-slate-600 mb-3">
-                            <Heading size={16} />
-                            <span className="text-xs font-semibold uppercase tracking-wider">Header Block</span>
+                    <div className="h-full flex items-center gap-6 py-2">
+                        {/* Logo Section - Left */}
+                        <div className="w-32 h-full flex items-center justify-start">
+                            {itemConfig.logo ? (
+                                <img src={itemConfig.logo} alt="Logo" className="max-h-full max-w-full object-contain" />
+                            ) : (
+                                <div className="w-24 h-16 bg-slate-100 rounded flex items-center justify-center">
+                                    <ImageIcon size={20} className="text-slate-300" />
+                                </div>
+                            )}
                         </div>
-                        <div className="flex-1 flex gap-4">
-                            {/* Logo Section */}
-                            <div className="w-1/3 flex items-center justify-center bg-white rounded-lg border border-dashed border-slate-200 overflow-hidden">
-                                {itemConfig.logo ? (
-                                    <img src={itemConfig.logo} alt="Logo" className="w-full h-full object-contain" />
-                                ) : (
-                                    <div className="text-center p-2">
-                                        <ImageIcon size={24} className="mx-auto text-slate-300 mb-1" />
-                                        <span className="text-[10px] text-slate-400">Logo</span>
-                                    </div>
-                                )}
-                            </div>
-                            {/* Business Details Section */}
-                            <div className="flex-1 flex flex-col justify-center text-sm text-slate-600 leading-relaxed">
-                                {itemConfig.businessDetails ? (
-                                    <div className="whitespace-pre-wrap">{itemConfig.businessDetails}</div>
-                                ) : (
-                                    <div className="space-y-1">
-                                        <div className="h-3 w-32 bg-slate-200/50 rounded-sm"></div>
-                                        <div className="h-2.5 w-40 bg-slate-200/50 rounded-sm"></div>
-                                        <div className="h-2.5 w-28 bg-slate-200/50 rounded-sm"></div>
-                                        <div className="h-2.5 w-36 bg-slate-200/50 rounded-sm"></div>
-                                    </div>
-                                )}
-                            </div>
+                        {/* Business Details Section - Right Aligned */}
+                        <div className="flex-1 text-right text-sm text-slate-700 leading-relaxed">
+                            {itemConfig.businessDetails ? (
+                                <div className="whitespace-pre-wrap">{itemConfig.businessDetails}</div>
+                            ) : (
+                                <div className="text-slate-400 italic">Business details</div>
+                            )}
                         </div>
+                    </div>
+                );
+
+            case 'order_details':
+                const orderNumber = data?.number || data?.order_number || 'N/A';
+                const orderDate = data?.date_created
+                    ? new Date(data.date_created).toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                    : 'N/A';
+                const paymentMethod = data?.payment_method_title || data?.payment_method || 'N/A';
+
+                return (
+                    <div className="py-3">
+                        <table className="text-sm">
+                            <tbody>
+                                <tr>
+                                    <td className="text-slate-500 pr-8 py-1">Order Number:</td>
+                                    <td className="font-medium text-slate-800">{orderNumber}</td>
+                                </tr>
+                                <tr>
+                                    <td className="text-slate-500 pr-8 py-1">Order Date:</td>
+                                    <td className="font-medium text-slate-800">{orderDate}</td>
+                                </tr>
+                                <tr>
+                                    <td className="text-slate-500 pr-8 py-1">Payment Method:</td>
+                                    <td className="font-medium text-slate-800">{paymentMethod}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 );
 
@@ -71,7 +87,6 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                 if (data) {
                     text = text.replace(/{{(.*?)}}/g, (_: any, key: string) => {
                         const k = key.trim();
-                        // Support nested keys like billing.email
                         if (k.includes('.')) {
                             const parts = k.split('.');
                             let value = data;
@@ -85,43 +100,31 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                 }
 
                 return (
-                    <div className="p-4 h-full overflow-hidden flex flex-col">
-                        <div className="flex items-start gap-2 text-purple-500 mb-2 shrink-0">
-                            <Type size={14} className="shrink-0 mt-0.5" />
-                            <span className="text-xs font-medium uppercase tracking-wider">Text Block</span>
-                        </div>
-                        <div
-                            className="flex-1 whitespace-pre-wrap leading-relaxed overflow-hidden text-slate-700"
-                            style={{
-                                fontSize: style.fontSize || '14px',
-                                fontWeight: style.fontWeight || 'normal',
-                                textAlign: style.textAlign || 'left',
-                            }}
-                        >
-                            {text}
-                        </div>
+                    <div
+                        className="h-full whitespace-pre-wrap leading-relaxed text-slate-700"
+                        style={{
+                            fontSize: style.fontSize || '14px',
+                            fontWeight: style.fontWeight || 'normal',
+                            fontStyle: style.fontStyle || 'normal',
+                            textAlign: style.textAlign || 'left',
+                        }}
+                    >
+                        {text}
                     </div>
                 );
 
             case 'image':
                 return (
-                    <div className="w-full h-full flex items-center justify-center overflow-hidden bg-linear-to-br from-slate-50 to-slate-100 rounded-lg relative">
+                    <div className="w-full h-full flex items-center justify-center overflow-hidden">
                         {itemConfig.content ? (
                             <img
                                 src={itemConfig.content}
                                 alt="Invoice"
-                                className="w-full h-full object-contain"
-                                onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement?.classList.add('image-error');
-                                }}
+                                className="max-w-full max-h-full object-contain"
                             />
                         ) : (
-                            <div className="text-slate-400 flex flex-col items-center gap-2">
-                                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                                    <ImageIcon size={24} className="text-purple-500" />
-                                </div>
-                                <span className="text-xs font-medium">Image</span>
+                            <div className="w-full h-full bg-slate-50 flex items-center justify-center">
+                                <ImageIcon size={24} className="text-slate-300" />
                             </div>
                         )}
                     </div>
@@ -132,15 +135,12 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                 const hasCustomerData = billing.first_name || billing.email;
 
                 return (
-                    <div className="p-4 h-full bg-linear-to-br from-indigo-50 to-blue-50 flex flex-col rounded-lg border border-dashed border-indigo-300">
-                        <div className="flex items-center gap-2 text-indigo-600 mb-3">
-                            <User size={16} />
-                            <span className="text-xs font-semibold uppercase tracking-wider">Customer Details</span>
-                        </div>
+                    <div className="py-2">
+                        <div className="text-xs uppercase tracking-wider text-slate-400 mb-2 font-semibold">Bill To</div>
                         {hasCustomerData ? (
-                            <div className="space-y-1 text-sm text-slate-700">
+                            <div className="space-y-0.5 text-sm text-slate-700">
                                 {(billing.first_name || billing.last_name) && (
-                                    <div className="font-medium">{billing.first_name} {billing.last_name}</div>
+                                    <div className="font-semibold">{billing.first_name} {billing.last_name}</div>
                                 )}
                                 {billing.company && <div>{billing.company}</div>}
                                 {billing.address_1 && <div>{billing.address_1}</div>}
@@ -149,16 +149,11 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                                     <div>{billing.city}{billing.city && billing.state ? ', ' : ''}{billing.state} {billing.postcode}</div>
                                 )}
                                 {billing.country && <div>{billing.country}</div>}
-                                {billing.email && <div className="text-indigo-600">{billing.email}</div>}
+                                {billing.email && <div className="text-indigo-600 mt-1">{billing.email}</div>}
                                 {billing.phone && <div>{billing.phone}</div>}
                             </div>
                         ) : (
-                            <div className="space-y-2">
-                                <div className="h-4 w-32 bg-indigo-200/50 rounded-sm"></div>
-                                <div className="h-3 w-48 bg-indigo-200/50 rounded-sm"></div>
-                                <div className="h-3 w-40 bg-indigo-200/50 rounded-sm"></div>
-                                <div className="h-3 w-24 bg-indigo-200/50 rounded-sm"></div>
-                            </div>
+                            <div className="text-slate-400 italic text-sm">Customer details will appear here</div>
                         )}
                     </div>
                 );
@@ -167,52 +162,84 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                 const lineItems = data?.line_items || [];
                 const hasItems = lineItems.length > 0;
 
+                // Helper to extract item metadata
+                const getItemMeta = (item: any) => {
+                    const meta: { label: string; value: string }[] = [];
+
+                    // Standard fields
+                    if (item.sku) meta.push({ label: 'SKU', value: item.sku });
+                    if (item.weight) meta.push({ label: 'Weight', value: `${item.weight}g` });
+                    if (item.variation_id && item.variation_id > 0) {
+                        // Check for variation attributes
+                        const attrs = item.meta_data?.filter((m: any) =>
+                            m.key.startsWith('pa_') || m.display_key
+                        ) || [];
+                        attrs.forEach((attr: any) => {
+                            const label = attr.display_key || attr.key.replace('pa_', '').replace(/_/g, ' ');
+                            meta.push({ label: label.charAt(0).toUpperCase() + label.slice(1), value: attr.display_value || attr.value });
+                        });
+                    }
+
+                    // Custom meta fields (excluding internal ones starting with _)
+                    const customMeta = item.meta_data?.filter((m: any) =>
+                        !m.key.startsWith('_') && !m.key.startsWith('pa_')
+                    ) || [];
+                    customMeta.forEach((m: any) => {
+                        if (m.display_value || m.value) {
+                            const label = m.display_key || m.key.replace(/_/g, ' ');
+                            meta.push({ label: label.charAt(0).toUpperCase() + label.slice(1), value: m.display_value || m.value });
+                        }
+                    });
+
+                    return meta;
+                };
+
                 return (
-                    <div className="p-4 h-full bg-linear-to-br from-emerald-50 to-teal-50 flex flex-col rounded-lg border border-dashed border-emerald-300">
-                        <div className="flex items-center gap-2 text-emerald-600 mb-3">
-                            <Table size={16} />
-                            <span className="text-xs font-semibold uppercase tracking-wider">Order Items Table</span>
-                        </div>
-                        <div className="flex-1 overflow-auto">
-                            {hasItems ? (
-                                <table className="min-w-full text-sm">
-                                    <thead>
-                                        <tr className="text-emerald-600 font-medium border-b border-emerald-200">
-                                            <th className="text-left py-2">Product</th>
-                                            <th className="text-center py-2 w-16">Qty</th>
-                                            <th className="text-right py-2 w-20">Price</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {lineItems.map((item: any, i: number) => (
-                                            <tr key={i} className="border-b border-emerald-100 last:border-0">
-                                                <td className="py-2 text-slate-700">{item.name}</td>
-                                                <td className="py-2 text-center text-slate-600">{item.quantity}</td>
-                                                <td className="py-2 text-right text-slate-700">${parseFloat(item.total || 0).toFixed(2)}</td>
+                    <div className="py-2">
+                        {hasItems ? (
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b-2 border-slate-200">
+                                        <th className="text-left py-3 font-semibold text-slate-700">Description</th>
+                                        <th className="text-center py-3 w-20 font-semibold text-slate-700">Qty</th>
+                                        <th className="text-right py-3 w-24 font-semibold text-slate-700">Unit Price</th>
+                                        <th className="text-right py-3 w-24 font-semibold text-slate-700">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {lineItems.map((item: any, i: number) => {
+                                        const itemMeta = getItemMeta(item);
+                                        const unitPrice = item.quantity > 0
+                                            ? (parseFloat(item.total || 0) / item.quantity).toFixed(2)
+                                            : '0.00';
+
+                                        return (
+                                            <tr key={i} className="border-b border-slate-100">
+                                                <td className="py-3">
+                                                    <div className="font-medium text-slate-800">{item.name}</div>
+                                                    {itemMeta.length > 0 && (
+                                                        <div className="mt-1 space-y-0.5">
+                                                            {itemMeta.map((meta, j) => (
+                                                                <div key={j} className="text-xs text-slate-500">
+                                                                    <span className="font-medium">{meta.label}:</span> {meta.value}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="py-3 text-center text-slate-600">{item.quantity}</td>
+                                                <td className="py-3 text-right text-slate-600">${unitPrice}</td>
+                                                <td className="py-3 text-right font-medium text-slate-700">${parseFloat(item.total || 0).toFixed(2)}</td>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            ) : (
-                                <div className="space-y-2">
-                                    <div className="flex gap-4 text-xs text-emerald-600 font-medium pb-2 border-b border-emerald-200">
-                                        <span className="flex-1">Product</span>
-                                        <span className="w-12 text-center">Qty</span>
-                                        <span className="w-16 text-right">Price</span>
-                                    </div>
-                                    <div className="flex gap-4 text-xs text-emerald-500">
-                                        <span className="flex-1 bg-emerald-100 rounded-sm h-3"></span>
-                                        <span className="w-12 bg-emerald-100 rounded-sm h-3"></span>
-                                        <span className="w-16 bg-emerald-100 rounded-sm h-3"></span>
-                                    </div>
-                                    <div className="flex gap-4 text-xs text-emerald-500">
-                                        <span className="flex-1 bg-emerald-100 rounded-sm h-3"></span>
-                                        <span className="w-12 bg-emerald-100 rounded-sm h-3"></span>
-                                        <span className="w-16 bg-emerald-100 rounded-sm h-3"></span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className="text-slate-400 italic text-sm py-4 text-center">
+                                Order items will appear here
+                            </div>
+                        )}
                     </div>
                 );
 
@@ -223,51 +250,38 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                     return `$${num.toFixed(2)}`;
                 };
 
+                const subtotal = hasData
+                    ? parseFloat(data.total) - parseFloat(data.total_tax || 0) - parseFloat(data.shipping_total || 0)
+                    : 0;
+
                 return (
-                    <div className="p-4 h-full bg-linear-to-br from-amber-50 to-orange-50 flex flex-col rounded-lg border border-dashed border-amber-300">
-                        <div className="flex items-center gap-2 text-amber-600 mb-3">
-                            <DollarSign size={16} />
-                            <span className="text-xs font-semibold uppercase tracking-wider">Totals</span>
-                        </div>
+                    <div className="py-2">
                         {hasData ? (
-                            <div className="flex-1 flex flex-col justify-center space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-amber-600">Subtotal:</span>
-                                    <span className="text-slate-700">{formatCurrency(parseFloat(data.total) - parseFloat(data.total_tax || 0))}</span>
-                                </div>
-                                {data.shipping_total && parseFloat(data.shipping_total) > 0 && (
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-amber-600">Shipping:</span>
-                                        <span className="text-slate-700">{formatCurrency(data.shipping_total)}</span>
-                                    </div>
-                                )}
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-amber-600">Tax:</span>
-                                    <span className="text-slate-700">{formatCurrency(data.total_tax)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm font-bold pt-2 border-t border-amber-200">
-                                    <span className="text-amber-700">Total:</span>
-                                    <span className="text-amber-700">{formatCurrency(data.total)}</span>
-                                </div>
-                            </div>
+                            <table className="w-full text-sm">
+                                <tbody>
+                                    <tr>
+                                        <td className="py-1.5 text-slate-600">Subtotal</td>
+                                        <td className="py-1.5 text-right text-slate-700 w-28">{formatCurrency(subtotal)}</td>
+                                    </tr>
+                                    {data.shipping_total && parseFloat(data.shipping_total) > 0 && (
+                                        <tr>
+                                            <td className="py-1.5 text-slate-600">Shipping</td>
+                                            <td className="py-1.5 text-right text-slate-700">{formatCurrency(data.shipping_total)}</td>
+                                        </tr>
+                                    )}
+                                    <tr>
+                                        <td className="py-1.5 text-slate-600">Tax</td>
+                                        <td className="py-1.5 text-right text-slate-700">{formatCurrency(data.total_tax)}</td>
+                                    </tr>
+                                    <tr className="border-t-2 border-slate-300">
+                                        <td className="py-2 font-bold text-slate-800 text-base">Total</td>
+                                        <td className="py-2 text-right font-bold text-slate-800 text-base">{formatCurrency(data.total)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         ) : (
-                            <div className="flex-1 flex flex-col justify-center space-y-2">
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-amber-600">Subtotal:</span>
-                                    <span className="w-20 bg-amber-100 rounded-sm h-3"></span>
-                                </div>
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-amber-600">Shipping:</span>
-                                    <span className="w-16 bg-amber-100 rounded-sm h-3"></span>
-                                </div>
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-amber-600">Tax:</span>
-                                    <span className="w-14 bg-amber-100 rounded-sm h-3"></span>
-                                </div>
-                                <div className="flex justify-between text-xs font-bold pt-2 border-t border-amber-200">
-                                    <span className="text-amber-700">Total:</span>
-                                    <span className="w-24 bg-amber-200 rounded-sm h-4"></span>
-                                </div>
+                            <div className="text-slate-400 italic text-sm">
+                                Totals will appear here
                             </div>
                         )}
                     </div>
@@ -275,29 +289,19 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
 
             case 'footer':
                 return (
-                    <div className="p-4 h-full bg-linear-to-br from-slate-50 to-gray-50 flex flex-col rounded-lg border border-dashed border-slate-300">
-                        <div className="flex items-center gap-2 text-slate-600 mb-2">
-                            <LayoutTemplate size={16} />
-                            <span className="text-xs font-semibold uppercase tracking-wider">Footer (Last Page Only)</span>
-                        </div>
-                        <div className="flex-1 flex items-center justify-center text-center">
-                            <p className="text-xs text-slate-500 italic">
-                                {itemConfig.content || 'Footer content goes here...'}
-                            </p>
-                        </div>
+                    <div className="py-3 text-center text-sm text-slate-500">
+                        {itemConfig.content || 'Thank you for your business!'}
                     </div>
                 );
 
             default:
-                return <div className="p-3 text-slate-500 text-sm">{itemConfig.type}</div>;
+                return <div className="p-2 text-slate-500 text-sm">{itemConfig.type}</div>;
         }
     };
 
     // For multipage mode, calculate approximate page breaks
-    // A4 is roughly 297mm tall, with ~257mm usable content area
-    const PAGE_HEIGHT_ROWS = 32; // Approximate rows per page at rowHeight 30
+    const PAGE_HEIGHT_ROWS = 32;
 
-    // Group items by page for multipage mode
     const getPagedLayout = () => {
         if (pageMode !== 'multi') return [layout];
 
@@ -343,10 +347,10 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                     )}
 
                     {/* Paper Container */}
-                    <div className="max-w-[210mm] mx-auto bg-white shadow-2xl rounded-lg relative ring-1 ring-slate-200/50" style={{ minHeight: pageMode === 'multi' ? '297mm' : 'auto' }}>
-                        {/* Paper Texture Overlay */}
-                        <div className="absolute inset-0 opacity-[0.02] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PGZlQ29sb3JNYXRyaXggdHlwZT0ic2F0dXJhdGUiIHZhbHVlcz0iMCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNhKSIvPjwvc3ZnPg==')]" />
-
+                    <div
+                        className="max-w-[210mm] mx-auto bg-white shadow-2xl rounded-sm relative ring-1 ring-slate-200/50 overflow-hidden"
+                        style={{ minHeight: pageMode === 'multi' ? '297mm' : 'auto' }}
+                    >
                         {/* Grid Layout */}
                         {/* @ts-ignore - ResponsiveGridLayout has prop type mismatch */}
                         <ResponsiveGridLayout
@@ -359,7 +363,7 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                             width={794}
                             isDraggable={!readOnly}
                             isResizable={!readOnly}
-                            margin={[8, 8]}
+                            margin={[16, 8]}
                         >
                             {pageLayout.map((l: any) => {
                                 const itemConfig = items.find(i => i.id === l.i);
@@ -377,12 +381,7 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                                 return (
                                     <div
                                         key={l.i}
-                                        className={clsx(
-                                            "bg-white border-2 rounded-lg transition-all duration-150",
-                                            readOnly
-                                                ? "border-transparent"
-                                                : "border-slate-200 hover:border-indigo-300 hover:shadow-md"
-                                        )}
+                                        className="bg-white"
                                     >
                                         {itemConfig && renderContent(itemConfig)}
                                     </div>
