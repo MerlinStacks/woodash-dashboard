@@ -44,7 +44,7 @@ export class IndexingService {
             },
             properties: {
                 accountId: { type: 'keyword' },
-                id: { type: 'integer' },
+                id: { type: 'keyword' },
                 email: { type: 'keyword' },
                 firstName: { type: 'text' },
                 lastName: { type: 'text' },
@@ -61,7 +61,8 @@ export class IndexingService {
             },
             properties: {
                 accountId: { type: 'keyword' },
-                id: { type: 'integer' },
+                id: { type: 'keyword' },
+                wooId: { type: 'integer' },
                 name: { type: 'text' },
                 sku: { type: 'keyword' },
                 stock_status: { type: 'keyword' },
@@ -84,7 +85,7 @@ export class IndexingService {
             },
             properties: {
                 accountId: { type: 'keyword' },
-                id: { type: 'integer' },
+                id: { type: 'keyword' },
                 status: { type: 'keyword' },
                 total: { type: 'float' },
                 total_tax: { type: 'float' },
@@ -98,7 +99,7 @@ export class IndexingService {
                     properties: {
                         name: { type: 'text', fields: { keyword: { type: 'keyword' } } },
                         sku: { type: 'keyword' },
-                        productId: { type: 'integer' },
+                        productId: { type: 'keyword' },
                         quantity: { type: 'integer' },
                         total: { type: 'float' },
                         total_tax: { type: 'float' },
@@ -136,8 +137,8 @@ export class IndexingService {
             },
             properties: {
                 accountId: { type: 'keyword' },
-                id: { type: 'integer' },
-                productId: { type: 'integer' },
+                id: { type: 'keyword' },
+                productId: { type: 'keyword' },
                 productName: { type: 'text' },
                 reviewer: { type: 'text' },
                 rating: { type: 'integer' },
@@ -154,7 +155,7 @@ export class IndexingService {
         await this.createIndexIfNotExists('customers', {
             properties: {
                 accountId: { type: 'keyword' },
-                id: { type: 'integer' },
+                id: { type: 'keyword' },
                 email: { type: 'keyword' },
                 firstName: { type: 'text' },
                 lastName: { type: 'text' },
@@ -185,7 +186,8 @@ export class IndexingService {
         await this.createIndexIfNotExists('products', {
             properties: {
                 accountId: { type: 'keyword' },
-                id: { type: 'integer' },
+                id: { type: 'keyword' },
+                wooId: { type: 'integer' },
                 name: { type: 'text' },
                 sku: { type: 'keyword' },
                 stock_status: { type: 'keyword' },
@@ -217,6 +219,7 @@ export class IndexingService {
             document: {
                 accountId,
                 id: product.id,
+                wooId: product.wooId,
                 name: product.name,
                 sku: product.sku,
                 stock_status: product.stock_status,
@@ -245,7 +248,7 @@ export class IndexingService {
         await this.createIndexIfNotExists('orders', {
             properties: {
                 accountId: { type: 'keyword' },
-                id: { type: 'integer' },
+                id: { type: 'keyword' },
                 status: { type: 'keyword' },
                 total: { type: 'float' },
                 currency: { type: 'keyword' },
@@ -257,7 +260,7 @@ export class IndexingService {
                     properties: {
                         name: { type: 'text', fields: { keyword: { type: 'keyword' } } },
                         sku: { type: 'keyword' },
-                        productId: { type: 'integer' },
+                        productId: { type: 'keyword' },
                         quantity: { type: 'integer' },
                         meta_data: {
                             type: 'nested',
@@ -312,8 +315,8 @@ export class IndexingService {
         await this.createIndexIfNotExists('reviews', {
             properties: {
                 accountId: { type: 'keyword' },
-                id: { type: 'integer' },
-                productId: { type: 'integer' },
+                id: { type: 'keyword' },
+                productId: { type: 'keyword' },
                 productName: { type: 'text' },
                 reviewer: { type: 'text' },
                 rating: { type: 'integer' },

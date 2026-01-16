@@ -15,6 +15,7 @@ import { Pagination } from '../components/ui/Pagination';
 interface Product {
     // Updated Product Interface
     id: string;
+    wooId?: number;
     name: string;
     sku: string;
     stock_status: string;
@@ -219,7 +220,7 @@ export function InventoryPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 font-medium text-gray-900">
-                                                    <Link to={`/inventory/product/${product.id}`} className="hover:text-blue-600 transition-colors">
+                                                    <Link to={`/inventory/product/${product.wooId || product.id}`} className="hover:text-blue-600 transition-colors">
                                                         {product.name}
                                                     </Link>
                                                 </td>
@@ -283,7 +284,7 @@ export function InventoryPage() {
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <button
-                                                        onClick={() => navigate(`/inventory/product/${product.id}`)}
+                                                        onClick={() => navigate(`/inventory/product/${product.wooId || product.id}`)}
                                                         className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                                                     >
                                                         Edit
