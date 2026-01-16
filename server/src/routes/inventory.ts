@@ -224,13 +224,18 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
                 await tx.bOMItem.deleteMany({ where: { bomId: bom.id } });
                 
                 for (const item of items) {
+                    // Prevent self-linking
+                    if (item.childProductId === productId) {
+                        continue;
+                    }
+
                     await tx.bOMItem.create({
                         data: {
                             bomId: bom.id,
                             supplierItemId: item.supplierItemId || null,
                             childProductId: item.childProductId || null,
-                            quantity: item.quantity,
-                            wasteFactor: item.wasteFactor || 0
+                            quantity: Number(item.quantity),
+                            wasteFactor: Number(item.wasteFactor || 0)
                         }
                     });
                 }

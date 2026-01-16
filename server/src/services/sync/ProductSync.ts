@@ -145,14 +145,17 @@ export class ProductSync extends BaseSync {
 
             for (let i = 0; i < products.length; i++) {
                 const p = products[i];
+                const upsertedProduct = productMap.get(p.id);
                 const scores = scoringResults[i] || { seoScore: 0, merchantCenterScore: 0 };
 
-                indexPromises.push(
-                    IndexingService.indexProduct(accountId, { ...p, ...scores })
-                        .catch((error: any) => {
-                            Logger.warn(`Failed to index product ${p.id}`, { accountId, syncId, error: error.message });
-                        })
-                );
+                if (upsertedProduct) {
+                    indexPromises.push(
+                        IndexingService.indexProduct(accountId, { ...upsertedProduct, ...scores })
+                            .catch((error: any) => {
+                                Logger.warn(`Failed to index product ${p.id}`, { accountId, syncId, error: error.message });
+                            })
+                    );
+                }
 
                 EventBus.emit(EVENTS.PRODUCT.SYNCED, { accountId, product: p });
             }

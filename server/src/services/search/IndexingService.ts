@@ -14,22 +14,41 @@ export class IndexingService {
                 });
                 Logger.info(`Elasticsearch index '${indexName}' created.`);
             } else {
-                // Update settings for existing index
-                if ((mapping as any).settings) {
-                    await esClient.indices.putSettings({
+                try {
+                    // Update settings for existing index
+                    if ((mapping as any).settings) {
+                        await esClient.indices.putSettings({
+                            index: indexName,
+                            settings: (mapping as any).settings
+                        });
+                    }
+                    // Update mapping for existing index (merge new fields)
+                    await esClient.indices.putMapping({
                         index: indexName,
-                        settings: (mapping as any).settings
+                        properties: (mapping as any).properties || mapping
                     });
+                    Logger.info(`Updated mapping for existing index '${indexName}'`);
+                } catch (mappingError: any) {
+                    // If mapping update fails due to type conflict, recreate the index
+                    if (mappingError.message?.includes('cannot be changed from type') ||
+                        mappingError.meta?.body?.error?.type === 'illegal_argument_exception') {
+                        
+                        Logger.warn(`Mapping conflict detected for index '${indexName}'. Recreating index...`, { error: mappingError.message });
+                        
+                        await esClient.indices.delete({ index: indexName });
+                        await esClient.indices.create({
+                            index: indexName,
+                            settings: (mapping as any).settings || {},
+                            mappings: { properties: (mapping as any).properties || mapping }
+                        });
+                        Logger.info(`Recreated index '${indexName}' with new mapping.`);
+                    } else {
+                        throw mappingError;
+                    }
                 }
-                // Update mapping for existing index (merge new fields)
-                await esClient.indices.putMapping({
-                    index: indexName,
-                    properties: (mapping as any).properties || mapping
-                });
-                Logger.info(`Updated mapping for existing index '${indexName}'`);
             }
         } catch (error: any) {
-            Logger.error(`Failed to create index ${indexName}`, { error: error.message });
+            Logger.error(`Failed to create/update index ${indexName}`, { error: error.message });
         }
     }
 

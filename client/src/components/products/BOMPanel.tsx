@@ -160,6 +160,12 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
     }), [bomItems, selectedScope, productId, token, currentAccount, handleSave]);
 
     const handleAddProduct = (product: any) => {
+        // Check if self-linking
+        if (product.id === productId) {
+            alert('Cannot add the product to its own BOM.');
+            return;
+        }
+
         // Check if already exists
         if (bomItems.some(i => i.childProductId === product.id)) {
             alert('This product is already in the BOM.');
@@ -247,9 +253,9 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                                     {searchResults.map(p => (
                                         <button
                                             key={p.id}
-                                            disabled={p.hasBOM}
-                                            className={`w-full text-left p-3 transition-colors flex items-center gap-3 border-b border-gray-50 last:border-b-0 ${p.hasBOM ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-blue-50'}`}
-                                            onClick={() => !p.hasBOM && handleAddProduct(p)}
+                                            disabled={p.hasBOM || p.id === productId}
+                                            className={`w-full text-left p-3 transition-colors flex items-center gap-3 border-b border-gray-50 last:border-b-0 ${p.hasBOM || p.id === productId ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-blue-50'}`}
+                                            onClick={() => !p.hasBOM && p.id !== productId && handleAddProduct(p)}
                                         >
                                             {p.mainImage && (
                                                 <img src={p.mainImage} alt="" className="w-10 h-10 object-cover rounded-lg border border-gray-100" />
@@ -258,6 +264,7 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                                                 <div className="font-medium text-gray-900 text-sm truncate">
                                                     {p.name}
                                                     {p.hasBOM && <span className="ml-2 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">Composite Product</span>}
+                                                    {p.id === productId && <span className="ml-2 text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded-full border border-gray-200">Current Product</span>}
                                                 </div>
                                                 <div className="text-xs text-gray-500">
                                                     {p.sku && <span className="font-mono">{p.sku}</span>}
