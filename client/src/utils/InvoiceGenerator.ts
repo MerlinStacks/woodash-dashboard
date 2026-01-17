@@ -183,6 +183,7 @@ export const generateInvoicePDF = async (order: OrderData, grid: any[], items: a
                 ? new Date(order.date_created).toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
                 : 'N/A';
             const paymentMethod = order.payment_method_title || order.payment_method || 'N/A';
+            const shippingMethod = order.shipping_lines?.[0]?.method_title || order.shipping_method || 'N/A';
 
             let currentY = y + 5;
 
@@ -190,7 +191,7 @@ export const generateInvoicePDF = async (order: OrderData, grid: any[], items: a
             doc.text("Order Number:", x + 2, currentY);
             doc.setTextColor(0);
             doc.setFont("helvetica", "bold");
-            doc.text(String(orderNumber), x + 35, currentY);
+            doc.text(String(orderNumber), x + 40, currentY);
 
             currentY += 5;
             doc.setFont("helvetica", "normal");
@@ -198,7 +199,7 @@ export const generateInvoicePDF = async (order: OrderData, grid: any[], items: a
             doc.text("Order Date:", x + 2, currentY);
             doc.setTextColor(0);
             doc.setFont("helvetica", "bold");
-            doc.text(orderDate, x + 35, currentY);
+            doc.text(orderDate, x + 40, currentY);
 
             currentY += 5;
             doc.setFont("helvetica", "normal");
@@ -206,7 +207,15 @@ export const generateInvoicePDF = async (order: OrderData, grid: any[], items: a
             doc.text("Payment Method:", x + 2, currentY);
             doc.setTextColor(0);
             doc.setFont("helvetica", "bold");
-            doc.text(paymentMethod, x + 35, currentY);
+            doc.text(paymentMethod, x + 40, currentY);
+
+            currentY += 5;
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100);
+            doc.text("Shipping Method:", x + 2, currentY);
+            doc.setTextColor(0);
+            doc.setFont("helvetica", "bold");
+            doc.text(shippingMethod, x + 40, currentY);
 
             doc.setFont("helvetica", "normal");
         }
@@ -235,7 +244,7 @@ export const generateInvoicePDF = async (order: OrderData, grid: any[], items: a
             });
         }
         else if (type === 'order_table') {
-            // Use AutoTable
+            // Use AutoTable with integrated totals in footer
             const tableData = order.line_items.map(p => [
                 p.name,
                 p.quantity,
@@ -243,15 +252,35 @@ export const generateInvoicePDF = async (order: OrderData, grid: any[], items: a
                 formatPrice(p.total, order.currency)
             ]);
 
+            // Calculate totals
+            const subtotal = Number(order.total) - Number(order.total_tax || 0) - Number(order.shipping_total || 0);
+            const shippingTotal = Number(order.shipping_total || 0);
+            const tax = Number(order.total_tax || 0);
+            const total = Number(order.total);
+
+            // Build footer rows for totals
+            const footerRows: any[][] = [
+                ['', '', 'Subtotal', formatPrice(subtotal, order.currency)]
+            ];
+            if (shippingTotal > 0) {
+                footerRows.push(['', '', 'Shipping', formatPrice(shippingTotal, order.currency)]);
+            }
+            footerRows.push(['', '', 'Tax', formatPrice(tax, order.currency)]);
+            footerRows.push(['', '', { content: 'Total', styles: { fontStyle: 'bold', fontSize: 11 } }, { content: formatPrice(total, order.currency), styles: { fontStyle: 'bold', fontSize: 11 } }]);
+
             autoTable(doc, {
                 startY: y,
                 margin: { left: x },
                 tableWidth: w,
                 head: [['Item', 'Qty', 'Price', 'Total']],
                 body: tableData,
+                foot: footerRows,
                 theme: 'grid',
                 styles: { fontSize: 9 },
-                headStyles: { fillColor: [66, 66, 66] }
+                headStyles: { fillColor: [66, 66, 66] },
+                footStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0] },
+                // Keep line items together - avoid page breaks within rows
+                rowPageBreak: 'avoid'
             });
         }
         else if (type === 'totals') {

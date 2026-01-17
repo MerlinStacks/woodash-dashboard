@@ -57,6 +57,7 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                     ? new Date(data.date_created).toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
                     : 'N/A';
                 const paymentMethod = data?.payment_method_title || data?.payment_method || 'N/A';
+                const shippingMethod = data?.shipping_lines?.[0]?.method_title || data?.shipping_method || 'N/A';
 
                 return (
                     <div className="py-3">
@@ -74,6 +75,10 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                                     <td className="text-slate-500 pr-8 py-1">Payment Method:</td>
                                     <td className="font-medium text-slate-800">{paymentMethod}</td>
                                 </tr>
+                                <tr>
+                                    <td className="text-slate-500 pr-8 py-1">Shipping Method:</td>
+                                    <td className="font-medium text-slate-800">{shippingMethod}</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -81,6 +86,7 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
 
             case 'text':
                 const style = itemConfig.style || {};
+                const isAutoFit = style.autoFit !== false; // Default to true
                 let text = itemConfig.content || '';
 
                 // Handlebars-style replacement with data
@@ -101,12 +107,17 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
 
                 return (
                     <div
-                        className="h-full whitespace-pre-wrap leading-relaxed text-slate-700"
+                        className={`h-full whitespace-pre-wrap leading-relaxed text-slate-700 ${isAutoFit ? 'overflow-hidden break-words' : ''
+                            }`}
                         style={{
-                            fontSize: style.fontSize || '14px',
+                            fontSize: isAutoFit
+                                ? `clamp(10px, 2.5cqw, ${style.fontSize || '14px'})`
+                                : (style.fontSize || '14px'),
                             fontWeight: style.fontWeight || 'normal',
                             fontStyle: style.fontStyle || 'normal',
                             textAlign: style.textAlign || 'left',
+                            containerType: isAutoFit ? 'inline-size' : undefined,
+                            wordBreak: isAutoFit ? 'break-word' : undefined,
                         }}
                     >
                         {text}
@@ -161,6 +172,18 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
             case 'order_table':
                 const lineItems = data?.line_items || [];
                 const hasItems = lineItems.length > 0;
+                const hasOrderData = data?.total !== undefined;
+
+                // Helper to format currency
+                const formatMoney = (val: any) => {
+                    const num = parseFloat(val || 0);
+                    return `$${num.toFixed(2)}`;
+                };
+
+                // Calculate subtotal
+                const orderSubtotal = hasOrderData
+                    ? parseFloat(data.total) - parseFloat(data.total_tax || 0) - parseFloat(data.shipping_total || 0)
+                    : 0;
 
                 // Helper to extract item metadata
                 const getItemMeta = (item: any) => {
@@ -197,7 +220,7 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                 return (
                     <div className="py-2">
                         {hasItems ? (
-                            <table className="w-full text-sm">
+                            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr className="border-b-2 border-slate-200">
                                         <th className="text-left py-3 font-semibold text-slate-700">Description</th>
@@ -214,7 +237,11 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                                             : '0.00';
 
                                         return (
-                                            <tr key={i} className="border-b border-slate-100">
+                                            <tr
+                                                key={i}
+                                                className="border-b border-slate-100"
+                                                style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
+                                            >
                                                 <td className="py-3">
                                                     <div className="font-medium text-slate-800">{item.name}</div>
                                                     {itemMeta.length > 0 && (
@@ -234,6 +261,36 @@ export function InvoiceRenderer({ layout, items, data, readOnly = true, pageMode
                                         );
                                     })}
                                 </tbody>
+                                {/* Integrated Totals Section */}
+                                {hasOrderData && (
+                                    <tfoot style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                                        <tr>
+                                            <td colSpan={4} className="pt-4"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={2}></td>
+                                            <td className="py-1.5 text-right text-slate-600">Subtotal</td>
+                                            <td className="py-1.5 text-right text-slate-700">{formatMoney(orderSubtotal)}</td>
+                                        </tr>
+                                        {data.shipping_total && parseFloat(data.shipping_total) > 0 && (
+                                            <tr>
+                                                <td colSpan={2}></td>
+                                                <td className="py-1.5 text-right text-slate-600">Shipping</td>
+                                                <td className="py-1.5 text-right text-slate-700">{formatMoney(data.shipping_total)}</td>
+                                            </tr>
+                                        )}
+                                        <tr>
+                                            <td colSpan={2}></td>
+                                            <td className="py-1.5 text-right text-slate-600">Tax</td>
+                                            <td className="py-1.5 text-right text-slate-700">{formatMoney(data.total_tax)}</td>
+                                        </tr>
+                                        <tr className="border-t-2 border-slate-300">
+                                            <td colSpan={2}></td>
+                                            <td className="py-2 text-right font-bold text-slate-800 text-base">Total</td>
+                                            <td className="py-2 text-right font-bold text-slate-800 text-base">{formatMoney(data.total)}</td>
+                                        </tr>
+                                    </tfoot>
+                                )}
                             </table>
                         ) : (
                             <div className="text-slate-400 italic text-sm py-4 text-center">

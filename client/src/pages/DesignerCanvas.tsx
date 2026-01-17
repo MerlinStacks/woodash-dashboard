@@ -8,7 +8,9 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 interface InvoiceItemStyle {
     fontSize?: string;
     fontWeight?: string;
+    fontStyle?: string;
     textAlign?: 'left' | 'center' | 'right';
+    autoFit?: boolean;
 }
 
 interface InvoiceItem {
@@ -76,6 +78,7 @@ export function DesignerCanvas({ layout, items, selectedId, onLayoutChange, onSe
                 );
             case 'text':
                 const style = itemConfig.style || {};
+                const isAutoFit = style.autoFit !== false; // Default to true for auto-fit
                 return (
                     <div className="p-4 h-full overflow-hidden flex flex-col">
                         <div className="flex items-start gap-2 text-slate-500 mb-2 shrink-0">
@@ -83,12 +86,20 @@ export function DesignerCanvas({ layout, items, selectedId, onLayoutChange, onSe
                             <span className="text-xs font-medium uppercase tracking-wider">Text Block</span>
                         </div>
                         <div
-                            className="flex-1 whitespace-pre-wrap leading-relaxed overflow-hidden"
+                            className={`flex-1 whitespace-pre-wrap leading-relaxed ${isAutoFit
+                                ? 'overflow-hidden text-ellipsis break-words'
+                                : 'overflow-auto'
+                                }`}
                             style={{
-                                fontSize: style.fontSize || '14px',
+                                fontSize: isAutoFit
+                                    ? `clamp(10px, 2.5cqw, ${style.fontSize || '14px'})`
+                                    : (style.fontSize || '14px'),
                                 fontWeight: style.fontWeight || 'normal',
+                                fontStyle: style.fontStyle || 'normal',
                                 textAlign: style.textAlign || 'left',
-                                color: '#334155'
+                                color: '#334155',
+                                containerType: isAutoFit ? 'inline-size' : undefined,
+                                wordBreak: isAutoFit ? 'break-word' : undefined,
                             }}
                         >
                             {itemConfig.content || 'Click to edit text...'}
@@ -133,16 +144,20 @@ export function DesignerCanvas({ layout, items, selectedId, onLayoutChange, onSe
                         </div>
                         <div className="space-y-2">
                             <div className="flex gap-4 text-xs">
-                                <span className="text-sky-500 w-24">Order Number:</span>
+                                <span className="text-sky-500 w-28">Order Number:</span>
                                 <span className="h-3 w-16 bg-sky-200/50 rounded-sm"></span>
                             </div>
                             <div className="flex gap-4 text-xs">
-                                <span className="text-sky-500 w-24">Order Date:</span>
+                                <span className="text-sky-500 w-28">Order Date:</span>
                                 <span className="h-3 w-20 bg-sky-200/50 rounded-sm"></span>
                             </div>
                             <div className="flex gap-4 text-xs">
-                                <span className="text-sky-500 w-24">Payment Method:</span>
+                                <span className="text-sky-500 w-28">Payment Method:</span>
                                 <span className="h-3 w-16 bg-sky-200/50 rounded-sm"></span>
+                            </div>
+                            <div className="flex gap-4 text-xs">
+                                <span className="text-sky-500 w-28">Shipping Method:</span>
+                                <span className="h-3 w-20 bg-sky-200/50 rounded-sm"></span>
                             </div>
                         </div>
                     </div>

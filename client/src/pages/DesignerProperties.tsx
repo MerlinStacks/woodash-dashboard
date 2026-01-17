@@ -293,6 +293,19 @@ export function DesignerProperties({ items, selectedId, onUpdateItem, onDeleteIt
                                             <option value="32px">Title (32px)</option>
                                         </select>
                                     </div>
+                                    <label className="flex items-center gap-2 mb-2 cursor-pointer group">
+                                        <div className="relative">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedItem.style?.autoFit !== false}
+                                                onChange={(e) => updateStyle('autoFit', e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:bg-indigo-500 transition-colors"></div>
+                                            <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm peer-checked:translate-x-4 transition-transform"></div>
+                                        </div>
+                                        <span className="text-xs font-medium text-slate-600 group-hover:text-slate-800">Auto-fit text to block</span>
+                                    </label>
                                     <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg w-fit">
                                         <button
                                             onClick={() => updateStyle('fontWeight', selectedItem.style?.fontWeight === 'bold' ? 'normal' : 'bold')}
