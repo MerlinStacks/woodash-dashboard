@@ -520,6 +520,31 @@ const extractImageUrl = (value: string): string | null => {
     return null;
 };
 
+/**
+ * Extracts ALL image URLs from a meta value.
+ * WooCommerce can store multiple images per meta entry (newline or pipe separated).
+ * Returns an array of all found image URLs.
+ */
+const extractAllImageUrls = (value: string): string[] => {
+    if (typeof value !== 'string') return [];
+
+    const imagePattern = /\.(jpg|jpeg|png|gif|webp|svg|bmp)/i;
+    const urls: string[] = [];
+
+    // Find all URLs in the value
+    const urlMatches = value.match(/(https?:\/\/[^\s|,\n]+)/g);
+    if (urlMatches) {
+        for (const url of urlMatches) {
+            const cleanUrl = url.trim();
+            if (imagePattern.test(cleanUrl) && !urls.includes(cleanUrl)) {
+                urls.push(cleanUrl);
+            }
+        }
+    }
+
+    return urls;
+};
+
 interface MetaCategory {
     id: string;
     label: string;
@@ -590,17 +615,36 @@ function OrderMetaSection({ metaData, onImageClick }: { metaData: any[], onImage
     }
 
     if (uploads.length > 0) {
+        // Flatten uploads: each image URL becomes its own item
+        const uploadItems: Array<{ key: string; value: string; imageUrl: string | null }> = [];
+        for (const m of uploads) {
+            const imageUrls = extractAllImageUrls(m.value);
+            const baseKey = fixMojibake(m.display_key || m.key.replace(/_/g, ' '));
+            if (imageUrls.length > 0) {
+                // Multiple images: create one item per URL
+                imageUrls.forEach((url, idx) => {
+                    uploadItems.push({
+                        key: imageUrls.length > 1 ? `${baseKey} (${idx + 1})` : baseKey,
+                        value: fixMojibake(m.display_value || m.value),
+                        imageUrl: url
+                    });
+                });
+            } else {
+                // Fallback (shouldn't happen since we filtered by extractImageUrl)
+                uploadItems.push({
+                    key: baseKey,
+                    value: fixMojibake(m.display_value || m.value),
+                    imageUrl: extractImageUrl(m.value)
+                });
+            }
+        }
         categories.push({
             id: 'uploads',
             label: 'Uploaded Files',
             icon: <ImageIcon size={12} />,
             color: 'text-amber-700',
             bgColor: 'bg-amber-50 border-amber-200',
-            items: uploads.map(m => ({
-                key: fixMojibake(m.display_key || m.key.replace(/_/g, ' ')),
-                value: fixMojibake(m.display_value || m.value),
-                imageUrl: extractImageUrl(m.value)
-            }))
+            items: uploadItems
         });
     }
 
@@ -664,7 +708,7 @@ function OrderMetaSection({ metaData, onImageClick }: { metaData: any[], onImage
                                                 <span className="font-medium text-gray-600 capitalize min-w-[80px]">
                                                     {item.key}:
                                                 </span>
-                                                <span className="text-gray-900 break-all">
+                                                <span className="text-gray-900 break-all whitespace-pre-line">
                                                     {item.value.startsWith('http') ? (
                                                         <a
                                                             href={item.value}

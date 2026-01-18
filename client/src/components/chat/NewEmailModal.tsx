@@ -39,6 +39,7 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [attachments, setAttachments] = useState<File[]>([]);
+    const [uploadProgress, setUploadProgress] = useState<number>(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Canned responses integration
@@ -121,6 +122,7 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
 
         setIsSending(true);
         setError(null);
+        setUploadProgress(0);
 
         try {
             const formData = new FormData();
@@ -134,28 +136,52 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
                 formData.append('attachments', file);
             });
 
-            // Note: We don't set Content-Type header for FormData, browser sets it with boundary
-            const res = await fetch('/api/chat/compose', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'x-account-id': currentAccount?.id || ''
-                },
-                body: formData
+            // Use XMLHttpRequest to track upload progress
+            const xhr = new XMLHttpRequest();
+
+            const result = await new Promise<{ success: boolean; conversationId?: string; error?: string }>((resolve, reject) => {
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const percent = Math.round((event.loaded / event.total) * 100);
+                        setUploadProgress(percent);
+                    }
+                };
+
+                xhr.onload = () => {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve({ success: true, conversationId: data.conversationId });
+                        } else {
+                            resolve({ success: false, error: data.error || 'Failed to send email' });
+                        }
+                    } catch {
+                        resolve({ success: false, error: 'Failed to parse response' });
+                    }
+                };
+
+                xhr.onerror = () => {
+                    reject(new Error('Network error'));
+                };
+
+                xhr.open('POST', '/api/chat/compose');
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                xhr.setRequestHeader('x-account-id', currentAccount?.id || '');
+                xhr.send(formData);
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to send email');
+            if (!result.success) {
+                throw new Error(result.error);
             }
 
-            onSent(data.conversationId);
+            onSent(result.conversationId!);
         } catch (err: any) {
             setError(err.message || 'Failed to send email');
             setIsSending(false);
+            setUploadProgress(0);
         }
     };
+
 
     const selectedAccount = emailAccounts.find(a => a.id === emailAccountId);
 
@@ -326,7 +352,8 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
                                     <span className="text-xs text-gray-500 whitespace-nowrap">({formatFileSize(file.size)})</span>
                                     <button
                                         onClick={() => removeAttachment(index)}
-                                        className="text-gray-400 hover:text-red-500 transition-colors"
+                                        disabled={isSending}
+                                        className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
                                     >
                                         <X size={14} />
                                     </button>
@@ -334,6 +361,23 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
                             ))}
                         </div>
                     )}
+
+                    {/* Upload Progress Bar */}
+                    {isSending && attachments.length > 0 && (
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs text-gray-600">
+                                <span>Uploading attachments...</span>
+                                <span className="font-medium">{uploadProgress}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-200"
+                                    style={{ width: `${uploadProgress}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
 
                     {/* Signature Preview */}
                     {signature && (

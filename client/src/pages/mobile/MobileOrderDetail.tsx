@@ -243,25 +243,30 @@ export function MobileOrderDetail() {
                                     {item.meta_data
                                         .filter((meta) => !meta.key.startsWith('_'))
                                         .map((meta, idx) => {
-                                            const imageUrl = extractImageUrl(meta.value);
+                                            const imageUrls = extractAllImageUrls(meta.value);
                                             return (
                                                 <div key={idx} className="text-xs">
                                                     <span className="font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
                                                         {fixMojibake(meta.key)}:
                                                     </span>
-                                                    {imageUrl ? (
-                                                        <button
-                                                            onClick={() => setSelectedImage(imageUrl)}
-                                                            className="ml-1 inline-block"
-                                                        >
-                                                            <img
-                                                                src={imageUrl}
-                                                                alt={meta.key}
-                                                                className="h-12 w-auto rounded border border-gray-200 mt-1"
-                                                            />
-                                                        </button>
+                                                    {imageUrls.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-2 mt-1">
+                                                            {imageUrls.map((imgUrl, imgIdx) => (
+                                                                <button
+                                                                    key={imgIdx}
+                                                                    onClick={() => setSelectedImage(imgUrl)}
+                                                                    className="inline-block"
+                                                                >
+                                                                    <img
+                                                                        src={imgUrl}
+                                                                        alt={`${meta.key} ${imgIdx + 1}`}
+                                                                        className="h-12 w-auto rounded border border-gray-200"
+                                                                    />
+                                                                </button>
+                                                            ))}
+                                                        </div>
                                                     ) : (
-                                                        <span className="ml-1 text-gray-700">{fixMojibake(meta.value)}</span>
+                                                        <span className="ml-1 text-gray-700 whitespace-pre-line">{fixMojibake(meta.value)}</span>
                                                     )}
                                                 </div>
                                             );
@@ -410,4 +415,29 @@ const extractImageUrl = (value: string): string | null => {
     }
 
     return null;
+};
+
+/**
+ * Extracts ALL image URLs from a meta value.
+ * WooCommerce can store multiple images per meta entry (newline or pipe separated).
+ * Returns an array of all found image URLs.
+ */
+const extractAllImageUrls = (value: string): string[] => {
+    if (typeof value !== 'string') return [];
+
+    const imagePattern = /\.(jpg|jpeg|png|gif|webp|svg|bmp)/i;
+    const urls: string[] = [];
+
+    // Find all URLs in the value
+    const urlMatches = value.match(/(https?:\/\/[^\s|,\n]+)/g);
+    if (urlMatches) {
+        for (const url of urlMatches) {
+            const cleanUrl = url.trim();
+            if (imagePattern.test(cleanUrl) && !urls.includes(cleanUrl)) {
+                urls.push(cleanUrl);
+            }
+        }
+    }
+
+    return urls;
 };

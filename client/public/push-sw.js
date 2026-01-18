@@ -11,11 +11,14 @@
  */
 
 // Cache version - UPDATE THIS ON EVERY DEPLOYMENT
-const CACHE_VERSION = '2026-01-17-v1';
+const CACHE_VERSION = '2026-01-19-v1';
 const CACHE_NAME = `overseek-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 const SYNC_TAG = 'sync-offline-actions';
 const PERIODIC_SYNC_TAG = 'refresh-dashboard';
+
+/** Auto-dismiss timeout for notifications (10 minutes in ms) */
+const NOTIFICATION_AUTO_DISMISS_MS = 10 * 60 * 1000;
 
 // Assets to cache for offline app shell
 const PRECACHE_ASSETS = [
@@ -205,13 +208,15 @@ self.addEventListener('push', (event) => {
         data = { title: 'OverSeek', body: event.data?.text() || 'You have a new notification' };
     }
 
+    const tag = data.tag || `overseek-${Date.now()}`;
+
     const options = {
         body: data.body || 'You have a new notification',
         icon: '/icons/icon-192.png',
         badge: '/icons/icon-72.png',
         data: data.data || {},
-        requireInteraction: true,
-        tag: data.tag || `overseek-${Date.now()}`,
+        requireInteraction: false, // Allow auto-dismiss
+        tag: tag,
         vibrate: [200, 100, 200],
         actions: data.actions || []
     };
@@ -220,7 +225,19 @@ self.addEventListener('push', (event) => {
 
     event.waitUntil(
         self.registration.showNotification(data.title || 'OverSeek', options)
-            .then(() => console.log('[SW] Notification displayed successfully'))
+            .then(() => {
+                console.log('[SW] Notification displayed successfully');
+                // Schedule auto-dismiss after 10 minutes
+                setTimeout(async () => {
+                    try {
+                        const notifications = await self.registration.getNotifications({ tag });
+                        notifications.forEach(n => n.close());
+                        console.log('[SW] Auto-dismissed notification:', tag);
+                    } catch (e) {
+                        console.error('[SW] Auto-dismiss failed:', e);
+                    }
+                }, NOTIFICATION_AUTO_DISMISS_MS);
+            })
             .catch((err) => console.error('[SW] Failed to show notification:', err))
     );
 });
