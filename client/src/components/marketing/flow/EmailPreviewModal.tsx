@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { X, Eye, Send, Loader2, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useAccount } from '../../../context/AccountContext';
 
 interface Props {
     htmlContent: string;
@@ -13,6 +14,7 @@ interface Props {
 
 export function EmailPreviewModal({ htmlContent, subject, onClose }: Props) {
     const { token } = useAuth();
+    const { currentAccount } = useAccount();
     const [testEmail, setTestEmail] = useState('');
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
@@ -33,7 +35,8 @@ export function EmailPreviewModal({ htmlContent, subject, onClose }: Props) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
+                    'x-account-id': currentAccount?.id || ''
                 },
                 body: JSON.stringify({
                     to: testEmail.trim(),
@@ -83,8 +86,8 @@ export function EmailPreviewModal({ htmlContent, subject, onClose }: Props) {
                     <button
                         onClick={() => setActiveTab('preview')}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'preview'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'text-gray-600 hover:bg-gray-100'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'text-gray-600 hover:bg-gray-100'
                             }`}
                     >
                         <Eye size={14} className="inline mr-2" />
@@ -93,8 +96,8 @@ export function EmailPreviewModal({ htmlContent, subject, onClose }: Props) {
                     <button
                         onClick={() => setActiveTab('test')}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'test'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'text-gray-600 hover:bg-gray-100'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'text-gray-600 hover:bg-gray-100'
                             }`}
                     >
                         <Send size={14} className="inline mr-2" />

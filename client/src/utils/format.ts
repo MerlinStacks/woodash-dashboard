@@ -97,3 +97,36 @@ export function formatPercent(value: number, decimals: number = 1): string {
 export function formatNumber(value: number): string {
     return new Intl.NumberFormat('en-US').format(value);
 }
+
+/**
+ * Fix mojibake - text that was incorrectly decoded from UTF-8 to Latin-1/Windows-1252.
+ * This commonly happens with emoji and special characters from external sources like WooCommerce.
+ * Example: "🫶🏼" → "🫶🏼" (actual emoji)
+ * @param text - Text that may contain mojibake
+ * @returns Properly decoded text, or original text if no mojibake detected
+ */
+export function fixMojibake(text: string): string {
+    if (!text || typeof text !== 'string') return text;
+
+    try {
+        // Check if the string contains typical mojibake patterns (multi-byte UTF-8 as Latin-1)
+        // UTF-8 encoded bytes interpreted as Latin-1 produce characters in the 0xC0-0xFF range
+        const hasMojibake = /[\u00C0-\u00FF]{2,}/.test(text);
+
+        if (hasMojibake) {
+            // Convert: treat string as Latin-1, get bytes, decode as UTF-8
+            const bytes = new Uint8Array([...text].map(c => c.charCodeAt(0)));
+            const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+
+            // Only return decoded if it actually produced valid characters
+            // and doesn't contain replacement characters
+            if (decoded && !decoded.includes('\uFFFD') && decoded !== text) {
+                return decoded;
+            }
+        }
+    } catch {
+        // If decoding fails, return original text
+    }
+
+    return text;
+}

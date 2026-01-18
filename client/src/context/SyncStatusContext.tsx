@@ -57,7 +57,7 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
             url.searchParams.append('accountId', currentAccount.id);
 
             const res = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount.id }
             });
 
             if (res.ok) {
@@ -68,7 +68,7 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
 
             // Also fetch persistent state
             const stateRes = await fetch(`/api/sync/status?accountId=${currentAccount.id}`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount.id }
             });
             if (stateRes.ok) {
                 const data = await stateRes.json();
@@ -121,7 +121,8 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
                 },
                 body: JSON.stringify({
                     accountId: currentAccount.id,
@@ -151,7 +152,8 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
                 },
                 body: JSON.stringify({
                     accountId: currentAccount.id,

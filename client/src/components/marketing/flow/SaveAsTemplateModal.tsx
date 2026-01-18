@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useAccount } from '../../../context/AccountContext';
 
 interface Props {
     content: string;
@@ -14,6 +15,7 @@ interface Props {
 
 export function SaveAsTemplateModal({ content, designJson, onSaved, onClose }: Props) {
     const { token } = useAuth();
+    const { currentAccount } = useAccount();
     const [name, setName] = useState('');
     const [subject, setSubject] = useState('');
     const [saving, setSaving] = useState(false);
@@ -33,7 +35,8 @@ export function SaveAsTemplateModal({ content, designJson, onSaved, onClose }: P
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
+                    'x-account-id': currentAccount?.id || ''
                 },
                 body: JSON.stringify({
                     name: name.trim(),

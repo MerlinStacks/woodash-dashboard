@@ -32,7 +32,7 @@ export function SyncStatus() {
 
         try {
             const res = await fetch(`/api/sync/status?accountId=${currentAccount.id}`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount.id }
             });
             if (res.ok) {
                 const data = await res.json();
@@ -64,7 +64,8 @@ export function SyncStatus() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
                 },
                 body: JSON.stringify({
                     accountId: currentAccount.id,

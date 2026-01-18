@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Layout, FileText, Loader2 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useAccount } from '../../../context/AccountContext';
 
 interface EmailTemplate {
     id: string;
@@ -22,15 +23,17 @@ interface Props {
 
 export function EmailTemplateSelectorModal({ onSelect, onClose }: Props) {
     const { token } = useAuth();
+    const { currentAccount } = useAccount();
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
     useEffect(() => {
         const fetchTemplates = async () => {
+            if (!currentAccount) return;
             try {
                 const res = await fetch('/api/marketing/templates', {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount.id }
                 });
                 if (res.ok) {
                     const data = await res.json();

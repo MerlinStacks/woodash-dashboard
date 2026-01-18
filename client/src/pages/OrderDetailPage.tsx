@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { usePermissions } from '../hooks/usePermissions';
-import { formatDate } from '../utils/format';
+import { formatDate, fixMojibake } from '../utils/format';
 import { ArrowLeft, User, MapPin, Mail, Phone, Package, CreditCard, RefreshCw, Printer, TrendingUp, Globe, Smartphone, Monitor, Tablet, Tag, X, ChevronDown, ChevronUp, Palette, FileText, Image as ImageIcon, Settings } from 'lucide-react';
 import { generateInvoicePDF } from '../utils/InvoiceGenerator';
 import { Modal } from '../components/ui/Modal';
@@ -567,8 +567,8 @@ function OrderMetaSection({ metaData, onImageClick }: { metaData: any[], onImage
             color: 'text-purple-700',
             bgColor: 'bg-purple-50 border-purple-200',
             items: variations.map(m => ({
-                key: m.display_key || m.key.replace('pa_', '').replace(/_/g, ' '),
-                value: m.display_value || m.value,
+                key: fixMojibake(m.display_key || m.key.replace('pa_', '').replace(/_/g, ' ')),
+                value: fixMojibake(m.display_value || m.value),
                 imageUrl: null
             }))
         });
@@ -582,8 +582,8 @@ function OrderMetaSection({ metaData, onImageClick }: { metaData: any[], onImage
             color: 'text-blue-700',
             bgColor: 'bg-blue-50 border-blue-200',
             items: customFields.map(m => ({
-                key: m.display_key || m.key.replace(/_/g, ' '),
-                value: m.display_value || m.value,
+                key: fixMojibake(m.display_key || m.key.replace(/_/g, ' ')),
+                value: fixMojibake(m.display_value || m.value),
                 imageUrl: null
             }))
         });
@@ -597,8 +597,8 @@ function OrderMetaSection({ metaData, onImageClick }: { metaData: any[], onImage
             color: 'text-amber-700',
             bgColor: 'bg-amber-50 border-amber-200',
             items: uploads.map(m => ({
-                key: m.display_key || m.key.replace(/_/g, ' '),
-                value: m.display_value || m.value,
+                key: fixMojibake(m.display_key || m.key.replace(/_/g, ' ')),
+                value: fixMojibake(m.display_value || m.value),
                 imageUrl: extractImageUrl(m.value)
             }))
         });

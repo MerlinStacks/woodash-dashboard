@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock, MapPin, User, Mail, Phone, CreditCard, Copy, ExternalLink, X, TrendingUp, Globe, Smartphone, Monitor, Tablet, Tag } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { fixMojibake } from '../../utils/format';
 
 interface OrderApiLineItem {
     id: string;
@@ -246,7 +247,7 @@ export function MobileOrderDetail() {
                                             return (
                                                 <div key={idx} className="text-xs">
                                                     <span className="font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                                                        {meta.key}:
+                                                        {fixMojibake(meta.key)}:
                                                     </span>
                                                     {imageUrl ? (
                                                         <button
@@ -260,7 +261,7 @@ export function MobileOrderDetail() {
                                                             />
                                                         </button>
                                                     ) : (
-                                                        <span className="ml-1 text-gray-700">{meta.value}</span>
+                                                        <span className="ml-1 text-gray-700">{fixMojibake(meta.value)}</span>
                                                     )}
                                                 </div>
                                             );
