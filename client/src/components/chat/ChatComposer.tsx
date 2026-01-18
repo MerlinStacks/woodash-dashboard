@@ -56,8 +56,12 @@ interface ChatComposerProps {
     onGenerateAIDraft: () => void;
     // File upload
     isUploading: boolean;
+    uploadProgress?: number;
     onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     fileInputRef: React.RefObject<HTMLInputElement | null>;
+    // Staged attachments
+    stagedAttachments?: File[];
+    onRemoveAttachment?: (index: number) => void;
     // Scheduling
     onOpenSchedule: () => void;
     // Channel selection
@@ -96,8 +100,11 @@ export function ChatComposer({
     isGeneratingDraft,
     onGenerateAIDraft,
     isUploading,
+    uploadProgress = 0,
     onFileUpload,
     fileInputRef,
+    stagedAttachments = [],
+    onRemoveAttachment,
     onOpenSchedule,
     availableChannels,
     currentChannel,
@@ -263,6 +270,51 @@ export function ChatComposer({
                     cannedPickerOpen={showCanned}
                 />
 
+                {/* Staged Attachments Pills */}
+                {stagedAttachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2 px-1">
+                        {stagedAttachments.map((file, index) => (
+                            <div
+                                key={`${file.name}-${index}`}
+                                className="group inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-white border border-blue-200 rounded-full text-sm shadow-sm"
+                            >
+                                <Paperclip size={14} className="text-blue-500" />
+                                <span className="text-gray-700 max-w-[150px] truncate">{file.name}</span>
+                                <span className="text-xs text-gray-400">
+                                    ({(file.size / 1024).toFixed(0)}KB)
+                                </span>
+                                {onRemoveAttachment && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onRemoveAttachment(index)}
+                                        disabled={isUploading}
+                                        className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                                        title="Remove attachment"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Upload Progress Bar */}
+                {isUploading && uploadProgress > 0 && (
+                    <div className="mt-2 px-1 space-y-1">
+                        <div className="flex items-center justify-between text-xs text-gray-600">
+                            <span>Uploading attachments...</span>
+                            <span className="font-medium">{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-200"
+                                style={{ width: `${uploadProgress}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {/* Toolbar */}
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                     <div className="flex items-center gap-1">
@@ -292,12 +344,18 @@ export function ChatComposer({
                             onChange={onFileUpload}
                             className="hidden"
                             accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
+                            multiple
                         />
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isUploading}
-                            className="p-2 rounded-sm hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                            className={cn(
+                                "p-2 rounded-sm transition-colors disabled:opacity-50",
+                                stagedAttachments.length > 0
+                                    ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                    : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                            )}
                             title="Attach File"
                             aria-label="Attach file"
                         >
@@ -396,6 +454,6 @@ export function ChatComposer({
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

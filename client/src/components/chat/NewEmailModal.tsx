@@ -339,6 +339,7 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
                                 onChange={handleFileSelect}
                                 className="hidden"
                                 multiple
+                                accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
                             />
                         </div>
                     </div>

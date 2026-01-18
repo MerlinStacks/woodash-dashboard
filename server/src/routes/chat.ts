@@ -790,6 +790,83 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
             }
         });
 
+        // POST /:id/message-with-attachments - Send message with staged attachments
+        fastify.post<{ Params: { id: string } }>('/:id/message-with-attachments', async (request, reply) => {
+            try {
+                const conversationId = request.params.id;
+                const userId = request.user?.id;
+                const accountId = request.accountId;
+
+                if (!accountId || !userId) {
+                    return reply.code(401).send({ error: 'Unauthorized' });
+                }
+
+                // Parse multipart data
+                let content = '';
+                let type: 'AGENT' | 'SYSTEM' = 'AGENT';
+                let isInternal = false;
+                let emailAccountId: string | undefined;
+                const attachmentLinks: string[] = [];
+
+                if (request.isMultipart()) {
+                    const parts = request.parts();
+                    for await (const part of parts) {
+                        if (part.type === 'file') {
+                            // Save file with unique name
+                            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                            const ext = path.extname(part.filename || 'file');
+                            const filename = `${uniqueSuffix}${ext}`;
+                            const filePath = path.join(attachmentsDir, filename);
+
+                            const writeStream = fs.createWriteStream(filePath);
+                            for await (const chunk of part.file) {
+                                writeStream.write(chunk);
+                            }
+                            writeStream.end();
+
+                            const attachmentUrl = `/uploads/attachments/${filename}`;
+                            attachmentLinks.push(`[${part.filename}](${attachmentUrl})`);
+                        } else {
+                            // Handle form fields
+                            const value = (part as any).value as string;
+                            switch (part.fieldname) {
+                                case 'content':
+                                    content = value;
+                                    break;
+                                case 'type':
+                                    type = value as 'AGENT' | 'SYSTEM';
+                                    break;
+                                case 'isInternal':
+                                    isInternal = value === 'true';
+                                    break;
+                                case 'emailAccountId':
+                                    emailAccountId = value;
+                                    break;
+                            }
+                        }
+                    }
+                }
+
+                // Combine content with attachment links
+                let fullContent = content;
+                if (attachmentLinks.length > 0) {
+                    fullContent += '\n\n**Attachments:**\n' + attachmentLinks.join('\n');
+                }
+
+                // Add message to conversation
+                const msg = await chatService.addMessage(conversationId, fullContent, type, userId, isInternal);
+
+                return {
+                    success: true,
+                    message: msg,
+                    attachmentCount: attachmentLinks.length
+                };
+            } catch (error) {
+                Logger.error('Failed to send message with attachments', { error });
+                return reply.code(500).send({ error: 'Failed to send message with attachments' });
+            }
+        });
+
         // --- Blocked Contacts ---
         fastify.post('/block', async (request, reply) => {
             try {

@@ -492,42 +492,59 @@ export const MessageBubble = memo(function MessageBubble({
                         )}
                     </div>
 
-                    {/* Attachments (if any) */}
+                    {/* Attachments as compact pills */}
                     {attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
+                        <div className="flex flex-wrap gap-2 mt-2">
                             {attachments.map((attachment, idx) => (
                                 attachment.type === 'image' && attachment.url ? (
-                                    // Image thumbnail
+                                    // Image thumbnail pill
                                     <button
                                         key={idx}
                                         onClick={() => onImageClick?.(attachment.url)}
-                                        className="relative group bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
+                                        className="group flex items-center gap-2 pl-1 pr-3 py-1 bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-full shadow-sm hover:shadow hover:border-gray-300 transition-all"
                                     >
                                         <img
                                             src={attachment.url}
                                             alt={attachment.filename}
-                                            className="w-16 h-16 object-cover"
+                                            className="w-6 h-6 object-cover rounded-full ring-1 ring-gray-200"
                                         />
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                            <Eye size={16} className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md" />
-                                        </div>
+                                        <span className="text-xs text-gray-600 max-w-[100px] truncate group-hover:text-gray-900">
+                                            {attachment.filename}
+                                        </span>
+                                        <Eye size={12} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
                                     </button>
                                 ) : (
-                                    // File attachment
+                                    // File attachment pill
                                     <a
                                         key={idx}
                                         href={attachment.url || '#'}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        download={attachment.filename}
                                         className={cn(
-                                            "inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-xs",
-                                            !attachment.url && "pointer-events-none"
+                                            "group inline-flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm transition-all",
+                                            attachment.type === 'pdf'
+                                                ? "bg-gradient-to-r from-red-50 to-white border border-red-200 hover:border-red-300 hover:shadow"
+                                                : attachment.type === 'document'
+                                                    ? "bg-gradient-to-r from-blue-50 to-white border border-blue-200 hover:border-blue-300 hover:shadow"
+                                                    : "bg-gradient-to-r from-gray-50 to-white border border-gray-200 hover:border-gray-300 hover:shadow",
+                                            !attachment.url && "opacity-60 pointer-events-none"
                                         )}
                                     >
-                                        <AttachmentIcon type={attachment.type} />
-                                        <span className="text-gray-700 max-w-[120px] truncate">{attachment.filename}</span>
-                                        {attachment.url && <Download size={10} className="text-gray-400" />}
-                                        {!attachment.url && <Paperclip size={10} className="text-gray-400" />}
+                                        <span className={cn(
+                                            "p-1 rounded-full",
+                                            attachment.type === 'pdf' ? "bg-red-100" : attachment.type === 'document' ? "bg-blue-100" : "bg-gray-100"
+                                        )}>
+                                            <AttachmentIcon type={attachment.type} />
+                                        </span>
+                                        <span className="text-xs text-gray-700 max-w-[120px] truncate font-medium group-hover:text-gray-900">
+                                            {attachment.filename}
+                                        </span>
+                                        {attachment.url ? (
+                                            <Download size={12} className="text-gray-400 group-hover:text-green-500 transition-colors" />
+                                        ) : (
+                                            <Paperclip size={12} className="text-gray-400" />
+                                        )}
                                     </a>
                                 )
                             ))}
