@@ -2,6 +2,82 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2026-01-19
+
+### 💬 Unified Chat & Inbox System
+- **ChatWindow Component**: Full-featured chat interface with real-time message display, attachment support, and conversation management.
+- **MessageBubble Component**: Email-style message rendering with quoted content detection, collapsible threads, and attachment pills.
+- **Multi-Channel Composer**: Unified composition for chat, email, and SMS with "From" account selection.
+- **File Attachments**: Drag-and-drop file uploads with XHR progress tracking and staged-upload model.
+- **AI Draft Generation**: One-click AI-powered response drafts in the inbox composer.
+- **Canned Responses**: Rich-text templates with editable labels for rapid agent replies.
+
+### 🧾 Invoice Designer & Rendering
+- **Drag-and-Drop Canvas**: Visual invoice builder with `react-grid-layout` for flexible component placement.
+- **Dynamic Data Binding**: Template variables for order, customer, and line item data.
+- **PDF Generation**: jsPDF-based renderer with synchronized preview-to-output layout.
+- **Print Styling**: Clean print media queries for professional invoice output.
+
+### 📧 Email Service Infrastructure
+- **SchedulerService**: Orchestrates background tasks including IMAP polling, digest reports, and marketing automations.
+- **EmailService**: Unified SMTP/IMAP handling with parallel polling and exponential backoff.
+- **Unified Email Settings**: Consolidated SMTP/IMAP configuration into single account entries.
+- **NewEmailModal**: Full composition modal with file attachments and rich text editing.
+
+### 📱 PWA & Mobile Enhancements
+- **MobileInventory Component**: Touch-optimized product management with search, low stock filtering, and list/grid views.
+- **Avatar Upload**: Profile photo upload directly from mobile PWA.
+- **Order Details (Mobile)**: Full order management parity between desktop and PWA.
+- **Share Target Handling**: PWA can receive shared content from native apps.
+
+### 🚀 Account Onboarding Wizard
+- **Multi-Step Setup Flow**: Guided wizard for WooCommerce, tracking plugin, email, and ad account integration.
+- **Demo Store Persistence**: Frictionless exploration mode before full account configuration.
+- **Skip-Enabled Steps**: Each wizard step can be skipped for flexible onboarding.
+
+### 🔔 Notification & Push System
+- **Push Diagnostics Page**: Admin interface for subscription testing and notification debugging.
+- **Account Isolation Fix**: Desktop notifications now correctly filtered by user's account ID.
+- **10-Minute Auto-Dismiss**: Push notifications automatically clear after timeout.
+
+### ⚡ Performance Optimizations
+- **OrderSync OOM Resolution**: Batch processing prevents memory exhaustion during large syncs.
+- **PicklistService N+1 Fix**: Bulk product/BOM fetching eliminates query explosion.
+- **EmbeddingService Batching**: Aggregated API calls for vector embedding updates.
+- **TrackingService Cleanup**: Non-blocking event loop for rate limit maintenance.
+- **ProductSync Batch Delete**: Efficient reconciliation with `deleteMany` operations.
+- **Customer Count Optimization**: Reduced DB calls during order count recalculation.
+- **Variation Updates**: Parallelized product variation syncs in ProductsService.
+
+### 🔒 Security & Stability
+- **Customer Lookup Fix**: Blocked cross-account customer data access vulnerability.
+- **Chat Widget Escaping**: Proper JS escaping prevents injection from user-provided content.
+- **Inbox AI Policy Caching**: TTL-based caching with route-based invalidation.
+
+### ✨ Additional Enhancements
+- **BOM Self-Linking Prevention**: UI blocks circular BOM references with inventory route validation.
+- **Gold Price Types**: Configurable precious metal pricing with margin settings.
+- **Miscellaneous Costs Field**: Repeatable additional costs on products and variations.
+- **Tax Inclusive Revenue**: Account-level setting for gross revenue reporting.
+- **Payment Fees in Profitability**: Gateway fees now included in profit calculations.
+- **Search Relevance Ranking**: Improved result ordering across all search UIs.
+- **Ad Groups Fetching**: Real Google Ads Ad Group data retrieval for campaigns.
+- **Sentry Integration**: Client-side error monitoring with automatic reporting.
+- **Active Visitors Widget**: 24-hour visitor total displayed below real-time count.
+
+### 🐛 Bug Fixes
+- **Inbox Sidebar Timing**: Fixed conversation update time showing incorrect "distance to now".
+- **Attachment Display**: Attachments render as pills instead of inline markdown.
+- **Order Metadata Display**: Line breaks preserved and multi-image galleries rendered.
+- **TypeScript Build Errors**: Resolved type mismatches in OrderSync, Sentry, and inbox components.
+- **Vite React Resolution**: Fixed package resolution for React 19 compatibility.
+
+### ⚙️ Infrastructure
+- **Docker CI Enhancement**: Multi-service health verification in deployment pipeline.
+- **Build Verification**: All services tested and healthy in Docker environment.
+
+---
+
 ## [2.0.1] - 2026-01-17
 
 ### ✨ Enhancements
