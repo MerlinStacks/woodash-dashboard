@@ -38,7 +38,11 @@ export class ChatService {
             include: {
                 wooCustomer: true,
                 assignee: { select: { id: true, fullName: true, avatarUrl: true } },
-                messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+                messages: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 10,
+                    select: { content: true, createdAt: true, senderType: true }
+                },
                 _count: { select: { messages: true } }
             },
             orderBy: { updatedAt: 'desc' }
@@ -202,7 +206,7 @@ export class ChatService {
         this.io.to(`account:${conversation.accountId}`).emit('conversation:updated', {
             id: conversationId,
             lastMessage: message,
-            updatedAt: new Date()
+            updatedAt: message.createdAt
         });
 
         // Only handle autoreplies and push notifications for non-blocked customers

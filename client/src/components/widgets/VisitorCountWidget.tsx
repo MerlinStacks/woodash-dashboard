@@ -8,40 +8,57 @@ import { WidgetProps } from './WidgetRegistry';
 /**
  * Compact widget displaying the current count of live visitors.
  * Polls the tracking API every 10 seconds for real-time updates.
+ * Also shows total visitors in the last 24 hours.
  */
 export function VisitorCountWidget(_props: WidgetProps) {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
 
     const [count, setCount] = useState<number>(0);
+    const [visitors24h, setVisitors24h] = useState<number>(0);
     const [loading, setLoading] = useState(true);
 
-    const fetchCount = useCallback(async () => {
+    const fetchData = useCallback(async () => {
         if (!currentAccount || !token) return;
 
         try {
-            const res = await fetch('/api/tracking/live', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'x-account-id': currentAccount.id
-                }
-            });
-            if (res.ok) {
-                const data = await res.json();
+            // Fetch live visitors and 24h stats in parallel
+            const [liveRes, statsRes] = await Promise.all([
+                fetch('/api/tracking/live', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'x-account-id': currentAccount.id
+                    }
+                }),
+                fetch('/api/tracking/stats?days=1', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'x-account-id': currentAccount.id
+                    }
+                })
+            ]);
+
+            if (liveRes.ok) {
+                const data = await liveRes.json();
                 setCount(Array.isArray(data) ? data.length : 0);
             }
+
+            if (statsRes.ok) {
+                const statsData = await statsRes.json();
+                setVisitors24h(statsData.totalSessions || 0);
+            }
         } catch (error) {
-            Logger.error('Failed to fetch live visitor count', { error: error });
+            Logger.error('Failed to fetch visitor data', { error: error });
         } finally {
             setLoading(false);
         }
     }, [currentAccount, token]);
 
     useEffect(() => {
-        fetchCount();
-        const interval = setInterval(fetchCount, 10000);
+        fetchData();
+        const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
-    }, [fetchCount]);
+    }, [fetchData]);
 
     return (
         <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-6 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)] border border-slate-200/60 dark:border-slate-700/50 flex flex-col h-full justify-center items-center relative overflow-hidden transition-all duration-300 hover:shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_10px_40px_rgba(0,0,0,0.3)]">
@@ -62,6 +79,7 @@ export function VisitorCountWidget(_props: WidgetProps) {
                     <span className="text-5xl font-bold text-slate-900 dark:text-white tracking-tight">{count}</span>
                 )}
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">Active Visitors</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{visitors24h.toLocaleString()} in last 24h</p>
             </div>
 
             {/* Background Icon with gradient */}

@@ -50,19 +50,27 @@ export const generateInvoicePDF = async (order: OrderData, grid: any[], items: a
 
     const pageWidth = doc.internal.pageSize.getWidth(); // 210
 
-    // Grid System: 12 Cols
+    // Grid System: 12 Cols matching react-grid-layout
     const colWidth = pageWidth / 12;
-    // Row Height is virtual in RGL (e.g. 30px), we need to map y-coord to mm.
-    // Assuming 30px ~ 8mm roughly? or just relative.
-    // Let's approximate: RGL rowHeight=30. In 96dpi, 30px = 7.9mm.
+
+    // Row Height: RGL uses 30px. At 794px preview → 210mm PDF scale (0.264mm/px):
+    // 30px ≈ 7.9mm, rounding to 8mm
     const rowHeightMM = 8;
 
-    // Helper to get coordinates
+    // Margins: Match RGL margins [16, 8] (horizontal, vertical) in preview
+    // Scale: 794px preview → 210mm PDF = 0.264mm/px
+    // marginX: 16px * 0.264 ≈ 4.2mm
+    // marginY: 8px * 0.264 ≈ 2.1mm
+    const marginX = 4.2;
+    const marginY = 2.1;
+    const marginTop = 10; // Top page margin
+
+    // Helper to get coordinates - matches RGL positioning with margins
     const getRect = (item: InvoiceLayoutItem) => {
         return {
-            x: item.x * colWidth, // 0-12
-            y: item.y * rowHeightMM + 10, // Margin top 10mm
-            w: item.w * colWidth,
+            x: item.x * colWidth + marginX,
+            y: item.y * (rowHeightMM + marginY) + marginTop,
+            w: item.w * colWidth - marginX, // Account for inter-item gap
             h: item.h * rowHeightMM
         };
     };

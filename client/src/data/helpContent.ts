@@ -24,7 +24,7 @@ export interface HelpCollection {
     articles: HelpArticle[];
 }
 
-const LAST_UPDATED = '2026-01-14';
+const LAST_UPDATED = '2026-01-19';
 
 export const helpCollections: HelpCollection[] = [
     {
@@ -55,9 +55,18 @@ Instead of loading data from WooCommerce every time you click a page, OverSeek m
 
 ## Key Features
 - **Global Command Palette**: Press \`Cmd+K\` (or \`Ctrl+K\`) to navigate anywhere.
-- **In-Situ Picklists**: Generate picklists directly from the Orders page.
-- **Dynamic Gold Pricing**: Automatically update your product COGS based on live market data.
-- **SEO Health**: Get real-time feedback on your product listings.
+- **Customizable Dashboard**: Drag-and-drop widgets with 17+ analytics and operations options.
+- **Dark Mode**: Premium Glassmorphism design with full light/dark/system theme support.
+- **AI Marketing Co-Pilot**: Intelligent ad optimization with actionable recommendations.
+- **3-Tier Notifications**: In-app, real-time socket, and push notifications.
+- **Mobile PWA**: Full-featured companion app for on-the-go management.
+- **Team Management**: Invite team members with custom roles and granular permissions.
+
+## What's New in 2026
+- **Saved Views**: Filter presets for Orders and Customers pages
+- **Status Center**: Unified system health monitoring
+- **Revenue Anomaly Detection**: AI-powered alerts for unusual patterns
+- **Enhanced Inbox**: Multi-channel with AI drafts and attachment pills
 
 We hope you enjoy using OverSeek!`
             },
@@ -96,6 +105,220 @@ Perform quick actions directly from the palette:
 
 > [!TIP]
 > Use the **Up** and **Down** arrow keys to navigate results, and **Enter** to select.`
+            }
+        ]
+    },
+    {
+        id: 'col-dashboard-interface',
+        title: 'Dashboard & Interface',
+        slug: 'dashboard-interface',
+        description: 'Widgets, theming, layouts, and saved views.',
+        icon: 'LayoutDashboard',
+        order: 1,
+        articles: [
+            {
+                id: 'art-customizing-dashboard',
+                title: 'Customizing Your Dashboard',
+                slug: 'customizing-dashboard',
+                excerpt: 'Learn how to personalize your dashboard with drag-and-drop widgets.',
+                order: 0,
+                collectionSlug: 'dashboard-interface',
+                updatedAt: LAST_UPDATED,
+                content: `# Customizing Your Dashboard
+
+Your OverSeek dashboard is fully customizable. Add, remove, and rearrange widgets to create the perfect command center for your business.
+
+## Dashboard Modes
+
+### Locked Mode (Default)
+Widgets are fixed in place. This prevents accidental changes while working.
+
+### Unlocked Mode
+Click the **Lock** icon in the top-right to unlock. Now you can:
+- **Drag** widgets to reposition them
+- **Resize** widgets by grabbing corners
+- **Remove** widgets using the X button
+
+> [!TIP]
+> Changes are saved automatically when you lock the dashboard again.
+
+## Adding Widgets
+
+1. Unlock the dashboard
+2. Click **Add Widget**
+3. Browse the Widget Gallery
+4. Click a widget to add it
+
+## Widget Categories
+
+| Category | Examples |
+|----------|----------|
+| **Analytics** | Sales Chart, Revenue Trends, Traffic Sources |
+| **Operations** | Status Center, Recent Orders, Low Stock Alerts |
+| **Marketing** | AI Suggestions, Campaign Performance |
+| **Communication** | Unread Messages, Active Visitors |
+
+## Mobile Dashboard
+
+The mobile companion app uses a simplified, feed-style layout optimized for touch. Desktop layout changes do not affect mobile.`
+            },
+            {
+                id: 'art-dashboard-widgets',
+                title: 'Understanding Widgets',
+                slug: 'understanding-widgets',
+                excerpt: 'A guide to the 17+ dashboard widgets available in OverSeek.',
+                order: 1,
+                collectionSlug: 'dashboard-interface',
+                updatedAt: LAST_UPDATED,
+                content: `# Understanding Widgets
+
+OverSeek includes 17+ pre-built widgets to monitor every aspect of your business.
+
+## Core Widgets
+
+### Status Center
+A unified health monitor showing:
+- **Sync Status**: WooCommerce connection health
+- **Webhook Delivery**: Success/failure rates
+- **Queue Health**: Background job processing
+- **Revenue Alerts**: Anomaly detection warnings
+
+### Sales Chart
+Interactive revenue visualization with:
+- Daily, weekly, monthly views
+- Year-over-year comparison
+- Trend indicators (↑ green, ↓ red)
+
+### Active Visitors
+Real-time count of people browsing your store, with:
+- 24-hour visitor total
+- Active cart count
+- Potential revenue value
+
+### Total Sales
+Period summary showing:
+- Gross revenue
+- Order count
+- Average Order Value (AOV)
+
+## Analytics Widgets
+
+- **Traffic Sources**: Where visitors come from
+- **Conversion Funnel**: Cart → Checkout → Purchase rates
+- **Customer Cohorts**: Retention heatmaps
+- **Product Rankings**: Best and worst sellers
+
+## Operations Widgets
+
+- **Recent Orders**: Live order feed
+- **Low Stock Alerts**: Products below threshold
+- **Pending Actions**: Orders awaiting fulfillment
+
+## AI Widgets
+
+- **AI Suggestions**: Marketing recommendations
+- **Revenue Forecast**: Predictive sales modeling
+- **Anomaly Alerts**: Unusual pattern detection
+
+> [!NOTE]
+> Widget data respects your timezone settings. All aggregations use your local business day.`
+            },
+            {
+                id: 'art-dark-mode',
+                title: 'Dark Mode & Theming',
+                slug: 'dark-mode-theming',
+                excerpt: 'Switch between light, dark, and system themes.',
+                order: 2,
+                collectionSlug: 'dashboard-interface',
+                updatedAt: LAST_UPDATED,
+                content: `# Dark Mode & Theming
+
+OverSeek features a modern Glassmorphism design with full dark mode support.
+
+## Theme Options
+
+### Light Mode
+Bright backgrounds with high contrast. Best for:
+- Well-lit environments
+- Print-friendly viewing
+- Maximum readability
+
+### Dark Mode
+Rich dark backgrounds with subtle gradients. Best for:
+- Low-light environments
+- Reduced eye strain
+- Extended work sessions
+
+### System (Auto)
+Automatically matches your operating system preference. The theme switches when your OS changes between light and dark mode.
+
+## Switching Themes
+
+1. Click your **profile avatar** in the top-right
+2. Find the **Theme** toggle
+3. Click to cycle through: Light → Dark → System
+
+You can also access the theme toggle from **Settings > Appearance**.
+
+## Design Philosophy
+
+The 2026 interface uses "Premium Glassmorphism":
+- Translucent card backgrounds
+- Subtle blur effects
+- Smooth gradient accents
+- Micro-animations for feedback
+
+> [!TIP]
+> Your theme preference is saved and syncs across all your devices.`
+            },
+            {
+                id: 'art-saved-views',
+                title: 'Saved Views System',
+                slug: 'saved-views',
+                excerpt: 'Create and manage filter presets for Orders and Customers pages.',
+                order: 3,
+                collectionSlug: 'dashboard-interface',
+                updatedAt: LAST_UPDATED,
+                content: `# Saved Views System
+
+Saved Views let you create reusable filter presets for high-traffic pages like Orders and Customers.
+
+## What are Saved Views?
+
+Instead of manually setting filters every time, save your common filter combinations:
+- "Pending Shipments" → Status: Processing, Payment: Paid
+- "VIP Customers" → Order Count: 5+, Total Spent: $500+
+- "This Week's Orders" → Date: Last 7 days
+
+## Creating a Saved View
+
+1. Go to **Orders** or **Customers** page
+2. Apply your desired filters
+3. Click **Save View** in the filter bar
+4. Enter a name for your view
+5. Click **Save**
+
+## Using Saved Views
+
+1. Click the **Saved Views** dropdown
+2. Select your view
+3. Filters are instantly applied
+
+## Managing Views
+
+- **Rename**: Click the edit icon next to a view
+- **Delete**: Click the trash icon
+- **Reorder**: Drag views to change their order
+
+## Scope
+
+Saved Views are **account-specific**:
+- Each account has its own saved views
+- Team members share the same views within an account
+- Switching accounts loads that account's views
+
+> [!NOTE]
+> Views are stored locally in your browser. They persist across sessions but are not synced between devices.`
             }
         ]
     },
@@ -741,6 +964,408 @@ Each customer's profile shows their complete **Interaction Timeline**:
 - Site visits and activity
 
 This provides full context before responding.`
+            }
+        ]
+    },
+    {
+        id: 'col-team-account',
+        title: 'Team & Account',
+        slug: 'team-account',
+        description: 'Setup wizard, team management, roles, and permissions.',
+        icon: 'Users',
+        order: 7,
+        articles: [
+            {
+                id: 'art-setup-wizard',
+                title: 'Account Setup Wizard',
+                slug: 'account-setup-wizard',
+                excerpt: 'A guided walkthrough for connecting your WooCommerce store and integrations.',
+                order: 0,
+                collectionSlug: 'team-account',
+                updatedAt: LAST_UPDATED,
+                content: `# Account Setup Wizard
+
+The Setup Wizard guides you through connecting OverSeek to your WooCommerce store and optional integrations.
+
+## When Does It Run?
+
+The wizard appears automatically when:
+- You create your first account
+- You add a new store via the Account Switcher
+
+## Wizard Steps
+
+### Step 1: WooCommerce Connection
+Connect your store using API credentials:
+1. Enter your **Store URL** (e.g., https://mystore.com)
+2. Provide your **Consumer Key** and **Consumer Secret**
+3. Click **Verify Connection**
+
+> [!TIP]
+> Generate API keys in WooCommerce > Settings > Advanced > REST API.
+
+### Step 2: Tracking Plugin
+Install the OverSeek tracking plugin on your WordPress site:
+- Enables visitor tracking
+- Powers abandoned cart recovery
+- Connects live chat widget
+
+### Step 3: Email Configuration (Optional)
+Configure SMTP for sending emails:
+- Order notifications
+- Marketing campaigns
+- Automated workflows
+
+### Step 4: Ad Platforms (Optional)
+Connect advertising accounts:
+- Google Ads
+- Meta (Facebook/Instagram) Ads
+
+## Skipping Steps
+
+Every step has a **Skip for now** option. You can complete setup later from Settings.
+
+## Demo Mode
+
+If you skip WooCommerce connection, a **Demo Store** with sample data is created automatically. This lets you explore the platform before connecting your real store.`
+            },
+            {
+                id: 'art-team-management',
+                title: 'Team Management & Invitations',
+                slug: 'team-management',
+                excerpt: 'Invite team members and manage access to your account.',
+                order: 1,
+                collectionSlug: 'team-account',
+                updatedAt: LAST_UPDATED,
+                content: `# Team Management
+
+Collaborate with your team by inviting members to your OverSeek account.
+
+## Accessing Team Settings
+
+Go to **Settings > Team** to manage your team.
+
+## Inviting Members
+
+1. Click **Invite Team Member**
+2. Enter their **email address**
+3. Select a **role** (Admin, Staff, or Viewer)
+4. Click **Send Invitation**
+
+The invitee receives an email with a link to join your account.
+
+## Role Hierarchy
+
+| Role | Capabilities |
+|------|-------------|
+| **Owner** | Full access. Cannot be removed. Only one per account. |
+| **Admin** | Full access except ownership transfer. Can manage team. |
+| **Staff** | Operational access. Can view and edit orders, customers, conversations. |
+| **Viewer** | Read-only access. Can view but not modify data. |
+
+## Managing Existing Members
+
+From the Team page:
+- **Change Role**: Click the role dropdown next to a member
+- **Remove Member**: Click the trash icon (requires confirmation)
+
+## Pending Invitations
+
+View and resend pending invitations. Invitations expire after 7 days.
+
+> [!NOTE]
+> Team members can belong to multiple accounts. Each account has its own role assignment.`
+            },
+            {
+                id: 'art-custom-roles',
+                title: 'Custom Roles & Permissions',
+                slug: 'custom-roles-permissions',
+                excerpt: 'Create granular permission sets for your team.',
+                order: 2,
+                collectionSlug: 'team-account',
+                updatedAt: LAST_UPDATED,
+                content: `# Custom Roles & Permissions
+
+For advanced access control, create custom roles with specific permission sets.
+
+## Accessing the Roles Manager
+
+Go to **Settings > Roles** to create and manage custom roles.
+
+## Creating a Custom Role
+
+1. Click **New Role**
+2. Enter a **Role Name** (e.g., "Support Agent")
+3. Configure **Permissions** using the toggles
+4. Click **Save**
+
+## Permission Categories
+
+### Commerce
+- View Orders
+- Edit Orders
+- Process Refunds
+- Manage Products
+- View Analytics
+
+### Communication
+- Access Inbox
+- Send Messages
+- Manage Canned Responses
+
+### Marketing
+- View Campaigns
+- Create Campaigns
+- Manage Automations
+
+### Settings
+- View Settings
+- Edit Settings
+- Manage Team
+
+## Assigning Custom Roles
+
+When assigning a role to a team member:
+1. Select **Staff** as the base role
+2. Choose your **Custom Role** from the dropdown
+3. The custom role's permissions override the default Staff permissions
+
+## Permission Hierarchy
+
+Permissions are resolved in this order:
+1. **Owner/Admin**: Always has full access
+2. **Custom Role**: Applied to Staff members
+3. **User Overrides**: Individual exceptions (coming soon)
+
+> [!IMPORTANT]
+> Only Owners and Admins can create and assign custom roles.`
+            },
+            {
+                id: 'art-user-profile',
+                title: 'User Profile & Sessions',
+                slug: 'user-profile-sessions',
+                excerpt: 'Manage your personal settings, security, and active sessions.',
+                order: 3,
+                collectionSlug: 'team-account',
+                updatedAt: LAST_UPDATED,
+                content: `# User Profile & Sessions
+
+Your profile contains personal settings that apply across all accounts you belong to.
+
+## Accessing Your Profile
+
+Click your **avatar** in the top-right, then select **Profile**.
+
+## Personal Information
+
+Update your:
+- **Display Name**: Shown in conversations and activity logs
+- **Email Address**: Used for login and notifications
+- **Avatar**: Upload a profile picture
+
+## Security Settings
+
+### Change Password
+1. Enter your current password
+2. Enter and confirm your new password
+3. Click **Update Password**
+
+### Two-Factor Authentication (2FA)
+Add an extra layer of security:
+1. Click **Enable 2FA**
+2. Scan the QR code with an authenticator app
+3. Enter the verification code
+4. Save your **backup codes** securely
+
+### Active Sessions
+View all devices where you're currently logged in:
+- **Device Type**: Desktop, Mobile, Tablet
+- **Location**: Approximate location based on IP
+- **Last Active**: When the session was last used
+
+Click **Revoke** to log out of a specific session.
+
+## Notification Preferences
+
+Control how you receive notifications:
+- **Email Notifications**: Digest summaries, alerts
+- **Push Notifications**: Real-time browser/mobile alerts
+- **Sound Alerts**: Audio notifications for new messages
+
+> [!TIP]
+> Revoking all sessions is useful if you suspect your account was compromised.`
+            }
+        ]
+    },
+    {
+        id: 'col-notifications',
+        title: 'Notifications',
+        slug: 'notifications',
+        description: 'Push notifications, alerts, and notification preferences.',
+        icon: 'Bell',
+        order: 8,
+        articles: [
+            {
+                id: 'art-notification-overview',
+                title: 'Notification System Overview',
+                slug: 'notification-system-overview',
+                excerpt: 'Understanding the three-tier notification architecture.',
+                order: 0,
+                collectionSlug: 'notifications',
+                updatedAt: LAST_UPDATED,
+                content: `# Notification System Overview
+
+OverSeek uses a three-tier notification system to ensure you never miss important events.
+
+## The Three Tiers
+
+### 1. In-App Notifications
+Displayed in the **Status Center** widget and notification bell:
+- Always available when logged in
+- Full history of events
+- Mark as read/unread
+
+### 2. Real-Time Socket Notifications
+Instant updates while the dashboard is open:
+- New messages appear immediately
+- Order alerts flash in widgets
+- No page refresh needed
+
+### 3. Web Push Notifications
+Delivered even when OverSeek is closed:
+- Works on desktop and mobile browsers
+- Appears in your system notification center
+- Click to open the relevant page
+
+## Notification Types
+
+| Category | Examples |
+|----------|----------|
+| **Orders** | New order, status change, refund requested |
+| **Messages** | New inbox message, chat initiated |
+| **Inventory** | Low stock alert, stockout warning |
+| **Marketing** | Campaign completed, ad performance alert |
+| **System** | Sync failure, integration disconnected |
+
+## Account Isolation
+
+Notifications are strictly isolated per account:
+- Switching accounts shows different notifications
+- Multi-account users only see relevant alerts
+- No cross-account data leakage
+
+> [!NOTE]
+> High-priority notifications (sync failures, stockouts) are marked with red badges.`
+            },
+            {
+                id: 'art-push-notifications',
+                title: 'Configuring Push Notifications',
+                slug: 'configuring-push-notifications',
+                excerpt: 'Enable browser and mobile push notifications.',
+                order: 1,
+                collectionSlug: 'notifications',
+                updatedAt: LAST_UPDATED,
+                content: `# Configuring Push Notifications
+
+Push notifications keep you informed even when OverSeek isn't open.
+
+## Enabling Push Notifications
+
+### Desktop Browsers
+1. Go to **Settings > Notifications**
+2. Click **Enable Push Notifications**
+3. Your browser will ask for permission—click **Allow**
+4. You'll receive a test notification confirming setup
+
+### Mobile (PWA)
+1. Add OverSeek to your home screen
+2. Open the app and go to Settings
+3. Enable push notifications
+4. Allow when prompted by your device
+
+## Notification Categories
+
+Toggle which events trigger push notifications:
+
+| Category | Default |
+|----------|---------|
+| New Messages | ✓ On |
+| New Orders | ✓ On |
+| Low Stock Alerts | ✓ On |
+| Sync Failures | ✓ On |
+| Marketing Alerts | Off |
+
+## Troubleshooting
+
+### Not Receiving Notifications?
+
+1. **Check Browser Permissions**: Look for the lock icon in the address bar
+2. **Check System Settings**: Ensure your OS allows browser notifications
+3. **Check Do Not Disturb**: Disable DND mode on your device
+4. **Re-enable**: Try disabling and re-enabling in Settings
+
+### Notifications Delayed?
+
+Push notifications rely on background service workers. If your browser is closed completely, notifications may be delayed until you reopen it.
+
+> [!TIP]
+> Keep at least one browser tab open for instant notifications.`
+            },
+            {
+                id: 'art-desktop-preferences',
+                title: 'Desktop Notification Preferences',
+                slug: 'desktop-notification-preferences',
+                excerpt: 'Fine-tune notification behavior and auto-dismissal settings.',
+                order: 2,
+                collectionSlug: 'notifications',
+                updatedAt: LAST_UPDATED,
+                content: `# Desktop Notification Preferences
+
+Customize how notifications appear and behave on your desktop.
+
+## Notification Display
+
+### Notification Style
+- **Banner**: Brief notification that disappears automatically
+- **Alert**: Stays until dismissed (for high-priority events)
+
+### Sound Settings
+- **Notification Sound**: Toggle audio alerts
+- **Sound Type**: Choose from several notification tones
+- **Volume**: Adjust notification volume
+
+## Auto-Dismissal
+
+Notifications automatically disappear after a set time:
+- **Default**: 10 minutes for standard notifications
+- **High Priority**: Requires manual dismissal
+- **Snooze Expiry**: Persists until acknowledged
+
+## Grouping & Stacking
+
+When multiple notifications arrive quickly:
+- Similar notifications are **grouped** by conversation
+- New messages update existing notification badges
+- Click to see all grouped items
+
+## Assignment Filtering
+
+For team environments:
+- **My Assignments Only**: Only see notifications for conversations assigned to you
+- **All Team**: See all account notifications
+- **Mentions Only**: Only when you're @mentioned
+
+## Quiet Hours
+
+Set times when notifications are muted:
+1. Go to **Settings > Notifications > Quiet Hours**
+2. Set **Start** and **End** times
+3. Choose which days to apply
+
+During quiet hours, notifications are still logged but won't trigger alerts.
+
+> [!IMPORTANT]
+> High-priority alerts (sync failures, stockouts) bypass quiet hours by default.`
             }
         ]
     },

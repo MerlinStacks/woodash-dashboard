@@ -187,6 +187,15 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
     };
 
+    /**
+     * Gets the timestamp of the last CUSTOMER message for display.
+     * Falls back to last message or updatedAt if no customer message found.
+     */
+    const getLastCustomerMessageTime = (conv: Conversation): string => {
+        const lastCustomerMsg = conv.messages.find(m => m.senderType === 'CUSTOMER');
+        return lastCustomerMsg?.createdAt || conv.messages[0]?.createdAt || conv.updatedAt;
+    };
+
     const getPreview = (conv: Conversation) => {
         const lastMsg = conv.messages[0];
         if (!lastMsg) return { subject: null, preview: 'No messages' };
@@ -418,7 +427,7 @@ export function ConversationList({ conversations, selectedId, onSelect, currentU
                                             )}>{name}</span>
                                         </div>
                                         <span className="text-xs text-gray-400 whitespace-nowrap shrink-0">
-                                            {formatDistanceToNow(new Date(conv.updatedAt), { addSuffix: false })}
+                                            {formatDistanceToNow(new Date(getLastCustomerMessageTime(conv)), { addSuffix: false })}
                                         </span>
                                     </div>
 
