@@ -105,7 +105,8 @@ export const ReviewsPage = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                     'X-Account-ID': currentAccount.id
-                }
+                },
+                body: JSON.stringify({})
             });
 
             if (!res.ok) throw new Error('Rematch failed');

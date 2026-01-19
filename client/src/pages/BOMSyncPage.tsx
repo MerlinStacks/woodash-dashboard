@@ -153,7 +153,8 @@ export function BOMSyncPage() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                     'x-account-id': currentAccount.id
-                }
+                },
+                body: JSON.stringify({})
             });
 
             if (res.ok) {
