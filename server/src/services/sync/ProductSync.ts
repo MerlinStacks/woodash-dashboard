@@ -180,6 +180,18 @@ export class ProductSync extends BaseSync {
 
                     if (variations.length === 0) continue;
 
+                    // Update parent rawData to include variationsData (for ProductsService.getProductByWooId)
+                    const parentRawData = (parentDbProduct.rawData as any) || {};
+                    await prisma.wooProduct.update({
+                        where: { id: parentDbProduct.id },
+                        data: {
+                            rawData: {
+                                ...parentRawData,
+                                variationsData: rawVariations
+                            } as any
+                        }
+                    });
+
                     // Track for reconciliation
                     for (const v of variations) {
                         wooVariationIds.add(`${parentDbProduct.id}:${v.id}`);
