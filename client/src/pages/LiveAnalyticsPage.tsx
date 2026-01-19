@@ -1,8 +1,9 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Logger } from '../utils/logger';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
+import { useVisibilityPolling } from '../hooks/useVisibilityPolling';
 import { Globe, LayoutDashboard, Link, FileText, MousePointer, LogOut, LogIn, History, Search, AlertTriangle } from 'lucide-react';
 import { getDateRange } from '../utils/dateUtils';
 import { LiveSession } from '../types/analytics';
@@ -55,15 +56,23 @@ export function LiveAnalyticsPage() {
     // Date Range (Simple for now: today, 7d, 30d) - Defaults to today
     const [dateRange, setDateRange] = useState('today');
 
-    useEffect(() => {
+    // Memoized fetch function for visibility polling
+    const fetchLiveData = useCallback(async () => {
         if (!currentAccount || !token) return;
-
-        // Poll Live Data regardless of view
-        fetchLiveData();
-        const interval = setInterval(fetchLiveData, 5000);
-
-        return () => clearInterval(interval);
+        try {
+            const [vRes, cRes] = await Promise.all([
+                fetch('/api/tracking/live', { headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount.id } }),
+                fetch('/api/tracking/carts', { headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount.id } })
+            ]);
+            if (vRes.ok) setVisitors(await vRes.json());
+            if (cRes.ok) setCarts(await cRes.json());
+        } catch (e) {
+            Logger.error('An error occurred', { error: e });
+        }
     }, [currentAccount, token]);
+
+    // Visibility-aware polling: pauses when tab is hidden to save resources
+    useVisibilityPolling(fetchLiveData, 5000, [fetchLiveData]);
 
     useEffect(() => {
         // Fetch Report Data when view changes
@@ -71,20 +80,6 @@ export function LiveAnalyticsPage() {
             fetchReport(activeView);
         }
     }, [activeView, dateRange, currentAccount]);
-
-    async function fetchLiveData() {
-        try {
-            const [vRes, cRes] = await Promise.all([
-                fetch('/api/tracking/live', { headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount!.id } }),
-                fetch('/api/tracking/carts', { headers: { Authorization: `Bearer ${token}`, 'x-account-id': currentAccount!.id } })
-            ]);
-            if (vRes.ok) setVisitors(await vRes.json());
-            if (cRes.ok) setCarts(await cRes.json());
-        } catch (e) {
-            Logger.error('An error occurred', { error: e });
-        }
-        // finally { setLoadingLive(false); }
-    }
 
     async function fetchReport(viewId: string) {
         setLoadingReport(true);

@@ -3,6 +3,7 @@ import { Logger } from '../utils/logger';
 import { useAccount } from './AccountContext';
 import { useAuth } from './AuthContext';
 import { useSocket } from './SocketContext';
+import { useVisibilityPolling } from '../hooks/useVisibilityPolling';
 
 export interface SyncJob {
     id: string;
@@ -102,17 +103,8 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
         };
     }, [socket, fetchStatus]);
 
-    // Fallback polling (reduced from 2s to 30s since we have real-time events now)
-    useEffect(() => {
-        if (!currentAccount?.id || !token) return;
-
-        // Initial fetch
-        fetchStatus();
-
-        // Poll every 30 seconds as fallback for missed events
-        const interval = setInterval(fetchStatus, 30000);
-        return () => clearInterval(interval);
-    }, [currentAccount?.id, token, fetchStatus]);
+    // Visibility-aware fallback polling (reduced from 2s to 30s since we have real-time events now)
+    useVisibilityPolling(fetchStatus, 30000, [fetchStatus]);
 
     const controlSync = async (action: 'pause' | 'resume' | 'cancel', queueName?: string, jobId?: string) => {
         if (!currentAccount?.id || !token) return;

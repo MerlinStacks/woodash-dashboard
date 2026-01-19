@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Logger } from '../../utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, DollarSign, ShoppingCart, Users, Eye, ArrowUpRight, ArrowDownRight, ChevronRight } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { getDateRange, getComparisonRange, DateRangeOption } from '../../utils/dateUtils';
 import { formatCurrency, formatCompact } from '../../utils/format';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 
 interface AnalyticsData {
     revenue: { value: number; change: number };
@@ -29,30 +30,27 @@ export function MobileAnalytics() {
         fetchAnalytics();
     }, [currentAccount, period, token]);
 
-    // Auto-refresh live visitor count every 30 seconds
-    useEffect(() => {
+    // Memoized fetch for live count polling
+    const fetchLiveCount = useCallback(async () => {
         if (!currentAccount || !token) return;
-
-        const fetchLiveCount = async () => {
-            try {
-                const res = await fetch('/api/analytics/visitors/log?live=true&limit=1', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'X-Account-ID': currentAccount.id
-                    }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setLiveCount(data.total || 0);
+        try {
+            const res = await fetch('/api/analytics/visitors/log?live=true&limit=1', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id
                 }
-            } catch (e) {
-                Logger.error('[MobileAnalytics] Live count refresh error:', { error: e });
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setLiveCount(data.total || 0);
             }
-        };
-
-        const interval = setInterval(fetchLiveCount, 30000);
-        return () => clearInterval(interval);
+        } catch (e) {
+            Logger.error('[MobileAnalytics] Live count refresh error:', { error: e });
+        }
     }, [currentAccount, token]);
+
+    // Visibility-aware polling: pauses when app is backgrounded/screen off
+    useVisibilityPolling(fetchLiveCount, 30000, [fetchLiveCount]);
 
     const fetchAnalytics = async () => {
         if (!currentAccount || !token) {

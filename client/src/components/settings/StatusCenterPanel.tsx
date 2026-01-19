@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
     RefreshCw,
     CheckCircle,
@@ -17,6 +17,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 
 /**
  * Health status levels matching backend API response.
@@ -148,12 +149,8 @@ export function StatusCenterPanel() {
         }
     }, [token, currentAccount?.id]);
 
-    useEffect(() => {
-        fetchStatus();
-        // Refresh every 60 seconds
-        const interval = setInterval(() => fetchStatus(false), 60000);
-        return () => clearInterval(interval);
-    }, [fetchStatus]);
+    // Visibility-aware polling: pauses when tab is hidden
+    useVisibilityPolling(() => fetchStatus(false), 60000, [fetchStatus]);
 
     const renderCard = (
         section: StatusSection,

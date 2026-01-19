@@ -8,6 +8,7 @@ import { PWAUpdateModal, usePWAUpdate, PWAUpdateBanner } from '../mobile/PWAUpda
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { Logger } from '../../utils/logger';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 
 /**
  * MobileLayout - Premium dark glassmorphism layout for the PWA companion app.
@@ -89,12 +90,8 @@ export function MobileLayout({ children }: MobileLayoutProps) {
         }
     }, [token, currentAccount]);
 
-    useEffect(() => {
-        fetchBadgeCounts();
-        // Poll every 30 seconds
-        const interval = setInterval(fetchBadgeCounts, 30000);
-        return () => clearInterval(interval);
-    }, [fetchBadgeCounts]);
+    // Visibility-aware polling: pauses when app is backgrounded
+    useVisibilityPolling(fetchBadgeCounts, 30000, [fetchBadgeCounts]);
 
     // Network status listeners
     useEffect(() => {

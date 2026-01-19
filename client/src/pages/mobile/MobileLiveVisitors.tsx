@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Logger } from '../../utils/logger';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, Globe, MapPin, Monitor, Smartphone, Tablet, Eye, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { formatTimeAgo } from '../../utils/format';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 
 interface LiveVisitor {
     id: string;
@@ -66,18 +67,8 @@ export function MobileLiveVisitors() {
         }
     }, [currentAccount, token]);
 
-    useEffect(() => {
-        fetchVisitors();
-        // Auto-refresh every 30 seconds
-        const interval = setInterval(fetchVisitors, 30000);
-        // Listen for pull-to-refresh events
-        const handleRefresh = () => fetchVisitors();
-        window.addEventListener('mobile-refresh', handleRefresh);
-        return () => {
-            clearInterval(interval);
-            window.removeEventListener('mobile-refresh', handleRefresh);
-        };
-    }, [fetchVisitors]);
+    // Visibility-aware polling: pauses when app is backgrounded/screen off
+    useVisibilityPolling(fetchVisitors, 30000, [fetchVisitors]);
 
     const getDeviceIcon = (deviceType: string | null) => {
         if (deviceType === 'mobile') return <Smartphone size={14} className="text-gray-500" />;
