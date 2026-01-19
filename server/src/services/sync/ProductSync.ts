@@ -7,7 +7,7 @@ import { MerchantCenterService } from '../MerchantCenterService';
 import { EmbeddingService } from '../EmbeddingService';
 import { EventBus, EVENTS } from '../events';
 import { Logger } from '../../utils/logger';
-import { WooProductSchema, WooProduct } from './wooSchemas';
+import { WooProductSchema, WooProduct, safeParseVariations } from './wooSchemas';
 
 
 export class ProductSync extends BaseSync {
@@ -25,8 +25,10 @@ export class ProductSync extends BaseSync {
         let totalProcessed = 0;
         let totalDeleted = 0;
         let totalSkipped = 0;
+        let totalVariationsSynced = 0;
 
         const wooProductIds = new Set<number>();
+        const wooVariationIds = new Set<string>(); // "productId:variationId"
 
         while (hasMore) {
             const { data: rawProducts, totalPages } = await woo.getProducts({ page, after, per_page: 25 });
@@ -163,7 +165,67 @@ export class ProductSync extends BaseSync {
             await Promise.allSettled(indexPromises);
             totalProcessed += products.length;
 
-            Logger.info(`Synced batch of ${products.length} products`, { accountId, syncId, page, totalPages, skipped: totalSkipped });
+            // Sync variations for variable products
+            const variableProducts = products.filter(p =>
+                p.type === 'variable' || (p.type && p.type.includes('variable'))
+            );
+
+            for (const varProduct of variableProducts) {
+                const parentDbProduct = productMap.get(varProduct.id);
+                if (!parentDbProduct) continue;
+
+                try {
+                    const rawVariations = await woo.getProductVariations(varProduct.id);
+                    const variations = safeParseVariations(rawVariations);
+
+                    if (variations.length === 0) continue;
+
+                    // Track for reconciliation
+                    for (const v of variations) {
+                        wooVariationIds.add(`${parentDbProduct.id}:${v.id}`);
+                    }
+
+                    // Batch upsert variations
+                    const variationOps = variations.map(v =>
+                        prisma.productVariation.upsert({
+                            where: { productId_wooId: { productId: parentDbProduct.id, wooId: v.id } },
+                            update: {
+                                sku: v.sku || null,
+                                price: v.price ? parseFloat(v.price) : null,
+                                salePrice: v.sale_price ? parseFloat(v.sale_price) : null,
+                                stockStatus: v.stock_status,
+                                stockQuantity: v.stock_quantity ?? null,
+                                images: (v.image ? [v.image] : []) as any,
+                                rawData: v as any
+                            },
+                            create: {
+                                productId: parentDbProduct.id,
+                                wooId: v.id,
+                                sku: v.sku || null,
+                                price: v.price ? parseFloat(v.price) : null,
+                                salePrice: v.sale_price ? parseFloat(v.sale_price) : null,
+                                stockStatus: v.stock_status,
+                                stockQuantity: v.stock_quantity ?? null,
+                                images: (v.image ? [v.image] : []) as any,
+                                rawData: v as any
+                            }
+                        })
+                    );
+
+                    await prisma.$transaction(variationOps);
+                    totalVariationsSynced += variations.length;
+
+                    Logger.debug(`Synced ${variations.length} variations for product ${varProduct.name}`, {
+                        accountId, syncId, productId: varProduct.id
+                    });
+                } catch (error: any) {
+                    Logger.warn(`Failed to sync variations for product ${varProduct.id}`, {
+                        accountId, syncId, error: error.message
+                    });
+                }
+            }
+
+            Logger.info(`Synced batch of ${products.length} products (${totalVariationsSynced} variations)`, { accountId, syncId, page, totalPages, skipped: totalSkipped });
             if (products.length < 25) hasMore = false;
 
             if (job) {
@@ -202,6 +264,25 @@ export class ProductSync extends BaseSync {
 
                 await Promise.allSettled(deletePromises);
                 Logger.info(`Reconciliation: Deleted ${totalDeleted} orphaned products`, { accountId, syncId });
+            }
+
+            // Variation reconciliation: delete orphaned variations
+            if (wooVariationIds.size > 0) {
+                const localVariations = await prisma.productVariation.findMany({
+                    where: { product: { accountId } },
+                    select: { id: true, productId: true, wooId: true }
+                });
+
+                const orphanedVariations = localVariations.filter(lv =>
+                    !wooVariationIds.has(`${lv.productId}:${lv.wooId}`)
+                );
+
+                if (orphanedVariations.length > 0) {
+                    await prisma.productVariation.deleteMany({
+                        where: { id: { in: orphanedVariations.map(v => v.id) } }
+                    });
+                    Logger.info(`Reconciliation: Deleted ${orphanedVariations.length} orphaned variations`, { accountId, syncId });
+                }
             }
         }
 

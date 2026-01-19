@@ -68,6 +68,30 @@ export const WooProductSchema = z.object({
 
 export type WooProduct = z.infer<typeof WooProductSchema>;
 
+// --- Product Variation Schema ---
+
+const WooVariationAttributeSchema = z.object({
+    id: z.number(),
+    name: z.string(),
+    option: z.string()
+}).passthrough();
+
+export const WooProductVariationSchema = z.object({
+    id: z.number(),
+    sku: z.string().optional().nullable(),
+    price: z.string().optional(),
+    regular_price: z.string().optional(),
+    sale_price: z.string().optional(),
+    stock_status: z.string().optional(),
+    stock_quantity: z.number().nullable().optional(),
+    weight: z.string().optional(),
+    dimensions: WooDimensionsSchema.optional(),
+    image: WooImageSchema.optional(),
+    attributes: z.array(WooVariationAttributeSchema).optional()
+}).passthrough();
+
+export type WooProductVariation = z.infer<typeof WooProductVariationSchema>;
+
 // --- Customer Schema ---
 
 export const WooCustomerSchema = z.object({
@@ -177,3 +201,13 @@ export function safeParseReview(data: unknown): WooReview | null {
 export function safeParseReviews(data: unknown[]): WooReview[] {
     return data.map(item => safeParseReview(item)).filter((r): r is WooReview => r !== null);
 }
+
+export function safeParseVariation(data: unknown): WooProductVariation | null {
+    const result = WooProductVariationSchema.safeParse(data);
+    return result.success ? result.data : null;
+}
+
+export function safeParseVariations(data: unknown[]): WooProductVariation[] {
+    return data.map(item => safeParseVariation(item)).filter((v): v is WooProductVariation => v !== null);
+}
+
