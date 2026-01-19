@@ -146,39 +146,45 @@ export class ProductsService {
 
             // Parallelize variation updates for performance
             await Promise.all(variations.map(async (v) => {
-                // Update local DB for variations
-                await prisma.productVariation.upsert({
-                    where: { productId_wooId: { productId: updated.id, wooId: v.id } },
-                    update: {
-                        cogs: v.cogs ? parseFloat(v.cogs) : undefined,
-                        miscCosts: v.miscCosts || undefined,
-                        binLocation: v.binLocation,
-                        isGoldPriceApplied: v.isGoldPriceApplied,
-                        goldPriceType: v.goldPriceType,
-                        sku: v.sku,
-                        price: v.price ? parseFloat(v.price) : undefined,
-                        salePrice: v.salePrice ? parseFloat(v.salePrice) : undefined,
-                        stockStatus: v.stockStatus
-                    },
-                    create: {
-                        productId: updated.id,
-                        wooId: v.id,
-                        cogs: v.cogs ? parseFloat(v.cogs) : undefined,
-                        miscCosts: v.miscCosts || undefined,
-                        binLocation: v.binLocation,
-                        isGoldPriceApplied: v.isGoldPriceApplied || false,
-                        goldPriceType: v.goldPriceType || null,
-                        sku: v.sku,
-                        price: v.price ? parseFloat(v.price) : undefined,
-                        salePrice: v.salePrice ? parseFloat(v.salePrice) : undefined,
-                        stockStatus: v.stockStatus
-                    }
-                });
+                // Guard: Skip variations without a valid WooCommerce ID
+                if (!v.id || typeof v.id !== 'number' || v.id <= 0) {
+                    Logger.warn(`Skipping variation with invalid ID`, { variationData: v, productWooId: wooId });
+                    return;
+                }
 
-                // Sync to Woo (Only synced fields)
-                // Variations require the parent product ID for the WooCommerce endpoint:
-                // PUT /products/{parent_id}/variations/{variation_id}
                 try {
+                    // Update local DB for variations
+                    await prisma.productVariation.upsert({
+                        where: { productId_wooId: { productId: updated.id, wooId: v.id } },
+                        update: {
+                            cogs: v.cogs ? parseFloat(v.cogs) : undefined,
+                            miscCosts: v.miscCosts || undefined,
+                            binLocation: v.binLocation,
+                            isGoldPriceApplied: v.isGoldPriceApplied,
+                            goldPriceType: v.goldPriceType,
+                            sku: v.sku,
+                            price: v.price ? parseFloat(v.price) : undefined,
+                            salePrice: v.salePrice ? parseFloat(v.salePrice) : undefined,
+                            stockStatus: v.stockStatus
+                        },
+                        create: {
+                            productId: updated.id,
+                            wooId: v.id,
+                            cogs: v.cogs ? parseFloat(v.cogs) : undefined,
+                            miscCosts: v.miscCosts || undefined,
+                            binLocation: v.binLocation,
+                            isGoldPriceApplied: v.isGoldPriceApplied || false,
+                            goldPriceType: v.goldPriceType || null,
+                            sku: v.sku,
+                            price: v.price ? parseFloat(v.price) : undefined,
+                            salePrice: v.salePrice ? parseFloat(v.salePrice) : undefined,
+                            stockStatus: v.stockStatus
+                        }
+                    });
+
+                    // Sync to Woo (Only synced fields)
+                    // Variations require the parent product ID for the WooCommerce endpoint:
+                    // PUT /products/{parent_id}/variations/{variation_id}
                     await wooService.updateProductVariation(wooId, v.id, {
                         sku: v.sku,
                         regular_price: v.price,
@@ -186,7 +192,7 @@ export class ProductsService {
                         stock_status: v.stockStatus
                     });
                 } catch (err: any) {
-                    Logger.error(`Failed to sync variation ${v.id} to WooCommerce`, { error: err.message });
+                    Logger.error(`Failed to process variation ${v.id}`, { error: err.message, productWooId: wooId });
                 }
             }));
         }
