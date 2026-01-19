@@ -94,7 +94,8 @@ export class IndexingService {
                 categories: { type: 'nested', properties: { name: { type: 'keyword' } } },
                 seoScore: { type: 'integer' },
                 merchantCenterScore: { type: 'integer' },
-                cogs: { type: 'float' }
+                cogs: { type: 'float' },
+                type: { type: 'keyword' }
             }
         });
 
@@ -220,6 +221,7 @@ export class IndexingService {
                 categories: { type: 'nested', properties: { name: { type: 'keyword' } } },
                 seoScore: { type: 'integer' },
                 merchantCenterScore: { type: 'integer' },
+                type: { type: 'keyword' },
                 variations: {
                     type: 'nested',
                     properties: {
@@ -256,6 +258,7 @@ export class IndexingService {
                 seoScore: product.seoScore || 0,
                 merchantCenterScore: product.merchantCenterScore || 0,
                 cogs: product.cogs ? parseFloat(product.cogs.toString()) : 0,
+                type: rawData.type || 'simple',
                 variations: product.variations?.map((v: any) => ({
                     id: v.id,
                     stock_status: v.stockStatus || v.stock_status,

@@ -67,10 +67,21 @@ function parseEmailContent(content: string): { subject: string | null; body: str
  * Email replies often contain leaked header fragments like:
  * - "v="Content-Type" content="text/html; charset=Windows-1252">"
  * - "-html40">" (partial HTML doctype/meta tag fragments)
+ * - CSS style fragments: "t-size: 12pt; color: rgb(0, 0, 0);">"
  * - Raw MIME boundaries and headers
  */
 function cleanEmailMetadata(content: string): string {
     let cleaned = content;
+
+    // Remove CSS style attribute fragments that leak through from stripped HTML tags
+    // Matches: font-size: 12pt; color: rgb(0, 0, 0);"> or t-size: 12pt; ...">
+    // These occur when HTML like <span style="font-size: 12pt;..."> is partially stripped
+    cleaned = cleaned.replace(/[a-z-]*size:\s*\d+pt;[^>]*>/gi, '');
+    cleaned = cleaned.replace(/[a-z-]*color:\s*rgb\([^)]+\);?[^>]*>/gi, '');
+    cleaned = cleaned.replace(/style\s*=\s*["'][^"']*["']\s*>/gi, '');
+
+    // Remove any remaining CSS property fragments ending with ;">
+    cleaned = cleaned.replace(/[a-z-]+:\s*[^;]*;\s*["']?\s*>/gi, '');
 
     // Remove partial HTML tag fragments like "-html40">" or "html; charset=...>"
     // These leak through when email clients strip incomplete HTML tags
@@ -104,6 +115,11 @@ function cleanEmailMetadata(content: string): string {
 
     // Remove orphaned closing angle brackets at start of lines
     cleaned = cleaned.replace(/^["']?\s*>\s*$/gm, '');
+
+    // Remove email quote markers: < <, <<, >>, > >
+    cleaned = cleaned.replace(/^[<>]\s*[<>]\s*$/gm, '');
+    cleaned = cleaned.replace(/^<<\s*$/gm, '');
+    cleaned = cleaned.replace(/^>>\s*$/gm, '');
 
     return cleaned.trim();
 }

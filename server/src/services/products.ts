@@ -292,78 +292,89 @@ export class ProductsService {
             }
 
             // Fetch variants for variable products to enable BOM component selection
+            // We check ALL products against the DB since ES may not have type field indexed yet
             try {
-                const productIdsForVariants = productsWithBomStatus
-                    .filter((p: any) => p.type?.includes('variable') || (p.variations && p.variations.length > 0))
+                const allProductIds = productsWithBomStatus
                     .map((p: any) => p.id)
                     .filter((id: string) => typeof id === 'string' && id.length > 0);
 
-                if (productIdsForVariants.length > 0) {
-                    // Fetch from ProductVariation table
-                    const variants = await prisma.productVariation.findMany({
-                        where: { productId: { in: productIdsForVariants } },
-                        select: {
-                            id: true,
-                            productId: true,
-                            wooId: true,
-                            sku: true,
-                            stockQuantity: true,
-                            stockStatus: true,
-                            cogs: true,
-                            rawData: true
-                        }
+                if (allProductIds.length > 0) {
+                    // First, find which products are actually variable from the DB
+                    const dbProducts = await prisma.wooProduct.findMany({
+                        where: { id: { in: allProductIds } },
+                        select: { id: true, rawData: true }
                     });
 
-                    const variantMap = new Map<string, any[]>();
-                    for (const v of variants) {
-                        if (!variantMap.has(v.productId)) variantMap.set(v.productId, []);
-                        const rawData = v.rawData as any || {};
-                        variantMap.get(v.productId)!.push({
-                            ...v,
-                            cogs: v.cogs ? Number(v.cogs) : 0,
-                            // Extract variant attributes for display name
-                            attributes: rawData.attributes || [],
-                            attributeString: (rawData.attributes || [])
-                                .map((a: any) => a.option || a.value)
-                                .filter(Boolean)
-                                .join(' / ')
-                        });
-                    }
-
-                    // FALLBACK: For products with no ProductVariation records, check rawData.variationsData
-                    // This handles products that have been synced but don't have persistent variant records
-                    const productsNeedingFallback = productIdsForVariants.filter(id => !variantMap.has(id));
-                    if (productsNeedingFallback.length > 0) {
-                        const productsWithRawData = await prisma.wooProduct.findMany({
-                            where: { id: { in: productsNeedingFallback } },
-                            select: { id: true, rawData: true }
-                        });
-
-                        for (const p of productsWithRawData) {
+                    const productIdsForVariants = dbProducts
+                        .filter(p => {
                             const raw = p.rawData as any || {};
-                            const variationsData: any[] = raw.variationsData || [];
-                            if (variationsData.length > 0) {
-                                variantMap.set(p.id, variationsData.map((v: any) => ({
-                                    productId: p.id,
-                                    wooId: v.id,
-                                    sku: v.sku || '',
-                                    stockQuantity: v.stock_quantity ?? null,
-                                    stockStatus: v.stock_status || 'instock',
-                                    cogs: 0,
-                                    attributes: v.attributes || [],
-                                    attributeString: (v.attributes || [])
-                                        .map((a: any) => a.option || a.value)
-                                        .filter(Boolean)
-                                        .join(' / ')
-                                })));
+                            return raw.type?.includes('variable') || (raw.variations && raw.variations.length > 0);
+                        })
+                        .map(p => p.id);
+
+                    if (productIdsForVariants.length > 0) {
+                        // Fetch from ProductVariation table
+                        const variants = await prisma.productVariation.findMany({
+                            where: { productId: { in: productIdsForVariants } },
+                            select: {
+                                id: true,
+                                productId: true,
+                                wooId: true,
+                                sku: true,
+                                stockQuantity: true,
+                                stockStatus: true,
+                                cogs: true,
+                                rawData: true
+                            }
+                        });
+
+                        const variantMap = new Map<string, any[]>();
+                        for (const v of variants) {
+                            if (!variantMap.has(v.productId)) variantMap.set(v.productId, []);
+                            const rawData = v.rawData as any || {};
+                            variantMap.get(v.productId)!.push({
+                                ...v,
+                                cogs: v.cogs ? Number(v.cogs) : 0,
+                                // Extract variant attributes for display name
+                                attributes: rawData.attributes || [],
+                                attributeString: (rawData.attributes || [])
+                                    .map((a: any) => a.option || a.value)
+                                    .filter(Boolean)
+                                    .join(' / ')
+                            });
+                        }
+
+                        // FALLBACK: For products with no ProductVariation records, check rawData.variationsData
+                        // This handles products that have been synced but don't have persistent variant records
+                        const productsNeedingFallback = productIdsForVariants.filter(id => !variantMap.has(id));
+                        if (productsNeedingFallback.length > 0) {
+                            for (const p of dbProducts.filter(db => productsNeedingFallback.includes(db.id))) {
+                                const raw = p.rawData as any || {};
+                                const variationsData: any[] = raw.variationsData || [];
+                                if (variationsData.length > 0) {
+                                    variantMap.set(p.id, variationsData.map((v: any) => ({
+                                        id: `${p.id}:${v.id}`, // Unique ID for React key
+                                        productId: p.id,
+                                        wooId: v.id,
+                                        sku: v.sku || '',
+                                        stockQuantity: v.stock_quantity ?? null,
+                                        stockStatus: v.stock_status || 'instock',
+                                        cogs: 0,
+                                        attributes: v.attributes || [],
+                                        attributeString: (v.attributes || [])
+                                            .map((a: any) => a.option || a.value)
+                                            .filter(Boolean)
+                                            .join(' / ')
+                                    })));
+                                }
                             }
                         }
-                    }
 
-                    productsWithBomStatus = productsWithBomStatus.map((p: any) => ({
-                        ...p,
-                        searchableVariants: variantMap.get(p.id) || []
-                    }));
+                        productsWithBomStatus = productsWithBomStatus.map((p: any) => ({
+                            ...p,
+                            searchableVariants: variantMap.get(p.id) || []
+                        }));
+                    }
                 }
             } catch (err) {
                 Logger.warn('Failed to fetch variants for products', { error: err });
@@ -490,6 +501,7 @@ export class ProductsService {
                             const variationsData: any[] = raw.variationsData || [];
                             if (variationsData.length > 0) {
                                 variantMap.set(p.id, variationsData.map((v: any) => ({
+                                    id: `${p.id}:${v.id}`, // Unique ID for React key
                                     productId: p.id,
                                     wooId: v.id,
                                     sku: v.sku || '',

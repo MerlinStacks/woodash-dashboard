@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => {
             dedupe: [
                 'react',
                 'react-dom',
+                'react-router',
+                'react-router-dom',
                 'lexical',
                 '@lexical/react',
                 '@lexical/html',
