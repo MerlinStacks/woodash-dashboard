@@ -16,7 +16,7 @@ import { cn } from '../../utils/cn';
 import { Check, AlertCircle, ChevronDown, ChevronUp, FileText, Download, Image as ImageIcon, File, Reply, Eye, Paperclip } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { GravatarAvatar } from './GravatarAvatar';
-import { escapeRegex } from '../../utils/stringUtils';
+import { escapeRegex } from '../../utils/string';
 
 interface QuotedContentInfo {
     mainContent: string;
@@ -66,10 +66,19 @@ function parseEmailContent(content: string): { subject: string | null; body: str
  * Cleans up raw email metadata and MIME header fragments from content.
  * Email replies often contain leaked header fragments like:
  * - "v="Content-Type" content="text/html; charset=Windows-1252">"
+ * - "-html40">" (partial HTML doctype/meta tag fragments)
  * - Raw MIME boundaries and headers
  */
 function cleanEmailMetadata(content: string): string {
     let cleaned = content;
+
+    // Remove partial HTML tag fragments like "-html40">" or "html; charset=...>"
+    // These leak through when email clients strip incomplete HTML tags
+    cleaned = cleaned.replace(/-?html\d*["']?\s*>?\s*/gi, '');
+
+    // Remove standalone closing angle brackets with preceding attribute fragments
+    // Matches: ...charset=Windows-1252"> or similar partial tag endings
+    cleaned = cleaned.replace(/[^<\n]*charset[^>]*>/gi, '');
 
     // Remove broken HTML meta tag fragments (attribute leakage from stripped tags)
     // Matches patterns like: v="Content-Type" content="text/html; charset=Windows-1252">
@@ -92,6 +101,9 @@ function cleanEmailMetadata(content: string): string {
 
     // Clean up any lines that are just attribute fragments
     cleaned = cleaned.replace(/^[a-z-]+=["'][^"']*["']>?\s*$/gim, '');
+
+    // Remove orphaned closing angle brackets at start of lines
+    cleaned = cleaned.replace(/^["']?\s*>\s*$/gm, '');
 
     return cleaned.trim();
 }

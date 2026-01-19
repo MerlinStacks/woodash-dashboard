@@ -308,3 +308,32 @@ export function toErrorResponse(error: unknown): {
         isRecoverable: false,
     };
 }
+
+/**
+ * Standardized route error handler for Fastify.
+ * Logs the error and sends a consistent response.
+ * 
+ * @example
+ * } catch (error) {
+ *     return handleRouteError(error, reply, 'Failed to fetch products');
+ * }
+ */
+export function handleRouteError(
+    error: unknown,
+    reply: { code: (statusCode: number) => { send: (body: unknown) => unknown } },
+    context?: string
+): unknown {
+    // Extract status code
+    const statusCode = isOverseekError(error) ? error.statusCode : 500;
+
+    // Build response
+    const response = toErrorResponse(error);
+
+    // Add context if provided and not in production
+    if (context && process.env.NODE_ENV !== 'production') {
+        response.context = { ...response.context, operation: context };
+    }
+
+    return reply.code(statusCode).send(response);
+}
+

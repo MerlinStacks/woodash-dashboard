@@ -6,6 +6,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { CustomersService } from '../services/customers';
 import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
+import { handleRouteError } from '../utils/errors';
 
 const customersRoutes: FastifyPluginAsync = async (fastify) => {
     // Apply auth to all routes in this plugin
@@ -22,9 +23,9 @@ const customersRoutes: FastifyPluginAsync = async (fastify) => {
 
             const result = await CustomersService.searchCustomers(accountId, q, page, limit);
             return result;
-        } catch (error: any) {
+        } catch (error) {
             Logger.error('Failed to fetch customers', { error });
-            return reply.code(500).send({ error: 'Failed to fetch customers' });
+            return handleRouteError(error, reply, 'Failed to fetch customers');
         }
     });
 
@@ -43,9 +44,9 @@ const customersRoutes: FastifyPluginAsync = async (fastify) => {
             }
 
             return result;
-        } catch (error: any) {
+        } catch (error) {
             Logger.error('Get Customer Details Error', { error });
-            return reply.code(500).send({ error: 'Failed to fetch customer details' });
+            return handleRouteError(error, reply, 'Failed to fetch customer details');
         }
     });
 
@@ -57,9 +58,9 @@ const customersRoutes: FastifyPluginAsync = async (fastify) => {
 
             const result = await CustomersService.findDuplicates(accountId, customerId);
             return result;
-        } catch (error: any) {
+        } catch (error) {
             Logger.error('Find Duplicates Error', { error });
-            return reply.code(500).send({ error: 'Failed to find duplicates' });
+            return handleRouteError(error, reply, 'Failed to find duplicates');
         }
     });
 
@@ -76,9 +77,9 @@ const customersRoutes: FastifyPluginAsync = async (fastify) => {
 
             const result = await CustomersService.mergeCustomers(accountId, targetId, sourceId);
             return result;
-        } catch (error: any) {
+        } catch (error) {
             Logger.error('Merge Customers Error', { error });
-            return reply.code(500).send({ error: error.message || 'Failed to merge customers' });
+            return handleRouteError(error, reply, 'Failed to merge customers');
         }
     });
 };

@@ -1,6 +1,7 @@
 import { Search, Bell, HelpCircle, User, LogOut, Shield, Menu } from 'lucide-react';
 import { Logger } from '../../utils/logger';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -49,29 +50,24 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
         return () => search.cancel();
     }, [query, token, currentAccount]);
 
-    // Poll Notifications
-    useEffect(() => {
+    // Poll Notifications with visibility-awareness
+    const fetchNotifications = useCallback(async () => {
         if (!token || !currentAccount) return;
-
-        const fetchNotifications = async () => {
-            try {
-                const res = await fetch('/api/notifications?limit=10', {
-                    headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setNotifications(data.notifications);
-                    setUnreadCount(data.unreadCount);
-                }
-            } catch (error) {
-                Logger.error('Notification poll failed', { error: error });
+        try {
+            const res = await fetch('/api/notifications?limit=10', {
+                headers: { 'Authorization': `Bearer ${token}`, 'X-Account-ID': currentAccount.id }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setNotifications(data.notifications);
+                setUnreadCount(data.unreadCount);
             }
-        };
-
-        fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000); // 30s poll
-        return () => clearInterval(interval);
+        } catch (error) {
+            Logger.error('Notification poll failed', { error: error });
+        }
     }, [token, currentAccount]);
+
+    useVisibilityPolling(fetchNotifications, 30000, [fetchNotifications]);
 
     const markAllRead = async () => {
         if (!token || !currentAccount) return;

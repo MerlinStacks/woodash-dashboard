@@ -1,5 +1,6 @@
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Logger } from '../../utils/logger';
 import { ShoppingCart, CreditCard, LogOut, CheckCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -49,11 +50,8 @@ const EcommerceLogWidget = () => {
         }
     }, [token, currentAccount]);
 
-    useEffect(() => {
-        fetchLog();
-        const interval = setInterval(fetchLog, 15000);
-        return () => clearInterval(interval);
-    }, [fetchLog]);
+    // Use visibility-aware polling to pause when tab is hidden
+    useVisibilityPolling(fetchLog, 15000, [fetchLog]);
 
     const getIcon = (type: string) => {
         switch (type) {

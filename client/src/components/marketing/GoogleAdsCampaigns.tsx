@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
 import { Logger } from '../../utils/logger';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -264,7 +265,10 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
                         {suggestions.suggestions?.map((suggestion: string, i: number) => (
                             <div key={i} className="bg-white p-4 rounded-lg border border-purple-100">
                                 <p className="text-gray-800" dangerouslySetInnerHTML={{
-                                    __html: suggestion.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                    __html: DOMPurify.sanitize(
+                                        suggestion.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'),
+                                        { ALLOWED_TAGS: ['strong', 'b', 'em', 'i'] }
+                                    )
                                 }} />
                             </div>
                         ))}

@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Inbox } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -39,12 +40,8 @@ export function OpenInboxWidget(_props: WidgetProps) {
         }
     }, [currentAccount, token]);
 
-    useEffect(() => {
-        fetchCount();
-        // Fallback polling (reduced frequency since we have real-time)
-        const interval = setInterval(fetchCount, 60000);
-        return () => clearInterval(interval);
-    }, [fetchCount]);
+    // Use visibility-aware polling (fallback, since we have real-time sockets)
+    useVisibilityPolling(fetchCount, 60000, [fetchCount]);
 
     // Real-time: Update count on conversation changes
     useWidgetSocket('conversation:updated', () => {

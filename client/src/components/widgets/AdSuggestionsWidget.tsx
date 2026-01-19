@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Lightbulb, TrendingUp, CheckCircle, ExternalLink, RefreshCw, MessageCirclePlus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -55,12 +56,8 @@ export function AdSuggestionsWidget(_props: WidgetProps) {
         }
     }, [currentAccount, token]);
 
-    useEffect(() => {
-        fetchSuggestions();
-        // Refresh every 5 minutes (suggestions don't change frequently)
-        const interval = setInterval(fetchSuggestions, 300000);
-        return () => clearInterval(interval);
-    }, [fetchSuggestions]);
+    // Use visibility-aware polling (suggestions don't change frequently)
+    useVisibilityPolling(fetchSuggestions, 300000, [fetchSuggestions]);
 
     /**
      * Determines the icon for a suggestion based on its content.

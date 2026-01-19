@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Logger } from '../../utils/logger';
 import { ShoppingCart, Clock, User as UserIcon, Loader2, Package, Flame } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -70,11 +71,8 @@ const LiveCartsWidget = ({ className }: WidgetProps) => {
         }
     }, [currentAccount, token]);
 
-    useEffect(() => {
-        fetchCarts();
-        const interval = setInterval(fetchCarts, 30000); // Poll every 30s
-        return () => clearInterval(interval);
-    }, [fetchCarts]);
+    // Use visibility-aware polling to pause when tab is hidden
+    useVisibilityPolling(fetchCarts, 30000, [fetchCarts]);
 
     if (loading && carts.length === 0) {
         return (

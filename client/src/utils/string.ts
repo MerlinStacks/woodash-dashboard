@@ -94,3 +94,22 @@ export function slugify(str: string): string {
         .replace(/[\s_-]+/g, '-')
         .replace(/^-+|-+$/g, '');
 }
+
+/**
+ * Escapes special regex characters in a string for safe use in RegExp constructor.
+ * 
+ * @param str - The string to escape
+ * @returns The escaped string safe for use in regex patterns
+ * @example
+ * escapeRegex('Hello (world)') // Returns 'Hello \\(world\\)'
+ */
+export function escapeRegex(str: string): string {
+    if (!str) return '';
+    try {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    } catch {
+        // Return original string if escape fails (shouldn't happen with valid input)
+        return str;
+    }
+}
+

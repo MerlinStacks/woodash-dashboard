@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import {
     RefreshCw,
     CheckCircle,
@@ -131,12 +132,8 @@ export function StatusCenterWidget({ className }: WidgetProps) {
         }
     }, [token, currentAccount?.id]);
 
-    useEffect(() => {
-        fetchStatus();
-        // Refresh every 60 seconds
-        const interval = setInterval(fetchStatus, 60000);
-        return () => clearInterval(interval);
-    }, [fetchStatus]);
+    // Use visibility-aware polling to pause when tab is hidden
+    useVisibilityPolling(fetchStatus, 60000, [fetchStatus]);
 
     const toggleSection = (section: string) => {
         setExpandedSections(prev => {

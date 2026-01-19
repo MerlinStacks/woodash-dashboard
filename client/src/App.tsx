@@ -229,7 +229,7 @@ function App() {
 
                                                 <Route path="/reports" element={<AccountGuard><ReportsPage /></AccountGuard>} />
                                                 <Route path="/team" element={<AccountGuard><TeamPage /></AccountGuard>} />
-                                                <Route path="/wizard" element={<AccountGuard><SetupWizard /></AccountGuard>} />
+                                                <Route path="/wizard" element={<SetupWizard />} />
                                                 <Route path="/settings" element={<AccountGuard><SettingsPage /></AccountGuard>} />
                                                 <Route path="/profile" element={<AccountGuard><UserProfilePage /></AccountGuard>} />
 

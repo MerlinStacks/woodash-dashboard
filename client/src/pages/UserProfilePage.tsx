@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { Logger } from '../utils/logger';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
@@ -310,7 +311,12 @@ export function UserProfilePage() {
                                 {user.emailSignature ? (
                                     <div
                                         className="text-sm text-gray-700"
-                                        dangerouslySetInnerHTML={{ __html: user.emailSignature }}
+                                        dangerouslySetInnerHTML={{
+                                            __html: DOMPurify.sanitize(user.emailSignature, {
+                                                ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'div', 'span'],
+                                                ALLOWED_ATTR: ['href', 'target', 'style']
+                                            })
+                                        }}
                                     />
                                 ) : (
                                     <span className="text-gray-400 italic text-sm">No email signature configured. Click "Edit Profile" to add one.</span>

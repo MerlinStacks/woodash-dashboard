@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { Logger } from '../../utils/logger';
 import { X, Send, Loader2, ChevronDown, ChevronUp, Zap, Paperclip } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -386,7 +387,12 @@ export function NewEmailModal({ onClose, onSent }: NewEmailModalProps) {
                             <span className="font-medium">Signature will be appended:</span>
                             <div
                                 className="mt-1 text-gray-500 line-clamp-2"
-                                dangerouslySetInnerHTML={{ __html: signature }}
+                                dangerouslySetInnerHTML={{
+                                    __html: DOMPurify.sanitize(signature, {
+                                        ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'div', 'span'],
+                                        ALLOWED_ATTR: ['href', 'target', 'style']
+                                    })
+                                }}
                             />
                         </div>
                     )}

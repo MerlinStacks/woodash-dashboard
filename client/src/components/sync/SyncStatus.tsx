@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Logger } from '../../utils/logger';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -50,7 +51,7 @@ export function SyncStatus() {
     // BOM sync toggle (always full sync when triggered)
     const [syncBOM, setSyncBOM] = useState(false);
 
-    const fetchStatus = async () => {
+    const fetchStatus = useCallback(async () => {
         if (!currentAccount || !token) return;
 
         try {
@@ -71,13 +72,10 @@ export function SyncStatus() {
         } catch (err) {
             Logger.error('Failed to fetch sync status', { error: err });
         }
-    };
-
-    useEffect(() => {
-        fetchStatus();
-        const interval = setInterval(fetchStatus, 10000); // Poll every 10s
-        return () => clearInterval(interval);
     }, [currentAccount, token]);
+
+    // Use visibility-aware polling to pause when tab is hidden
+    useVisibilityPolling(fetchStatus, 10000, [fetchStatus]);
 
     const toggleFullSync = (key: SyncEntityKey) => {
         setFullSyncTypes(prev => ({ ...prev, [key]: !prev[key] }));

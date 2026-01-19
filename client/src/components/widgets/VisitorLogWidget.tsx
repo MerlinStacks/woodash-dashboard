@@ -2,8 +2,9 @@
  * VisitorLogWidget - Real-time visitor activity stream (Matomo-style)
  * Shows visitors with their recent actions as clickable icons
  */
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Logger } from '../../utils/logger';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Users, Clock, MapPin, FileText, Search, ShoppingCart, Eye, ExternalLink, User, RefreshCw, Globe, Link2, Flag, DollarSign } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
@@ -178,11 +179,8 @@ const VisitorLogWidget = (_props: { settings?: any }) => {
         }
     }, [token, currentAccount]);
 
-    useEffect(() => {
-        fetchLog();
-        const interval = setInterval(fetchLog, 15000);
-        return () => clearInterval(interval);
-    }, [fetchLog]);
+    // Use visibility-aware polling to pause when tab is hidden
+    useVisibilityPolling(fetchLog, 15000, [fetchLog]);
 
     if (loading && visitors.length === 0) {
         return <div className="p-4 text-xs text-gray-500">Loading log...</div>;

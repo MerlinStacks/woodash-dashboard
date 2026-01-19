@@ -1,6 +1,7 @@
 
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Logger } from '../../utils/logger';
+import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Users, ShoppingCart, Activity, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -21,7 +22,7 @@ export function LiveAnalyticsWidget() {
     const [visitors, setVisitors] = useState<LiveSession[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchLiveStats = async () => {
+    const fetchLiveStats = useCallback(async () => {
         if (!currentAccount || !token) return;
 
         try {
@@ -40,13 +41,10 @@ export function LiveAnalyticsWidget() {
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchLiveStats();
-        const interval = setInterval(fetchLiveStats, 10000); // Update every 10s
-        return () => clearInterval(interval);
     }, [currentAccount, token]);
+
+    // Use visibility-aware polling to pause when tab is hidden
+    useVisibilityPolling(fetchLiveStats, 10000, [fetchLiveStats]);
 
     const activeCarts = visitors.filter(v => Number(v.cartValue) > 0);
     const totalCartValue = activeCarts.reduce((acc, curr) => acc + Number(curr.cartValue), 0);

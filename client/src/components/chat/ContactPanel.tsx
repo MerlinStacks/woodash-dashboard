@@ -442,7 +442,7 @@ export function ContactPanel({ conversation, onSelectConversation }: ContactPane
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Customer ID</span>
-                                <span className="text-gray-900 font-mono text-xs">{customer.id.slice(0, 8)}...</span>
+                                <span className="text-gray-900 font-mono text-xs">{customer.id?.slice(0, 8) || 'N/A'}...</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">WooCommerce ID</span>

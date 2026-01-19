@@ -299,6 +299,7 @@ export class ProductsService {
                     .filter((id: string) => typeof id === 'string' && id.length > 0);
 
                 if (productIdsForVariants.length > 0) {
+                    // Fetch from ProductVariation table
                     const variants = await prisma.productVariation.findMany({
                         where: { productId: { in: productIdsForVariants } },
                         select: {
@@ -327,6 +328,36 @@ export class ProductsService {
                                 .filter(Boolean)
                                 .join(' / ')
                         });
+                    }
+
+                    // FALLBACK: For products with no ProductVariation records, check rawData.variationsData
+                    // This handles products that have been synced but don't have persistent variant records
+                    const productsNeedingFallback = productIdsForVariants.filter(id => !variantMap.has(id));
+                    if (productsNeedingFallback.length > 0) {
+                        const productsWithRawData = await prisma.wooProduct.findMany({
+                            where: { id: { in: productsNeedingFallback } },
+                            select: { id: true, rawData: true }
+                        });
+
+                        for (const p of productsWithRawData) {
+                            const raw = p.rawData as any || {};
+                            const variationsData: any[] = raw.variationsData || [];
+                            if (variationsData.length > 0) {
+                                variantMap.set(p.id, variationsData.map((v: any) => ({
+                                    productId: p.id,
+                                    wooId: v.id,
+                                    sku: v.sku || '',
+                                    stockQuantity: v.stock_quantity ?? null,
+                                    stockStatus: v.stock_status || 'instock',
+                                    cogs: 0,
+                                    attributes: v.attributes || [],
+                                    attributeString: (v.attributes || [])
+                                        .map((a: any) => a.option || a.value)
+                                        .filter(Boolean)
+                                        .join(' / ')
+                                })));
+                            }
+                        }
                     }
 
                     productsWithBomStatus = productsWithBomStatus.map((p: any) => ({
@@ -442,6 +473,37 @@ export class ProductsService {
                                 .filter(Boolean)
                                 .join(' / ')
                         });
+                    }
+
+                    // FALLBACK: Check rawData.variationsData for products without ProductVariation records
+                    const productsNeedingFallback = productIdsForVariants.filter(id => !variantMap.has(id));
+                    if (productsNeedingFallback.length > 0) {
+                        // We already have the products with rawData in mappedProducts
+                        for (const p of mappedProducts) {
+                            if (!productsNeedingFallback.includes(p.id)) continue;
+                            // Fetch rawData from DB since mappedProducts doesn't have variationsData
+                            const product = await prisma.wooProduct.findUnique({
+                                where: { id: p.id },
+                                select: { rawData: true }
+                            });
+                            const raw = product?.rawData as any || {};
+                            const variationsData: any[] = raw.variationsData || [];
+                            if (variationsData.length > 0) {
+                                variantMap.set(p.id, variationsData.map((v: any) => ({
+                                    productId: p.id,
+                                    wooId: v.id,
+                                    sku: v.sku || '',
+                                    stockQuantity: v.stock_quantity ?? null,
+                                    stockStatus: v.stock_status || 'instock',
+                                    cogs: 0,
+                                    attributes: v.attributes || [],
+                                    attributeString: (v.attributes || [])
+                                        .map((a: any) => a.option || a.value)
+                                        .filter(Boolean)
+                                        .join(' / ')
+                                })));
+                            }
+                        }
                     }
 
                     mappedProducts = mappedProducts.map((p: any) => ({
