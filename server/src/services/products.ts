@@ -291,6 +291,54 @@ export class ProductsService {
                 return this.searchProductsFromDB(accountId, query, page, limit);
             }
 
+            // Fetch variants for variable products to enable BOM component selection
+            try {
+                const productIdsForVariants = productsWithBomStatus
+                    .filter((p: any) => p.type?.includes('variable') || (p.variations && p.variations.length > 0))
+                    .map((p: any) => p.id)
+                    .filter((id: string) => typeof id === 'string' && id.length > 0);
+
+                if (productIdsForVariants.length > 0) {
+                    const variants = await prisma.productVariation.findMany({
+                        where: { productId: { in: productIdsForVariants } },
+                        select: {
+                            id: true,
+                            productId: true,
+                            wooId: true,
+                            sku: true,
+                            stockQuantity: true,
+                            stockStatus: true,
+                            cogs: true,
+                            rawData: true
+                        }
+                    });
+
+                    const variantMap = new Map<string, any[]>();
+                    for (const v of variants) {
+                        if (!variantMap.has(v.productId)) variantMap.set(v.productId, []);
+                        const rawData = v.rawData as any || {};
+                        variantMap.get(v.productId)!.push({
+                            ...v,
+                            cogs: v.cogs ? Number(v.cogs) : 0,
+                            // Extract variant attributes for display name
+                            attributes: rawData.attributes || [],
+                            attributeString: (rawData.attributes || [])
+                                .map((a: any) => a.option || a.value)
+                                .filter(Boolean)
+                                .join(' / ')
+                        });
+                    }
+
+                    productsWithBomStatus = productsWithBomStatus.map((p: any) => ({
+                        ...p,
+                        searchableVariants: variantMap.get(p.id) || []
+                    }));
+                }
+            } catch (err) {
+                Logger.warn('Failed to fetch variants for products', { error: err });
+                // Continue without variants - products will still be selectable
+            }
+
             return {
                 products: productsWithBomStatus,
                 total,

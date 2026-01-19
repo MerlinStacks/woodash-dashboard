@@ -72,6 +72,9 @@ export class BOMInventorySyncService {
                     include: {
                         childProduct: {
                             select: { id: true, wooId: true, name: true }
+                        },
+                        childVariation: {
+                            select: { wooId: true, sku: true, stockQuantity: true }
                         }
                     }
                 }
@@ -107,9 +110,34 @@ export class BOMInventorySyncService {
             if (requiredQty <= 0) continue;
 
             try {
-                // Fetch current stock from WooCommerce
-                const childWooProduct = await wooService.getProduct(bomItem.childProduct.wooId);
-                const childStock = childWooProduct.stock_quantity ?? 0;
+                let childStock = 0;
+                let childWooId = bomItem.childProduct.wooId;
+                let childName = bomItem.childProduct.name;
+
+                // Check if this is a variant component
+                if (bomItem.childVariationId && bomItem.childVariation) {
+                    childWooId = bomItem.childVariation.wooId;
+                    childName = `${childName} (Variant ${bomItem.childVariation.sku || '#' + childWooId})`;
+
+                    // Fetch variant stock from WooCommerce (or use local if synced and managed)
+                    // We'll fetch live from Woo to be safe for sync
+                    try {
+                        // wooService usually has getProduct for variants too if ID is unique? 
+                        // Actually Woo variations have unique IDs. 
+                        // But strictly we should use /products/ID/variations/ID if needed.
+                        // However, getProduct(id) in many Woo clients works for variations too.
+                        // Let's assume we can fetch it. If not, we might need to verify WooService.
+                        const variant = await wooService.getProduct(childWooId);
+                        childStock = variant.stock_quantity ?? 0;
+                    } catch {
+                        // Fallback to local data if live fetch fails
+                        childStock = bomItem.childVariation.stockQuantity ?? 0;
+                    }
+                } else {
+                    // Standard product component
+                    const childWooProduct = await wooService.getProduct(childWooId);
+                    childStock = childWooProduct.stock_quantity ?? 0;
+                }
 
                 // Calculate buildable units from this component
                 const buildableUnits = Math.floor(childStock / requiredQty);

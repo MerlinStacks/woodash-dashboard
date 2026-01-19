@@ -5,14 +5,16 @@ import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 
 interface BOMItem {
-    id?: string; // Optional for new items
-    childProductId?: string; // If it's a product link
-    supplierItemId?: string; // If it's a raw material
+    id?: string;
+    childProductId?: string;
+    childVariationId?: number; // Added for variant persistence
+    supplierItemId?: string;
     displayName: string;
     quantity: number;
     wasteFactor: number;
     cost: number;
 }
+
 
 interface BOMPanelProps {
     productId: string; // Internal UUID
@@ -200,6 +202,7 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                 variationId: selectedScope,
                 items: bomItems.map(item => ({
                     childProductId: item.childProductId,
+                    childVariationId: item.childVariationId, // Include this!
                     supplierItemId: item.supplierItemId,
                     quantity: item.quantity,
                     wasteFactor: item.wasteFactor
@@ -246,24 +249,34 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
     }), [bomItems, selectedScope, productId, token, currentAccount, handleSave]);
 
     const handleAddProduct = (product: any) => {
-        // Check if self-linking
-        if (product.id === productId) {
+        // Check if self-linking (only for parent product, not variants)
+        if (product.id === productId && !product.isVariant) {
             alert('Cannot add the product to its own BOM.');
             return;
         }
 
-        // Check if already exists
-        if (bomItems.some(i => i.childProductId === product.id)) {
-            alert('This product is already in the BOM.');
+        // Check if already exists (handle both parent products and variants)
+        const alreadyExists = bomItems.some(i => {
+            if (product.isVariant) {
+                // Check exact variation ID match
+                return i.childProductId === product.id && i.childVariationId === Number(product.variantId);
+            }
+            // For parent products, check matching ID and ensure it's not a variant item
+            return i.childProductId === product.id && !i.childVariationId;
+        });
+
+        if (alreadyExists) {
+            alert('This component is already in the BOM.');
             return;
         }
 
         const newItem: BOMItem = {
             childProductId: product.id,
-            displayName: product.name,
+            childVariationId: product.isVariant ? Number(product.variantId) : undefined,
+            displayName: product.name, // For variants, this includes the variant attributes
             quantity: 1,
             wasteFactor: 0,
-            cost: Number(product.cogs) || 0 // Assuming COGS is available, otherwise 0
+            cost: Number(product.cogs) || 0
         };
 
         setBomItems([...bomItems, newItem]);
@@ -392,31 +405,84 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                             />
                             {/* Search Results Dropdown */}
                             {searchResults.length > 0 && (
-                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-72 overflow-y-auto">
+                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-96 overflow-y-auto">
                                     {searchResults.map(p => (
-                                        <button
-                                            key={p.id}
-                                            disabled={p.hasBOM || p.id === productId}
-                                            className={`w-full text-left p-3 transition-colors flex items-center gap-3 border-b border-gray-50 last:border-b-0 ${p.hasBOM || p.id === productId ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-blue-50'}`}
-                                            onClick={() => !p.hasBOM && p.id !== productId && handleAddProduct(p)}
-                                        >
-                                            {p.mainImage && (
-                                                <img src={p.mainImage} alt="" className="w-10 h-10 object-cover rounded-lg border border-gray-100" />
+                                        <div key={p.id} className="border-b border-gray-50 last:border-b-0">
+                                            {/* Parent product header */}
+                                            <button
+                                                disabled={p.hasBOM || p.id === productId || (p.searchableVariants && p.searchableVariants.length > 0)}
+                                                className={`w-full text-left p-3 transition-colors flex items-center gap-3 ${p.hasBOM || p.id === productId
+                                                    ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                                                    : (p.searchableVariants && p.searchableVariants.length > 0)
+                                                        ? 'bg-gray-50/50 cursor-default'
+                                                        : 'hover:bg-blue-50 cursor-pointer'
+                                                    }`}
+                                                onClick={() => {
+                                                    // Only allow click if NOT a variable product (no variants to choose from)
+                                                    if (!p.hasBOM && p.id !== productId && (!p.searchableVariants || p.searchableVariants.length === 0)) {
+                                                        handleAddProduct(p);
+                                                    }
+                                                }}
+                                            >
+                                                {p.mainImage && (
+                                                    <img src={p.mainImage} alt="" className="w-10 h-10 object-cover rounded-lg border border-gray-100" />
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-medium text-gray-900 text-sm truncate">
+                                                        {p.name}
+                                                        {p.hasBOM && <span className="ml-2 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">Composite Product</span>}
+                                                        {p.id === productId && <span className="ml-2 text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded-full border border-gray-200">Current Product</span>}
+                                                        {p.searchableVariants && p.searchableVariants.length > 0 && (
+                                                            <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-200">
+                                                                {p.searchableVariants.length} variant{p.searchableVariants.length > 1 ? 's' : ''}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {p.sku && <span className="font-mono">{p.sku}</span>}
+                                                        {p.sku && p.stockQuantity !== undefined && <span className="mx-1">•</span>}
+                                                        {p.stockQuantity !== undefined && <span>Stock: {p.stockQuantity}</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="text-sm font-semibold text-gray-700">${p.price || '0.00'}</div>
+                                            </button>
+
+                                            {/* Variant sub-options */}
+                                            {p.searchableVariants && p.searchableVariants.length > 0 && (
+                                                <div className="bg-gray-50/30 border-t border-gray-100">
+                                                    {p.searchableVariants.map((v: any) => (
+                                                        <button
+                                                            key={v.id}
+                                                            className="w-full text-left pl-8 pr-3 py-2 transition-colors flex items-center gap-3 hover:bg-blue-50 border-b border-gray-50 last:border-b-0"
+                                                            onClick={() => handleAddProduct({
+                                                                id: p.id,
+                                                                name: `${p.name} - ${v.attributeString || v.sku || `#${v.wooId}`}`,
+                                                                cogs: v.cogs,
+                                                                sku: v.sku,
+                                                                stockQuantity: v.stockQuantity,
+                                                                variantId: v.wooId,
+                                                                isVariant: true
+                                                            })}
+                                                        >
+                                                            <GitBranch size={14} className="text-gray-400 flex-shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-medium text-gray-800 text-sm truncate">
+                                                                    {v.attributeString || `Variant #${v.wooId}`}
+                                                                </div>
+                                                                <div className="text-xs text-gray-500">
+                                                                    {v.sku && <span className="font-mono">{v.sku}</span>}
+                                                                    {v.sku && v.stockQuantity !== undefined && <span className="mx-1">•</span>}
+                                                                    {v.stockQuantity !== undefined && <span>Stock: {v.stockQuantity}</span>}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-xs font-medium text-gray-600">
+                                                                COGS: ${v.cogs?.toFixed(2) || '0.00'}
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             )}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-gray-900 text-sm truncate">
-                                                    {p.name}
-                                                    {p.hasBOM && <span className="ml-2 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">Composite Product</span>}
-                                                    {p.id === productId && <span className="ml-2 text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded-full border border-gray-200">Current Product</span>}
-                                                </div>
-                                                <div className="text-xs text-gray-500">
-                                                    {p.sku && <span className="font-mono">{p.sku}</span>}
-                                                    {p.sku && p.stockQuantity !== undefined && <span className="mx-1">•</span>}
-                                                    {p.stockQuantity !== undefined && <span>Stock: {p.stockQuantity}</span>}
-                                                </div>
-                                            </div>
-                                            <div className="text-sm font-semibold text-gray-700">${p.price || '0.00'}</div>
-                                        </button>
+                                        </div>
                                     ))}
                                 </div>
                             )}

@@ -235,6 +235,7 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
                             bomId: bom.id,
                             supplierItemId: item.supplierItemId || null,
                             childProductId: item.childProductId || null,
+                            childVariationId: item.childVariationId || (item.variationId ? Number(item.variationId) : null), // Support both formats
                             quantity: Number(item.quantity),
                             wasteFactor: Number(item.wasteFactor || 0)
                         }
@@ -244,7 +245,15 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
 
             const updated = await prisma.bOM.findUnique({
                 where: { id: bom.id },
-                include: { items: { include: { supplierItem: true, childProduct: true } } }
+                include: {
+                    items: {
+                        include: {
+                            supplierItem: { include: { supplier: true } },
+                            childProduct: true,
+                            childVariation: true // Include variant details
+                        }
+                    }
+                }
             });
 
             // Calculate total COGS from BOM
@@ -357,17 +366,59 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
     /**
      * POST /bom/sync-all
      * Bulk sync ALL BOM parent products for the account to WooCommerce.
+     * Dispatches to queue for background processing with job tracking.
      */
     fastify.post('/bom/sync-all', async (request, reply) => {
         const accountId = request.accountId!;
 
-        try {
-            const result = await BOMInventorySyncService.syncAllBOMProducts(accountId);
-            return result;
-        } catch (error) {
-            Logger.error('Error bulk syncing BOM inventory', { error, accountId });
-            return reply.code(500).send({ error: 'Failed to bulk sync inventory' });
+        // Dynamic import to avoid circular dependencies
+        const { QueueFactory, QUEUES } = await import('../services/queue/QueueFactory');
+
+        // Count pending BOMs to give user an idea of scope
+        const bomCount = await prisma.bOM.count({
+            where: {
+                product: { accountId },
+                items: {
+                    some: { childProductId: { not: null } }
+                }
+            }
+        });
+
+        // Dispatch to queue with deduplication
+        const queue = QueueFactory.getQueue(QUEUES.BOM_SYNC);
+        const jobId = `bom_sync_${accountId.replace(/:/g, '_')}`;
+
+        // Check if already running
+        const existingJob = await queue.getJob(jobId);
+        if (existingJob) {
+            const state = await existingJob.getState();
+            if (['active', 'waiting', 'delayed'].includes(state)) {
+                return {
+                    status: 'already_running',
+                    message: `BOM sync is already ${state} for this account.`,
+                    estimatedProducts: bomCount
+                };
+            }
+            // Remove completed/failed job to allow re-run
+            try { await existingJob.remove(); } catch (e) { /* ignore */ }
         }
+
+        // Add job to queue
+        await queue.add(QUEUES.BOM_SYNC, { accountId }, {
+            jobId,
+            priority: 10, // High priority for manual trigger
+            removeOnComplete: true,
+            removeOnFail: 100
+        });
+
+        Logger.info(`[BOMInventorySync] Dispatched queue job`, { accountId, jobId, bomCount });
+
+        return {
+            status: 'queued',
+            message: `BOM sync queued for ${bomCount} products. Check sync history for results.`,
+            estimatedProducts: bomCount,
+            jobId
+        };
     });
 
     /**

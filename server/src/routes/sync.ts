@@ -15,8 +15,8 @@ const syncService = new SyncService();
 const syncRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.addHook('preHandler', requireAuthFastify);
 
-    const syncQueues = ['sync-orders', 'sync-products', 'sync-customers', 'sync-reviews'] as const;
-    const allowedEntities = new Set(['orders', 'products', 'customers', 'reviews']);
+    const syncQueues = ['sync-orders', 'sync-products', 'sync-customers', 'sync-reviews', 'bom-inventory-sync'] as const;
+    const allowedEntities = new Set(['orders', 'products', 'customers', 'reviews', 'bom']);
 
     const hasActiveSyncJob = async (accountId: string, entityType: string): Promise<boolean> => {
         const queueName = `sync-${entityType}`;
@@ -93,7 +93,7 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
                     await queue.pause();
                     return { message: `Queue ${queueName} paused` };
                 } else {
-                    const names = ['sync-orders', 'sync-products', 'sync-customers', 'sync-reviews'];
+                    const names = ['sync-orders', 'sync-products', 'sync-customers', 'sync-reviews', 'bom-inventory-sync'];
                     for (const n of names) await QueueFactory.getQueue(n).pause();
                     return { message: 'All queues paused' };
                 }
@@ -104,7 +104,7 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
                     await queue.resume();
                     return { message: `Queue ${queueName} resumed` };
                 } else {
-                    const names = ['sync-orders', 'sync-products', 'sync-customers', 'sync-reviews'];
+                    const names = ['sync-orders', 'sync-products', 'sync-customers', 'sync-reviews', 'bom-inventory-sync'];
                     for (const n of names) await QueueFactory.getQueue(n).resume();
                     return { message: 'All queues resumed' };
                 }

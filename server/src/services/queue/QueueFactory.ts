@@ -12,6 +12,7 @@ export const QUEUES = {
     REVIEWS: 'sync-reviews',
     CUSTOMERS: 'sync-customers',
     REPORTS: 'report-generation',
+    BOM_SYNC: 'bom-inventory-sync',
 };
 
 // Global Store for Queues to adapter

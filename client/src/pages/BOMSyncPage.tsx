@@ -159,15 +159,49 @@ export function BOMSyncPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                setSyncResult({ synced: data.synced, failed: data.failed });
-                // Refresh data
-                await fetchPendingChanges();
-                await fetchSyncHistory();
+
+                // Queue-based response - sync dispatched to background worker
+                if (data.status === 'queued' || data.status === 'started') {
+                    // Show "queued" message
+                    setSyncResult({ synced: -2, failed: 0 }); // -2 = "queued" indicator
+
+                    // Poll for updates every 5 seconds for 60 seconds max
+                    let pollCount = 0;
+                    const pollInterval = setInterval(async () => {
+                        pollCount++;
+                        await fetchPendingChanges();
+                        await fetchSyncHistory();
+
+                        // Stop polling after 12 attempts (60 seconds)
+                        if (pollCount >= 12) {
+                            clearInterval(pollInterval);
+                            setIsSyncing(false);
+                        }
+                    }, 5000);
+
+                    // Safety timeout
+                    setTimeout(() => {
+                        clearInterval(pollInterval);
+                        setIsSyncing(false);
+                    }, 60000);
+                } else if (data.status === 'already_running') {
+                    // Sync already in progress
+                    setSyncResult({ synced: -3, failed: 0 }); // -3 = "already running" indicator
+                    setIsSyncing(false);
+                } else {
+                    // Legacy sync response (synced/failed counts)
+                    setSyncResult({ synced: data.synced || 0, failed: data.failed || 0 });
+                    await fetchPendingChanges();
+                    await fetchSyncHistory();
+                    setIsSyncing(false);
+                }
+            } else {
+                setSyncResult({ synced: 0, failed: -1 });
+                setIsSyncing(false);
             }
         } catch (err) {
             Logger.error('Failed to sync all', { error: err });
             setSyncResult({ synced: 0, failed: -1 });
-        } finally {
             setIsSyncing(false);
         }
     }
@@ -210,13 +244,24 @@ export function BOMSyncPage() {
 
             {/* Sync Result Toast */}
             {syncResult && (
-                <div className={`p-4 rounded-lg border ${syncResult.failed === 0
-                    ? 'bg-green-50 border-green-200 text-green-800'
-                    : syncResult.failed === -1
-                        ? 'bg-red-50 border-red-200 text-red-800'
-                        : 'bg-amber-50 border-amber-200 text-amber-800'
+                <div className={`p-4 rounded-lg border ${syncResult.synced === -2
+                    ? 'bg-blue-50 border-blue-200 text-blue-800'
+                    : syncResult.synced === -3
+                        ? 'bg-amber-50 border-amber-200 text-amber-800'
+                        : syncResult.failed === 0 && syncResult.synced >= 0
+                            ? 'bg-green-50 border-green-200 text-green-800'
+                            : syncResult.failed === -1
+                                ? 'bg-red-50 border-red-200 text-red-800'
+                                : 'bg-amber-50 border-amber-200 text-amber-800'
                     }`}>
-                    {syncResult.failed === -1 ? (
+                    {syncResult.synced === -2 ? (
+                        <span className="flex items-center gap-2">
+                            <Loader2 size={16} className="animate-spin" />
+                            Sync queued! Processing in background... Refreshing status automatically.
+                        </span>
+                    ) : syncResult.synced === -3 ? (
+                        <span>A sync is already in progress for this account. Please wait for it to complete.</span>
+                    ) : syncResult.failed === -1 ? (
                         <span>Sync failed. Please try again.</span>
                     ) : (
                         <span>

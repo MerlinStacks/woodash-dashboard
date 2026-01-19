@@ -730,14 +730,14 @@ export class SchedulerService {
     }
 
     /**
-     * BOM Inventory Sync: Sync all parent products' effective stock based on child component availability.
-     * Runs hourly to ensure WooCommerce stock reflects actual buildable quantity.
+     * BOM Inventory Sync: Dispatch jobs to the BOM sync queue for each account.
+     * Uses the same queue as manual sync for proper deduplication.
      */
     private static async dispatchBOMInventorySync() {
-        Logger.info('[Scheduler] Starting hourly BOM inventory sync');
+        Logger.info('[Scheduler] Starting hourly BOM inventory sync dispatch');
 
         try {
-            const { BOMInventorySyncService } = await import('./BOMInventorySyncService');
+            const { QueueFactory, QUEUES } = await import('./queue/QueueFactory');
 
             // Get all accounts with BOM products
             const accountsWithBOM = await prisma.bOM.findMany({
@@ -747,19 +747,35 @@ export class SchedulerService {
 
             const accountIds = [...new Set(accountsWithBOM.map(b => b.product.accountId))];
 
-            Logger.info(`[Scheduler] Syncing BOM products for ${accountIds.length} accounts`);
+            Logger.info(`[Scheduler] Dispatching BOM sync for ${accountIds.length} accounts`);
+
+            const queue = QueueFactory.getQueue(QUEUES.BOM_SYNC);
 
             for (const accountId of accountIds) {
-                try {
-                    const result = await BOMInventorySyncService.syncAllBOMProducts(accountId);
-                    Logger.info(`[Scheduler] BOM sync completed for account ${accountId}`, {
-                        synced: result.synced,
-                        failed: result.failed
-                    });
-                } catch (error) {
-                    Logger.error(`[Scheduler] BOM sync failed for account ${accountId}`, { error });
+                const jobId = `bom_sync_${accountId.replace(/:/g, '_')}`;
+
+                // Check if job already exists (e.g., manual sync in progress)
+                const existingJob = await queue.getJob(jobId);
+                if (existingJob) {
+                    const state = await existingJob.getState();
+                    if (['active', 'waiting', 'delayed'].includes(state)) {
+                        Logger.info(`[Scheduler] Skipping BOM sync for ${accountId} - job already ${state}`);
+                        continue;
+                    }
+                    // Remove completed/failed to allow re-queue
+                    try { await existingJob.remove(); } catch { /* ignore */ }
                 }
+
+                // Dispatch with low priority (scheduled jobs yield to manual)
+                await queue.add(QUEUES.BOM_SYNC, { accountId }, {
+                    jobId,
+                    priority: 1, // Low priority for scheduled
+                    removeOnComplete: true,
+                    removeOnFail: 100
+                });
             }
+
+            Logger.info(`[Scheduler] Dispatched BOM sync jobs for ${accountIds.length} accounts`);
 
         } catch (error) {
             Logger.error('[Scheduler] BOM inventory sync dispatch failed', { error });

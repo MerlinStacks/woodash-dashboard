@@ -39,6 +39,21 @@ export async function startWorkers() {
         });
     });
 
+    // BOM Inventory Sync Worker
+    await import('../services/BOMInventorySyncService').then(({ BOMInventorySyncService }) => {
+        QueueFactory.createWorker(QUEUES.BOM_SYNC, async (job) => {
+            const { accountId } = job.data;
+            Logger.info(`[BOM Worker] Starting BOM sync for account ${accountId}`);
+            const result = await BOMInventorySyncService.syncAllBOMProducts(accountId);
+            Logger.info(`[BOM Worker] Completed BOM sync`, {
+                accountId,
+                synced: result.synced,
+                skipped: result.skipped,
+                failed: result.failed
+            });
+        });
+    });
+
     // Graceful Shutdown
     process.on('SIGTERM', async () => {
         Logger.info('SIGTERM received. Closing workers...');

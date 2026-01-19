@@ -568,6 +568,8 @@ model ProductVariation {
   rawData     Json? // Store full Woo response
 
   product     WooProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  bomItemsAsChild BOMItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -643,6 +645,7 @@ model BOMItem {
   bomId          String
   supplierItemId String?
   childProductId String?
+  childVariationId Int?
 
   quantity    Decimal @db.Decimal(10, 4) // e.g. 1.5 meters, 0.05 kg
   wasteFactor Decimal @default(0) @db.Decimal(5, 4) // e.g. 0.10 for 10% waste
@@ -650,6 +653,7 @@ model BOMItem {
   bom          BOM           @relation(fields: [bomId], references: [id], onDelete: Cascade)
   supplierItem SupplierItem? @relation(fields: [supplierItemId], references: [id])
   childProduct WooProduct?   @relation("ProductAsBOMComponent", fields: [childProductId], references: [id])
+  childVariation ProductVariation? @relation(fields: [childProductId, childVariationId], references: [productId, wooId])
 
   // @@unique([bomId, supplierItemId]) // Removed as it conflicts with optional fields
 }
