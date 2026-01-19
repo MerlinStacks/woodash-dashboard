@@ -70,16 +70,31 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
             Logger.warn('[Health] Elasticsearch check failed', { error });
         }
 
-        const allHealthy = Object.values(checks).every(Boolean);
+        const healthyCount = Object.values(checks).filter(Boolean).length;
+        const allHealthy = healthyCount === 3;
+        const allDown = healthyCount === 0;
+
+        // Determine overall status
+        let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
+        if (allHealthy) {
+            overallStatus = 'healthy';
+        } else if (allDown) {
+            overallStatus = 'unhealthy';
+        } else {
+            overallStatus = 'degraded';
+        }
+
         const status: HealthStatus = {
-            status: allHealthy ? 'healthy' : 'degraded',
+            status: overallStatus,
             timestamp: new Date().toISOString(),
             uptime: process.uptime(),
             version: process.env.npm_package_version || '1.0.0',
             checks
         };
 
-        return reply.code(allHealthy ? 200 : 503).send(status);
+        // Return 200 for healthy/degraded, 503 only if ALL services are down
+        // This allows the container to be marked healthy even if ES is still starting
+        return reply.code(allDown ? 503 : 200).send(status);
     });
 
     /**
