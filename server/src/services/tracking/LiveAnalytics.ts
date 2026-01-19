@@ -5,6 +5,7 @@
  * live dashboard views.
  */
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../utils/prisma';
 import { isBot } from './TrafficAnalyzer';
 import { calculatePurchaseIntent } from './CohortLTVService';
@@ -205,6 +206,13 @@ export async function getVisitorCount24h(accountId: string): Promise<number> {
         'slurp', 'ia_archiver', 'alexa', 'msnbot', 'ahrefsbot', 'semrush'
     ];
 
+    // Build bot filter as raw SQL fragments using Prisma.sql
+    // Template literals in $queryRaw treat ${} as parameterized values, not raw SQL
+    const botConditions = botPatterns.map(
+        p => Prisma.sql`LOWER("userAgent") LIKE ${`%${p}%`}`
+    );
+    const botFilter = Prisma.join(botConditions, ' OR ');
+
     // Use raw query for efficient bot filtering
     // This avoids loading all sessions into memory
     const result = await prisma.$queryRaw<[{ count: bigint }]>`
@@ -214,9 +222,7 @@ export async function getVisitorCount24h(accountId: string): Promise<number> {
         AND "lastActiveAt" >= ${twentyFourHoursAgo}
         AND "userAgent" IS NOT NULL
         AND "userAgent" != ''
-        AND NOT (
-            ${botPatterns.map(p => `LOWER("userAgent") LIKE '%${p}%'`).join(' OR ')}
-        )
+        AND NOT (${botFilter})
     `;
 
     return Number(result[0]?.count ?? 0);
