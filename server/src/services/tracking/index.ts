@@ -11,7 +11,7 @@ export { processEvent, TrackingEventPayload } from './EventProcessor';
 export { parseTrafficSource, isBot, maskIpAddress } from './TrafficAnalyzer';
 
 // Live analytics
-export { getLiveVisitors, getLiveCarts, getSessionHistory, LiveCartItem, LiveCartSession } from './LiveAnalytics';
+export { getLiveVisitors, getLiveCarts, getSessionHistory, getVisitorCount24h, LiveCartItem, LiveCartSession } from './LiveAnalytics';
 
 // Abandoned cart detection
 export { findAbandonedCarts, markAbandonedNotificationSent, getHighValueCarts, triggerAbandonedCartAutomations } from './AbandonedCartService';

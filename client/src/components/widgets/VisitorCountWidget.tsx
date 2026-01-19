@@ -23,14 +23,14 @@ export function VisitorCountWidget(_props: WidgetProps) {
 
         try {
             // Fetch live visitors and 24h stats in parallel
-            const [liveRes, statsRes] = await Promise.all([
+            const [liveRes, visitors24hRes] = await Promise.all([
                 fetch('/api/tracking/live', {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'x-account-id': currentAccount.id
                     }
                 }),
-                fetch('/api/tracking/stats?days=1', {
+                fetch('/api/tracking/visitors-24h', {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'x-account-id': currentAccount.id
@@ -43,9 +43,9 @@ export function VisitorCountWidget(_props: WidgetProps) {
                 setCount(Array.isArray(data) ? data.length : 0);
             }
 
-            if (statsRes.ok) {
-                const statsData = await statsRes.json();
-                setVisitors24h(statsData.totalSessions || 0);
+            if (visitors24hRes.ok) {
+                const data = await visitors24hRes.json();
+                setVisitors24h(data.count || 0);
             }
         } catch (error) {
             Logger.error('Failed to fetch visitor data', { error: error });

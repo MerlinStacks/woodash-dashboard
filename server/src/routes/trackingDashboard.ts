@@ -5,6 +5,7 @@
 
 import { FastifyPluginAsync } from 'fastify';
 import { TrackingService } from '../services/TrackingService';
+import { getVisitorCount24h } from '../services/tracking';
 import { getCartAbandonmentStats } from '../services/analytics/CartAbandonmentService';
 import { requireAuthFastify } from '../middleware/auth';
 import { Logger } from '../utils/logger';
@@ -23,6 +24,18 @@ const trackingDashboardRoutes: FastifyPluginAsync = async (fastify) => {
         } catch (error) {
             Logger.error('Live Users Error', { error });
             return reply.code(500).send({ error: 'Failed to fetch live users' });
+        }
+    });
+
+    fastify.get('/visitors-24h', async (request, reply) => {
+        try {
+            const accountId = getAccountId(request);
+            if (!accountId) return reply.code(400).send({ error: 'Account ID required' });
+            const count = await getVisitorCount24h(accountId);
+            return { count };
+        } catch (error) {
+            Logger.error('Visitors 24h Error', { error });
+            return reply.code(500).send({ error: 'Failed to fetch 24h visitor count' });
         }
     });
 

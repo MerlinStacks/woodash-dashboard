@@ -188,6 +188,41 @@ export async function getLiveCarts(accountId: string): Promise<LiveCartSession[]
 }
 
 /**
+ * Get count of unique visitors in the last 24 hours.
+ * Uses lastActiveAt to capture all sessions that were active in the window.
+ * Filters out bots using the same logic as getLiveVisitors.
+ *
+ * @param accountId - The account ID to query
+ * @returns Count of unique visitor sessions
+ */
+export async function getVisitorCount24h(accountId: string): Promise<number> {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const sessions = await prisma.analyticsSession.findMany({
+        where: {
+            accountId,
+            lastActiveAt: {
+                gte: twentyFourHoursAgo
+            },
+            userAgent: {
+                not: null
+            }
+        },
+        select: {
+            userAgent: true
+        }
+    });
+
+    // Filter out bots (same logic as getLiveVisitors)
+    const validSessions = sessions.filter(session => {
+        if (!session.userAgent || session.userAgent.trim() === '') return false;
+        return !isBot(session.userAgent);
+    });
+
+    return validSessions.length;
+}
+
+/**
  * Get Session History - all events for a specific session.
  *
  * @param sessionId - The session ID to query
