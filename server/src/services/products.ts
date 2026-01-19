@@ -176,8 +176,10 @@ export class ProductsService {
                 });
 
                 // Sync to Woo (Only synced fields)
+                // Variations require the parent product ID for the WooCommerce endpoint:
+                // PUT /products/{parent_id}/variations/{variation_id}
                 try {
-                    await wooService.updateProduct(v.id, {
+                    await wooService.updateProductVariation(wooId, v.id, {
                         sku: v.sku,
                         regular_price: v.price,
                         sale_price: v.salePrice,
