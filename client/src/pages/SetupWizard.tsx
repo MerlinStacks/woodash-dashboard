@@ -140,7 +140,7 @@ export function SetupWizard() {
     // Finalization
     // ─────────────────────────────────────────────────────────────────────────
 
-    const handleFinalize = async () => {
+    const handleFinalize = useCallback(async () => {
         setIsSubmitting(true);
         setError(null);
 
@@ -187,7 +187,7 @@ export function SetupWizard() {
         } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [draft, token, logout, refreshAccounts, navigate]);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Render

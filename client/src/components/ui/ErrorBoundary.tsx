@@ -1,5 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { Logger } from '../../utils/logger';
+import { isChunkLoadError, handleChunkLoadError } from '../../utils/deploymentRecovery';
 import { AlertCircle, RotateCw } from 'lucide-react';
 
 interface Props {
@@ -24,6 +25,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error('Uncaught error:', error, errorInfo);
+
+        // Auto-reload on chunk load errors (stale deployment cache)
+        if (isChunkLoadError(error)) {
+            handleChunkLoadError(error);
+            return; // Skip normal error handling, will reload
+        }
     }
 
     private handleRetry = () => {

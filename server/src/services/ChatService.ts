@@ -202,7 +202,11 @@ export class ChatService {
         }
 
         // Emit socket events (always, so UI stays in sync)
-        this.io.to(`conversation:${conversationId}`).emit('message:new', message);
+        // Include accountId for client-side account isolation filtering
+        this.io.to(`conversation:${conversationId}`).emit('message:new', {
+            ...message,
+            accountId: conversation.accountId
+        });
         this.io.to(`account:${conversation.accountId}`).emit('conversation:updated', {
             id: conversationId,
             lastMessage: message,

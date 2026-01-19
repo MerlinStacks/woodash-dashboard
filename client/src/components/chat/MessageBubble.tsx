@@ -16,6 +16,7 @@ import { cn } from '../../utils/cn';
 import { Check, AlertCircle, ChevronDown, ChevronUp, FileText, Download, Image as ImageIcon, File, Reply, Eye, Paperclip } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { GravatarAvatar } from './GravatarAvatar';
+import { escapeRegex } from '../../utils/stringUtils';
 
 interface QuotedContentInfo {
     mainContent: string;
@@ -216,17 +217,21 @@ function parseQuotedContent(body: string): QuotedContentInfo {
             const textBeforeQuote = textBody.slice(0, splitIndex).trim();
             const lastWords = textBeforeQuote.split(/\s+/).slice(-5).join('\\s*');
             if (lastWords.length > 10) {
-                const htmlSearchPattern = new RegExp(lastWords.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-                const htmlMatch = body.match(htmlSearchPattern);
-                if (htmlMatch && htmlMatch.index !== undefined) {
-                    const htmlSplitIndex = htmlMatch.index + htmlMatch[0].length;
-                    const afterMatch = body.slice(htmlSplitIndex);
-                    const nextBreak = afterMatch.match(/^[^<]*(<|$)/);
-                    const adjustedSplit = htmlSplitIndex + (nextBreak ? nextBreak[0].length - 1 : 0);
-                    return buildResult(
-                        body.slice(0, adjustedSplit).trim(),
-                        body.slice(adjustedSplit).trim()
-                    );
+                try {
+                    const htmlSearchPattern = new RegExp(escapeRegex(lastWords), 'i');
+                    const htmlMatch = body.match(htmlSearchPattern);
+                    if (htmlMatch && htmlMatch.index !== undefined) {
+                        const htmlSplitIndex = htmlMatch.index + htmlMatch[0].length;
+                        const afterMatch = body.slice(htmlSplitIndex);
+                        const nextBreak = afterMatch.match(/^[^<]*(<|$)/);
+                        const adjustedSplit = htmlSplitIndex + (nextBreak ? nextBreak[0].length - 1 : 0);
+                        return buildResult(
+                            body.slice(0, adjustedSplit).trim(),
+                            body.slice(adjustedSplit).trim()
+                        );
+                    }
+                } catch {
+                    // If regex construction fails, fall through to simple split
                 }
             }
         }

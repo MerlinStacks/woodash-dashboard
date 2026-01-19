@@ -1,8 +1,13 @@
 import * as React from 'react'
 import * as ReactDOM from 'react-dom/client'
 import * as Sentry from '@sentry/react'
+import { installDeploymentRecovery } from './utils/deploymentRecovery'
 import App from './App.tsx'
 import './index.css'
+
+// Install deployment recovery handlers BEFORE React initializes.
+// This catches chunk load errors from stale caches after redeployment.
+installDeploymentRecovery();
 
 // Initialize Sentry if DSN is provided
 if (import.meta.env.VITE_SENTRY_DSN) {

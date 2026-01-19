@@ -234,10 +234,18 @@ export function createInitialDraft(): OnboardingDraft {
 /** LocalStorage key for persisting draft */
 export const ONBOARDING_STORAGE_KEY = 'overseek_onboarding_draft';
 
-/** Save draft to localStorage */
+/** Save draft to localStorage (excludes sensitive data like SMTP password) */
 export function saveDraftToStorage(draft: OnboardingDraft, currentStep: number): void {
     try {
-        localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({ draft, currentStep }));
+        // Exclude sensitive fields before persisting
+        const safeDraft: OnboardingDraft = {
+            ...draft,
+            email: {
+                ...draft.email,
+                smtpPassword: '' // Never store passwords in localStorage
+            }
+        };
+        localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({ draft: safeDraft, currentStep }));
     } catch {
         // Silently fail if localStorage is unavailable
     }

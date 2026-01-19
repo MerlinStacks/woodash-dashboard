@@ -55,9 +55,28 @@ export function VisitorCountWidget(_props: WidgetProps) {
     }, [currentAccount, token]);
 
     useEffect(() => {
-        fetchData();
-        const interval = setInterval(fetchData, 10000);
-        return () => clearInterval(interval);
+        // Only poll when tab is visible
+        const fetchIfVisible = () => {
+            if (document.visibilityState === 'visible') {
+                fetchData();
+            }
+        };
+
+        fetchIfVisible();
+        const interval = setInterval(fetchIfVisible, 10000);
+
+        // Also refetch when tab becomes visible again
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchData();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [fetchData]);
 
     return (

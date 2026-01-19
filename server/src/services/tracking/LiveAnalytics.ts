@@ -189,8 +189,7 @@ export async function getLiveCarts(accountId: string): Promise<LiveCartSession[]
 
 /**
  * Get count of unique visitors in the last 24 hours.
- * Uses lastActiveAt to capture all sessions that were active in the window.
- * Filters out bots using the same logic as getLiveVisitors.
+ * Uses an optimized count query with bot filtering at the database level.
  *
  * @param accountId - The account ID to query
  * @returns Count of unique visitor sessions
@@ -198,28 +197,29 @@ export async function getLiveCarts(accountId: string): Promise<LiveCartSession[]
 export async function getVisitorCount24h(accountId: string): Promise<number> {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    const sessions = await prisma.analyticsSession.findMany({
-        where: {
-            accountId,
-            lastActiveAt: {
-                gte: twentyFourHoursAgo
-            },
-            userAgent: {
-                not: null
-            }
-        },
-        select: {
-            userAgent: true
-        }
-    });
+    // Common bot user agent substrings to filter at DB level
+    const botPatterns = [
+        'bot', 'crawler', 'spider', 'headless', 'phantom', 'selenium',
+        'puppeteer', 'lighthouse', 'pagespeed', 'pingdom', 'uptimerobot',
+        'googlebot', 'bingbot', 'yandex', 'baidu', 'duckduck', 'facebookexternalhit',
+        'slurp', 'ia_archiver', 'alexa', 'msnbot', 'ahrefsbot', 'semrush'
+    ];
 
-    // Filter out bots (same logic as getLiveVisitors)
-    const validSessions = sessions.filter(session => {
-        if (!session.userAgent || session.userAgent.trim() === '') return false;
-        return !isBot(session.userAgent);
-    });
+    // Use raw query for efficient bot filtering
+    // This avoids loading all sessions into memory
+    const result = await prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) as count
+        FROM "AnalyticsSession"
+        WHERE "accountId" = ${accountId}
+        AND "lastActiveAt" >= ${twentyFourHoursAgo}
+        AND "userAgent" IS NOT NULL
+        AND "userAgent" != ''
+        AND NOT (
+            ${botPatterns.map(p => `LOWER("userAgent") LIKE '%${p}%'`).join(' OR ')}
+        )
+    `;
 
-    return validSessions.length;
+    return Number(result[0]?.count ?? 0);
 }
 
 /**
