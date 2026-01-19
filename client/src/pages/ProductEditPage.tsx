@@ -9,7 +9,7 @@ import { SeoAnalysisPanel } from '../components/Seo/SeoAnalysisPanel';
 import { MerchantCenterPanel } from '../components/Seo/MerchantCenterPanel';
 import { GeneralInfoPanel } from '../components/products/GeneralInfoPanel';
 import { LogisticsPanel } from '../components/products/LogisticsPanel';
-import { VariationsPanel } from '../components/products/VariationsPanel';
+import { VariationsPanel, VariationsPanelRef } from '../components/products/VariationsPanel';
 import { PricingPanel } from '../components/products/PricingPanel';
 import { BOMPanel, BOMPanelRef } from '../components/products/BOMPanel';
 import { WooCommerceInfoPanel } from '../components/products/WooCommerceInfoPanel';
@@ -113,6 +113,8 @@ export function ProductEditPage() {
 
     // Ref to BOMPanel for triggering save from parent
     const bomPanelRef = useRef<BOMPanelRef>(null);
+    // Ref to VariationsPanel for triggering all variant BOM saves
+    const variationsPanelRef = useRef<VariationsPanelRef>(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -261,10 +263,14 @@ export function ProductEditPage() {
                 focusKeyword: formData.focusKeyword
             }, token, currentAccount.id);
 
-            // Also save BOM if the panel is mounted
+            // Also save BOM if the panel is mounted (for main product BOM)
             const bomSaveResult = await bomPanelRef.current?.save();
-            if (bomSaveResult === false) {
-                showToast('Product saved, but BOM configuration failed to save.', 'error');
+
+            // Save all variant BOMs if VariationsPanel is mounted
+            const variantBomsSaveResult = await variationsPanelRef.current?.saveAllBOMs();
+
+            if (bomSaveResult === false || variantBomsSaveResult === false) {
+                showToast('Product saved, but some BOM configurations failed to save.', 'error');
             } else {
                 showToast('Product saved successfully');
             }
@@ -425,6 +431,7 @@ export function ProductEditPage() {
             content: (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <VariationsPanel
+                        ref={variationsPanelRef}
                         product={product}
                         variants={variants}
                         onUpdate={(updated) => setVariants(updated)}

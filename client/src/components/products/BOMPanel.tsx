@@ -1,6 +1,6 @@
 import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Logger } from '../../utils/logger';
-import { Plus, Trash2, DollarSign, Loader2, GitBranch, RefreshCw, Package, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, DollarSign, Loader2, GitBranch, RefreshCw, Package, AlertTriangle, CheckCircle, Save } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 
@@ -319,8 +319,8 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                     {/* Effective Stock & Sync - Only show if there are BOM items with child products */}
                     {effectiveStock !== null && (
                         <div className={`p-4 rounded-xl border ${currentWooStock !== effectiveStock
-                                ? 'bg-amber-50/50 border-amber-200'
-                                : 'bg-blue-50/50 border-blue-100'
+                            ? 'bg-amber-50/50 border-amber-200'
+                            : 'bg-blue-50/50 border-blue-100'
                             }`}>
                             <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-2 text-blue-700">
@@ -347,12 +347,12 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                                     onClick={handleSyncToWoo}
                                     disabled={isSyncing || currentWooStock === effectiveStock}
                                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${currentWooStock === effectiveStock
-                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                            : syncStatus === 'success'
-                                                ? 'bg-green-500 text-white'
-                                                : syncStatus === 'error'
-                                                    ? 'bg-red-500 text-white'
-                                                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        : syncStatus === 'success'
+                                            ? 'bg-green-500 text-white'
+                                            : syncStatus === 'error'
+                                                ? 'bg-red-500 text-white'
+                                                : 'bg-blue-500 text-white hover:bg-blue-600'
                                         }`}
                                 >
                                     {isSyncing ? (
@@ -486,6 +486,24 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                                 )}
                             </tbody>
                         </table>
+
+                        {/* Save Button for inline BOMPanel (especially for variant BOMs) */}
+                        {bomItems.length > 0 && (
+                            <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
+                                >
+                                    {saving ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                        <Save size={14} />
+                                    )}
+                                    {saving ? 'Saving...' : 'Save BOM'}
+                                </button>
+                            </div>
+                        )}
                     </>
                 )}
             </div>

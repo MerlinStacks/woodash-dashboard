@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { Layers, ChevronDown, ChevronRight, Package, DollarSign } from 'lucide-react';
-import { BOMPanel } from './BOMPanel';
+import { BOMPanel, BOMPanelRef } from './BOMPanel';
 import { useAccountFeature } from '../../hooks/useAccountFeature';
 
 interface ProductVariant {
@@ -38,13 +38,39 @@ interface VariationsPanelProps {
 }
 
 /**
+ * Exposes saveAllBOMs method so parent can save all variant BOMs on product save.
+ */
+export interface VariationsPanelRef {
+    saveAllBOMs: () => Promise<boolean>;
+}
+
+/**
  * Variations panel with inline editing for SKU, price, and stock.
  * Shows variation image thumbnails and expanded details with BOM configuration.
  */
-export const VariationsPanel: React.FC<VariationsPanelProps> = ({ product, variants, onUpdate }) => {
+export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelProps>(function VariationsPanel({ product, variants, onUpdate }, ref) {
     const [expandedId, setExpandedId] = useState<number | null>(null);
     const [editingVariants, setEditingVariants] = useState<ProductVariant[]>(variants);
     const isGoldPriceEnabled = useAccountFeature('GOLD_PRICE_CALCULATOR');
+
+    // Store refs for all BOMPanels to enable batch save
+    const bomPanelRefs = useRef<Map<number, BOMPanelRef | null>>(new Map());
+
+    /**
+     * Save all variant BOMs. Called by parent when saving the product.
+     */
+    const saveAllBOMs = async (): Promise<boolean> => {
+        const refs = Array.from(bomPanelRefs.current.values()).filter(ref => ref !== null);
+        if (refs.length === 0) return true;
+
+        const results = await Promise.all(refs.map(ref => ref!.save()));
+        return results.every(success => success);
+    };
+
+    // Expose saveAllBOMs to parent via ref
+    useImperativeHandle(ref, () => ({
+        saveAllBOMs
+    }), []);
 
     useEffect(() => {
         setEditingVariants(variants);
@@ -54,7 +80,25 @@ export const VariationsPanel: React.FC<VariationsPanelProps> = ({ product, varia
     const hasVariations = product.type?.includes('variable') || (product.variations && product.variations.length > 0);
     if (!hasVariations) return null;
 
-    const toggleExpand = (id: number) => {
+    /**
+     * Toggle variant expansion. Auto-saves the current variant's BOM before switching
+     * to prevent data loss when the BOMPanel unmounts.
+     */
+    const toggleExpand = async (id: number) => {
+        // If we're switching away from a currently expanded row, auto-save its BOM first
+        if (expandedId !== null && expandedId !== id) {
+            const currentRef = bomPanelRefs.current.get(expandedId);
+            if (currentRef) {
+                await currentRef.save();
+            }
+        }
+        // If collapsing the same row, save it too
+        if (expandedId === id) {
+            const currentRef = bomPanelRefs.current.get(id);
+            if (currentRef) {
+                await currentRef.save();
+            }
+        }
         setExpandedId(expandedId === id ? null : id);
     };
 
@@ -280,7 +324,17 @@ export const VariationsPanel: React.FC<VariationsPanelProps> = ({ product, varia
 
                                                     <div className="border-l-2 border-blue-100 pl-4">
                                                         <h4 className="text-sm font-semibold text-gray-800 mb-2">Components (BOM)</h4>
-                                                        <BOMPanel productId={product.id} fixedVariationId={v.id} />
+                                                        <BOMPanel
+                                                            ref={(panelRef) => {
+                                                                if (panelRef) {
+                                                                    bomPanelRefs.current.set(v.id, panelRef);
+                                                                } else {
+                                                                    bomPanelRefs.current.delete(v.id);
+                                                                }
+                                                            }}
+                                                            productId={product.id}
+                                                            fixedVariationId={v.id}
+                                                        />
                                                     </div>
                                                 </div>
                                             </td>
@@ -294,4 +348,4 @@ export const VariationsPanel: React.FC<VariationsPanelProps> = ({ product, varia
             </div>
         </div>
     );
-};
+});

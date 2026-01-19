@@ -380,6 +380,14 @@ export class NotificationEngine {
      * Core notification delivery method
      */
     private static async sendNotification(config: NotificationConfig): Promise<void> {
+        // Guard: Skip if accountId is missing
+        if (!config.accountId) {
+            Logger.warn('[NotificationEngine] Skipping notification - accountId is undefined', {
+                eventType: config.eventType
+            });
+            return;
+        }
+
         const results: Record<string, unknown> = {};
         let subscriptionLookup: Record<string, unknown> | null = null;
 
@@ -468,6 +476,15 @@ export class NotificationEngine {
         payload?: Record<string, unknown>;
     }): Promise<void> {
         try {
+            // Guard: Skip logging if accountId is missing (required by schema)
+            if (!data.accountId) {
+                Logger.warn('[NotificationEngine] Skipping delivery log - accountId is undefined', {
+                    eventType: data.eventType,
+                    channels: data.channels
+                });
+                return;
+            }
+
             // Sanitize data to ensure valid JSON (removes undefined, functions, circular refs)
             const sanitize = <T>(obj: T): T | undefined => {
                 if (obj === null || obj === undefined) return undefined;
@@ -495,12 +512,10 @@ export class NotificationEngine {
             });
         } catch (error: any) {
             // Don't fail the notification if logging fails
-            // Log detailed error for debugging Prisma validation issues
             Logger.error('[NotificationEngine] Failed to log delivery', {
                 error,
                 errorMessage: error?.message || String(error),
                 errorName: error?.name,
-                // Log the sanitized data for debugging
                 debugData: {
                     accountId: data.accountId,
                     eventType: data.eventType,
