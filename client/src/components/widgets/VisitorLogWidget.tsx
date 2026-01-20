@@ -179,8 +179,8 @@ const VisitorLogWidget = (_props: { settings?: any }) => {
         }
     }, [token, currentAccount]);
 
-    // Use visibility-aware polling to pause when tab is hidden
-    useVisibilityPolling(fetchLog, 15000, [fetchLog]);
+    // Use visibility-aware polling with tab coordination
+    useVisibilityPolling(fetchLog, 15000, [fetchLog], 'visitor-log');
 
     if (loading && visitors.length === 0) {
         return <div className="p-4 text-xs text-gray-500">Loading log...</div>;

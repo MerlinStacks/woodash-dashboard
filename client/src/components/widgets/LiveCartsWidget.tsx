@@ -72,8 +72,8 @@ const LiveCartsWidget = ({ className }: WidgetProps) => {
         }
     }, [currentAccount, token]);
 
-    // Use visibility-aware polling to pause when tab is hidden
-    useVisibilityPolling(fetchCarts, 30000, [fetchCarts]);
+    // Use visibility-aware polling with tab coordination
+    useVisibilityPolling(fetchCarts, 30000, [fetchCarts], 'live-carts');
 
     if (loading && carts.length === 0) {
         return (

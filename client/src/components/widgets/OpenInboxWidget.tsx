@@ -40,8 +40,8 @@ export function OpenInboxWidget(_props: WidgetProps) {
         }
     }, [currentAccount, token]);
 
-    // Use visibility-aware polling (fallback, since we have real-time sockets)
-    useVisibilityPolling(fetchCount, 60000, [fetchCount]);
+    // Use visibility-aware polling with tab coordination
+    useVisibilityPolling(fetchCount, 60000, [fetchCount], 'open-inbox');
 
     // Real-time: Update count on conversation changes
     useWidgetSocket('conversation:updated', () => {

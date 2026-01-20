@@ -71,8 +71,8 @@ export function LiveAnalyticsPage() {
         }
     }, [currentAccount, token]);
 
-    // Visibility-aware polling: pauses when tab is hidden to save resources
-    useVisibilityPolling(fetchLiveData, 5000, [fetchLiveData]);
+    // Visibility-aware polling with tab coordination
+    useVisibilityPolling(fetchLiveData, 5000, [fetchLiveData], 'live-analytics-page');
 
     useEffect(() => {
         // Fetch Report Data when view changes

@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
-import { Layers, ChevronDown, ChevronRight, Package, DollarSign } from 'lucide-react';
+import { Layers, ChevronDown, ChevronRight, Package, DollarSign, Loader2 } from 'lucide-react';
 import { BOMPanel, BOMPanelRef } from './BOMPanel';
 import { useAccountFeature } from '../../hooks/useAccountFeature';
+import { useAuth } from '../../context/AuthContext';
+import { useAccount } from '../../context/AccountContext';
+import { Logger } from '../../utils/logger';
 
 interface ProductVariant {
     id: number;
@@ -12,6 +15,8 @@ interface ProductVariant {
     binLocation?: string;
     stockStatus?: string;
     stockQuantity?: number;
+    manageStock?: boolean;
+    backorders?: 'no' | 'notify' | 'yes';
     weight?: string;
     dimensions?: {
         length?: string;
@@ -49,9 +54,15 @@ export interface VariationsPanelRef {
  * Shows variation image thumbnails and expanded details with BOM configuration.
  */
 export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelProps>(function VariationsPanel({ product, variants, onUpdate }, ref) {
+    const { token } = useAuth();
+    const { currentAccount } = useAccount();
     const [expandedId, setExpandedId] = useState<number | null>(null);
     const [editingVariants, setEditingVariants] = useState<ProductVariant[]>(variants);
     const isGoldPriceEnabled = useAccountFeature('GOLD_PRICE_CALCULATOR');
+
+    // Stock editing state: track edited values and saving status per variant
+    const [stockEditValues, setStockEditValues] = useState<Record<number, string>>({});
+    const [savingStockId, setSavingStockId] = useState<number | null>(null);
 
     // Store refs for all BOMPanels to enable batch save
     const bomPanelRefs = useRef<Map<number, BOMPanelRef | null>>(new Map());
@@ -74,6 +85,12 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
 
     useEffect(() => {
         setEditingVariants(variants);
+        // Initialize stock edit values from variants
+        const stockValues: Record<number, string> = {};
+        variants.forEach(v => {
+            stockValues[v.id] = v.stockQuantity?.toString() ?? '';
+        });
+        setStockEditValues(stockValues);
     }, [variants]);
 
     // Support ATUM's custom variable types (e.g., 'variable-product-part') and any product with variations
@@ -126,6 +143,55 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
             return v.images[0]?.src || v.images[0];
         }
         return null;
+    };
+
+    /**
+     * Adjust stock quantity by delta (+1 or -1)
+     */
+    const handleStockAdjust = (variantId: number, delta: number) => {
+        const current = parseInt(stockEditValues[variantId] ?? '0', 10) || 0;
+        const newValue = Math.max(0, current + delta);
+        setStockEditValues(prev => ({ ...prev, [variantId]: newValue.toString() }));
+    };
+
+    /**
+     * Save stock for a specific variant to the API
+     */
+    const handleStockSave = async (variantId: number) => {
+        if (!token || !currentAccount) return;
+
+        const newStock = parseInt(stockEditValues[variantId] ?? '', 10);
+        if (isNaN(newStock) || newStock < 0) return;
+
+        setSavingStockId(variantId);
+
+        try {
+            const res = await fetch(`/api/products/${product.wooId}/variants/${variantId}/stock`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-Account-ID': currentAccount.id,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ stockQuantity: newStock })
+            });
+
+            if (res.ok) {
+                // Update local variant state
+                const updated = editingVariants.map(v =>
+                    v.id === variantId ? { ...v, stockQuantity: newStock } : v
+                );
+                setEditingVariants(updated);
+                if (onUpdate) onUpdate(updated);
+            } else {
+                const data = await res.json();
+                Logger.error('Failed to save variant stock', { error: data.error, variantId });
+            }
+        } catch (err) {
+            Logger.error('Failed to save variant stock', { error: err, variantId });
+        } finally {
+            setSavingStockId(null);
+        }
     };
 
     return (
@@ -248,13 +314,36 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
                                             </span>
                                         </td>
                                         <td className="px-4 py-2">
-                                            <div className="flex items-center gap-2">
-                                                {typeof v.stockQuantity === 'number' && (
-                                                    <span className="font-mono text-gray-700 font-medium text-sm">{v.stockQuantity}</span>
-                                                )}
-                                                <span className={`px-2 py-0.5 rounded-full text-xs ${v.stockStatus === 'instock' ? 'bg-green-100 text-green-700' : v.stockStatus === 'onbackorder' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                                    {v.stockStatus === 'instock' ? 'In Stock' : v.stockStatus === 'onbackorder' ? 'Backorder' : 'Out'}
-                                                </span>
+                                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStockAdjust(v.id, -1)}
+                                                    className="w-6 h-6 flex items-center justify-center bg-gray-100 border border-gray-200 rounded text-gray-600 hover:bg-gray-200 transition-colors text-xs font-bold"
+                                                >
+                                                    −
+                                                </button>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={stockEditValues[v.id] ?? ''}
+                                                    onChange={(e) => setStockEditValues(prev => ({ ...prev, [v.id]: e.target.value }))}
+                                                    className="w-14 px-1 py-1 text-center font-mono text-sm bg-white border border-gray-200 rounded focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStockAdjust(v.id, 1)}
+                                                    className="w-6 h-6 flex items-center justify-center bg-gray-100 border border-gray-200 rounded text-gray-600 hover:bg-gray-200 transition-colors text-xs font-bold"
+                                                >
+                                                    +
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStockSave(v.id)}
+                                                    disabled={savingStockId === v.id || stockEditValues[v.id] === (v.stockQuantity?.toString() ?? '')}
+                                                    className="ml-1 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    {savingStockId === v.id ? <Loader2 className="animate-spin" size={12} /> : 'Save'}
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -262,20 +351,56 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
                                         <tr className="bg-gray-50/30">
                                             <td colSpan={9} className="p-4 border-t border-gray-100/50">
                                                 <div className="ml-8 space-y-4">
+                                                    {/* Inventory Tracking Toggle */}
+                                                    <div className="flex items-center justify-between py-2 px-3 bg-gray-50/80 rounded-lg border border-gray-100">
+                                                        <div>
+                                                            <span className="text-xs font-medium text-gray-700">Enable Inventory Tracking</span>
+                                                            <p className="text-[10px] text-gray-500">Track stock for this variant</p>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleFieldChange(v.id, 'manageStock', !v.manageStock)}
+                                                            className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${v.manageStock
+                                                                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                                                    : 'bg-gray-100 text-gray-500 border border-gray-200'
+                                                                }`}
+                                                        >
+                                                            {v.manageStock ? 'Enabled' : 'Disabled'}
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Stock controls - only shown when manageStock is enabled */}
+                                                    {v.manageStock && (
+                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Stock Status</label>
+                                                                <select
+                                                                    value={v.stockStatus || 'instock'}
+                                                                    onChange={(e) => handleFieldChange(v.id, 'stockStatus', e.target.value)}
+                                                                    className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg bg-white"
+                                                                >
+                                                                    <option value="instock">In Stock</option>
+                                                                    <option value="outofstock">Out of Stock</option>
+                                                                    <option value="onbackorder">On Backorder</option>
+                                                                </select>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Allow Backorders</label>
+                                                                <select
+                                                                    value={v.backorders || 'no'}
+                                                                    onChange={(e) => handleFieldChange(v.id, 'backorders', e.target.value)}
+                                                                    className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg bg-white"
+                                                                >
+                                                                    <option value="no">Do not allow</option>
+                                                                    <option value="notify">Allow, but notify</option>
+                                                                    <option value="yes">Allow</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     {/* Additional fields */}
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                                                        <div>
-                                                            <label className="block text-xs font-medium text-gray-500 mb-1">Stock Status</label>
-                                                            <select
-                                                                value={v.stockStatus || 'instock'}
-                                                                onChange={(e) => handleFieldChange(v.id, 'stockStatus', e.target.value)}
-                                                                className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg"
-                                                            >
-                                                                <option value="instock">In Stock</option>
-                                                                <option value="outofstock">Out of Stock</option>
-                                                                <option value="onbackorder">On Backorder</option>
-                                                            </select>
-                                                        </div>
                                                         <div>
                                                             <label className="block text-xs font-medium text-gray-500 mb-1">COGS (Cost)</label>
                                                             <input

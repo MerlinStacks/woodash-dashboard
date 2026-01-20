@@ -1,4 +1,4 @@
-import { Package, FolderTree, Tags, CheckCircle2, XCircle } from 'lucide-react';
+import { Package, FolderTree, Tags } from 'lucide-react';
 
 interface WooCategory {
     id: number;
@@ -13,18 +13,16 @@ interface WooTag {
 }
 
 interface WooCommerceInfoPanelProps {
-    manageStock: boolean;
     categories: WooCategory[];
     tags: WooTag[];
 }
 
 /**
  * Displays WooCommerce-specific product metadata:
- * - Inventory tracking status
  * - Product categories
  * - Product tags
  */
-export function WooCommerceInfoPanel({ manageStock, categories, tags }: WooCommerceInfoPanelProps) {
+export function WooCommerceInfoPanel({ categories, tags }: WooCommerceInfoPanelProps) {
     return (
         <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-xs border border-white/50 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4 flex items-center gap-2">
@@ -33,24 +31,6 @@ export function WooCommerceInfoPanel({ manageStock, categories, tags }: WooComme
             </h3>
 
             <div className="space-y-5">
-                {/* Inventory Tracking Status */}
-                <div className="flex items-center justify-between py-2 px-3 bg-gray-50/80 rounded-lg border border-gray-100">
-                    <div className="flex items-center gap-2">
-                        <Package size={16} className="text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Inventory Tracking</span>
-                    </div>
-                    {manageStock ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full border border-green-200">
-                            <CheckCircle2 size={12} />
-                            Enabled
-                        </span>
-                    ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full border border-gray-200">
-                            <XCircle size={12} />
-                            Disabled
-                        </span>
-                    )}
-                </div>
 
                 {/* Categories */}
                 <div>

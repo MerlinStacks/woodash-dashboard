@@ -74,8 +74,8 @@ export function SyncStatus() {
         }
     }, [currentAccount, token]);
 
-    // Use visibility-aware polling to pause when tab is hidden
-    useVisibilityPolling(fetchStatus, 10000, [fetchStatus]);
+    // Use visibility-aware polling with tab coordination
+    useVisibilityPolling(fetchStatus, 10000, [fetchStatus], 'sync-status');
 
     const toggleFullSync = (key: SyncEntityKey) => {
         setFullSyncTypes(prev => ({ ...prev, [key]: !prev[key] }));

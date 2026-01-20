@@ -103,8 +103,8 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
         };
     }, [socket, fetchStatus]);
 
-    // Visibility-aware fallback polling (reduced from 2s to 30s since we have real-time events now)
-    useVisibilityPolling(fetchStatus, 30000, [fetchStatus]);
+    // Visibility-aware fallback polling with tab coordination
+    useVisibilityPolling(fetchStatus, 30000, [fetchStatus], 'sync-context');
 
     const controlSync = async (action: 'pause' | 'resume' | 'cancel', queueName?: string, jobId?: string) => {
         if (!currentAccount?.id || !token) return;

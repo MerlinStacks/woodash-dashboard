@@ -379,6 +379,23 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
+    /**
+     * DELETE /admin/sync-logs/failed
+     * Clear all failed sync logs (admin maintenance)
+     */
+    fastify.delete('/sync-logs/failed', async (request, reply) => {
+        try {
+            const result = await prisma.syncLog.deleteMany({
+                where: { status: 'FAILED' }
+            });
+            Logger.info('[Admin] Cleared failed sync logs', { count: result.count });
+            return { success: true, deleted: result.count };
+        } catch (e: any) {
+            Logger.error('Failed to clear sync logs', { error: e });
+            return reply.code(500).send({ error: 'Failed to clear sync logs' });
+        }
+    });
+
     // Impersonate User
     fastify.post<{ Body: { targetUserId: string } }>('/impersonate', async (request, reply) => {
         try {
@@ -745,68 +762,6 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         } catch (e: any) {
             return reply.code(500).send({ error: 'Failed to fetch stats' });
         }
-    });
-
-    // =====================================================
-    // Rate Limit Management
-    // =====================================================
-
-    // Get rate limit config for an account
-    fastify.get<{ Params: { accountId: string } }>('/rate-limits/:accountId', async (request, reply) => {
-        try {
-            const { accountId } = request.params;
-            const { RateLimitService } = await import('../services/RateLimitService');
-
-            const [config, usage] = await Promise.all([
-                RateLimitService.getAccountConfig(accountId),
-                RateLimitService.getUsageStats(accountId),
-            ]);
-
-            return { config, usage };
-        } catch (e: any) {
-            return reply.code(500).send({ error: 'Failed to fetch rate limit config' });
-        }
-    });
-
-    // Update rate limit config for an account
-    fastify.put<{
-        Params: { accountId: string };
-        Body: { maxRequests?: number; windowSeconds?: number; tier?: string }
-    }>('/rate-limits/:accountId', async (request, reply) => {
-        try {
-            const { accountId } = request.params;
-            const { maxRequests, windowSeconds, tier } = request.body;
-            const { RateLimitService } = await import('../services/RateLimitService');
-
-            const config = await RateLimitService.setAccountConfig(accountId, {
-                maxRequests,
-                windowSeconds,
-                tier,
-            });
-
-            return { success: true, config };
-        } catch (e: any) {
-            return reply.code(500).send({ error: 'Failed to update rate limit config' });
-        }
-    });
-
-    // Reset rate limit counter for an account
-    fastify.post<{ Params: { accountId: string } }>('/rate-limits/:accountId/reset', async (request, reply) => {
-        try {
-            const { accountId } = request.params;
-            const { RateLimitService } = await import('../services/RateLimitService');
-
-            await RateLimitService.resetCounter(accountId);
-            return { success: true, message: 'Rate limit counter reset' };
-        } catch (e: any) {
-            return reply.code(500).send({ error: 'Failed to reset rate limit counter' });
-        }
-    });
-
-    // Get default tier limits
-    fastify.get('/rate-limits/tiers/defaults', async () => {
-        const { RateLimitService } = await import('../services/RateLimitService');
-        return RateLimitService.getDefaultLimits();
     });
 
     // =====================================================

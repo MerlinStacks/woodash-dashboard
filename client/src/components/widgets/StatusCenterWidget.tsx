@@ -132,8 +132,8 @@ export function StatusCenterWidget({ className }: WidgetProps) {
         }
     }, [token, currentAccount?.id]);
 
-    // Use visibility-aware polling to pause when tab is hidden
-    useVisibilityPolling(fetchStatus, 60000, [fetchStatus]);
+    // Use visibility-aware polling with tab coordination
+    useVisibilityPolling(fetchStatus, 60000, [fetchStatus], 'status-center');
 
     const toggleSection = (section: string) => {
         setExpandedSections(prev => {

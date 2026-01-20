@@ -55,8 +55,8 @@ export function VisitorCountWidget(_props: WidgetProps) {
         }
     }, [currentAccount, token]);
 
-    // Visibility-aware polling: pauses when tab is hidden to save resources
-    useVisibilityPolling(fetchData, 10000, [fetchData]);
+    // Visibility-aware polling with tab coordination: only leader tab polls
+    useVisibilityPolling(fetchData, 10000, [fetchData], 'visitor-count');
 
     return (
         <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-6 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)] border border-slate-200/60 dark:border-slate-700/50 flex flex-col h-full justify-center items-center relative overflow-hidden transition-all duration-300 hover:shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_10px_40px_rgba(0,0,0,0.3)]">

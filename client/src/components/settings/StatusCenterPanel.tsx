@@ -149,8 +149,8 @@ export function StatusCenterPanel() {
         }
     }, [token, currentAccount?.id]);
 
-    // Visibility-aware polling: pauses when tab is hidden
-    useVisibilityPolling(() => fetchStatus(false), 60000, [fetchStatus]);
+    // Visibility-aware polling with tab coordination
+    useVisibilityPolling(() => fetchStatus(false), 60000, [fetchStatus], 'status-center-panel');
 
     const renderCard = (
         section: StatusSection,

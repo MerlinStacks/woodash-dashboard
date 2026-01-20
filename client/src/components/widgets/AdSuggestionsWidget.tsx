@@ -56,8 +56,8 @@ export function AdSuggestionsWidget(_props: WidgetProps) {
         }
     }, [currentAccount, token]);
 
-    // Use visibility-aware polling (suggestions don't change frequently)
-    useVisibilityPolling(fetchSuggestions, 300000, [fetchSuggestions]);
+    // Use visibility-aware polling with tab coordination
+    useVisibilityPolling(fetchSuggestions, 300000, [fetchSuggestions], 'ad-suggestions');
 
     /**
      * Determines the icon for a suggestion based on its content.

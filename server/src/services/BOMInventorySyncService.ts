@@ -86,15 +86,32 @@ export class BOMInventorySyncService {
             return null;
         }
 
-        // Get current WooCommerce stock for parent product
+        // Get current WooCommerce stock for the target (variation or parent product)
         let currentWooStock: number | null = null;
         try {
-            const wooProduct = await wooService.getProduct(product.wooId);
-            currentWooStock = wooProduct.stock_quantity ?? null;
+            if (variationId > 0) {
+                // For variations, fetch the specific variation's stock via the variations endpoint
+                const variations = await wooService.getProductVariations(product.wooId);
+                const targetVariation = variations.find((v: any) => v.id === variationId);
+                currentWooStock = targetVariation?.stock_quantity ?? null;
+
+                if (!targetVariation) {
+                    Logger.warn(`[BOMInventorySync] Variation ${variationId} not found on parent product`, {
+                        productId,
+                        parentWooId: product.wooId,
+                        variationId
+                    });
+                }
+            } else {
+                // For main products, fetch the product directly
+                const wooProduct = await wooService.getProduct(product.wooId);
+                currentWooStock = wooProduct.stock_quantity ?? null;
+            }
         } catch (err) {
-            Logger.warn(`[BOMInventorySync] Could not fetch parent product stock`, {
+            Logger.warn(`[BOMInventorySync] Could not fetch product/variation stock`, {
                 productId,
                 wooId: product.wooId,
+                variationId,
                 error: err
             });
         }

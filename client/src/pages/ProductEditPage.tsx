@@ -123,6 +123,8 @@ export function ProductEditPage() {
         price: '',
         salePrice: '',
         stockStatus: 'instock',
+        manageStock: false,
+        backorders: 'no' as 'no' | 'notify' | 'yes',
         description: '',
         short_description: '',
         focusKeyword: '',
@@ -176,6 +178,8 @@ export function ProductEditPage() {
                 price: data.price ? data.price.toString() : '',
                 salePrice: data.salePrice ? data.salePrice.toString() : '',
                 stockStatus: data.stockStatus || 'instock',
+                manageStock: data.manageStock ?? false,
+                backorders: data.backorders || 'no',
                 binLocation: data.binLocation || '',
                 description: data.description || '',
                 short_description: data.short_description || '',
@@ -246,6 +250,8 @@ export function ProductEditPage() {
                 sku: formData.sku,
                 binLocation: formData.binLocation,
                 stockStatus: formData.stockStatus,
+                manageStock: formData.manageStock,
+                backorders: formData.backorders,
                 isGoldPriceApplied: formData.isGoldPriceApplied,
                 weight: formData.weight,
                 length: formData.length,
@@ -367,7 +373,6 @@ export function ProductEditPage() {
 
                         {/* WooCommerce Info Panel */}
                         <WooCommerceInfoPanel
-                            manageStock={product.manageStock ?? false}
                             categories={product.categories || []}
                             tags={product.tags || []}
                         />

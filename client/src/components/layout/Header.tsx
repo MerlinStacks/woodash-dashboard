@@ -67,7 +67,7 @@ export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
         }
     }, [token, currentAccount]);
 
-    useVisibilityPolling(fetchNotifications, 30000, [fetchNotifications]);
+    useVisibilityPolling(fetchNotifications, 30000, [fetchNotifications], 'notifications');
 
     const markAllRead = async () => {
         if (!token || !currentAccount) return;

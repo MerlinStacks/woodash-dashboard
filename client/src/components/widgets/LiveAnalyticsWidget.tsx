@@ -44,8 +44,8 @@ export function LiveAnalyticsWidget() {
         }
     }, [currentAccount, token]);
 
-    // Use visibility-aware polling to pause when tab is hidden
-    useVisibilityPolling(fetchLiveStats, 10000, [fetchLiveStats]);
+    // Use visibility-aware polling with tab coordination
+    useVisibilityPolling(fetchLiveStats, 10000, [fetchLiveStats], 'live-analytics');
 
     const activeCarts = visitors.filter(v => Number(v.cartValue) > 0);
     const totalCartValue = activeCarts.reduce((acc, curr) => acc + Number(curr.cartValue), 0);

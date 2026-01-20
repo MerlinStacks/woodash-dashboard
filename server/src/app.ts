@@ -69,9 +69,25 @@ async function build() {
     });
 
     // Rate Limiting
+    // Exclude sync, webhook, and health routes from rate limiting to prevent
+    // sync operations from exhausting request quota during data synchronization
     await fastify.register(rateLimit, {
         max: RATE_LIMITS.MAX_REQUESTS,
         timeWindow: RATE_LIMITS.WINDOW,
+        allowList: (req) => {
+            const url = req.url || '';
+            // Sync routes make many rapid calls during data synchronization
+            if (url.startsWith('/api/sync')) return true;
+            // Webhooks are inbound from external services (WooCommerce, Meta, TikTok)
+            if (url.startsWith('/api/webhooks')) return true;
+            if (url.startsWith('/api/webhook/')) return true;
+            // Health checks for infrastructure monitoring
+            if (url.startsWith('/health')) return true;
+            // Tracking ingestion from WooCommerce plugin (high volume)
+            if (url.startsWith('/api/t/')) return true;
+            if (url.startsWith('/api/tracking')) return true;
+            return false;
+        },
         errorResponseBuilder: () => ({
             error: 'Too many requests, please try again later.'
         })
