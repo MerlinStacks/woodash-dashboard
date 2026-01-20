@@ -131,9 +131,15 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                 // Map backend response to UI BOMItems
                 if (data && data.items) {
                     const mapped = data.items.map((item: any) => {
-                        // Build display name: prefer variant, then product, then supplier item
+                        // Build display name: prefer internal product, then variant, then product, then supplier item
                         let displayName = 'Unknown';
-                        if (item.childVariation) {
+                        let isInternal = false;
+
+                        if (item.internalProduct) {
+                            // Internal product (component-only)
+                            displayName = `[Internal] ${item.internalProduct.name}`;
+                            isInternal = true;
+                        } else if (item.childVariation) {
                             // Variant: use parent product name + variant attributes
                             const variantRaw = item.childVariation.rawData || {};
                             const attrString = (variantRaw.attributes || [])
@@ -149,9 +155,11 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                             displayName = item.supplierItem.name || 'Unknown';
                         }
 
-                        // Get COGS: prioritize variant COGS > product COGS > supplier cost
+                        // Get COGS: prioritize internal product COGS > variant COGS > product COGS > supplier cost
                         let cost = 0;
-                        if (item.childVariation?.cogs) {
+                        if (item.internalProduct?.cogs) {
+                            cost = Number(item.internalProduct.cogs);
+                        } else if (item.childVariation?.cogs) {
                             cost = Number(item.childVariation.cogs);
                         } else if (item.childProduct?.cogs) {
                             cost = Number(item.childProduct.cogs);
@@ -163,11 +171,13 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                             id: item.id,
                             childProductId: item.childProductId,
                             childVariationId: item.childVariationId,
+                            internalProductId: item.internalProductId,
                             supplierItemId: item.supplierItemId,
                             displayName,
                             quantity: Number(item.quantity),
                             wasteFactor: Number(item.wasteFactor),
-                            cost
+                            cost,
+                            isInternal
                         };
                     });
                     setBomItems(mapped);
@@ -489,15 +499,16 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
-                            {/* Search Results Dropdown - use fixed positioning to escape overflow:hidden parents */}
+                            {/* Search Results Dropdown - use high z-index to escape overflow */}
                             {searchResults.length > 0 && (
-                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-96 overflow-y-auto">
+                                <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-96 overflow-y-auto">
                                     {searchResults
-                                        // Filter out products that can't be added as components
-                                        .filter(p => !p.hasBOM && p.id !== productId)
+                                        // Filter out products that can't be added as components (but allow internal products)
+                                        .filter(p => (p.isInternalProduct || (!p.hasBOM && p.id !== productId)))
                                         .map(p => {
                                             const hasVariants = p.searchableVariants && p.searchableVariants.length > 0;
-                                            const isClickable = !hasVariants;
+                                            // Internal products are always clickable, WooCommerce products only if no variants
+                                            const isClickable = p.isInternalProduct || !hasVariants;
 
                                             return (
                                                 <div key={p.id} className="border-b border-gray-50 last:border-b-0">
@@ -507,17 +518,26 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                                                         className={`w-full text-left p-3 transition-colors flex items-center gap-3 ${isClickable
                                                             ? 'hover:bg-blue-50 cursor-pointer'
                                                             : 'bg-gray-50/50 cursor-default'
-                                                            }`}
+                                                            } ${p.isInternalProduct ? 'bg-purple-50/30' : ''}`}
                                                         onClick={() => {
                                                             if (isClickable) handleAddProduct(p);
                                                         }}
                                                     >
-                                                        {p.mainImage && (
+                                                        {p.mainImage ? (
                                                             <img src={p.mainImage} alt="" className="w-10 h-10 object-cover rounded-lg border border-gray-100" loading="lazy" />
-                                                        )}
+                                                        ) : p.isInternalProduct ? (
+                                                            <div className="w-10 h-10 bg-purple-100 rounded-lg border border-purple-200 flex items-center justify-center">
+                                                                <Package size={16} className="text-purple-500" />
+                                                            </div>
+                                                        ) : null}
                                                         <div className="flex-1 min-w-0">
                                                             <div className="font-medium text-gray-900 text-sm truncate">
                                                                 {p.name}
+                                                                {p.isInternalProduct && (
+                                                                    <span className="ml-2 text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full border border-purple-200">
+                                                                        Internal
+                                                                    </span>
+                                                                )}
                                                                 {hasVariants && (
                                                                     <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-200">
                                                                         {p.searchableVariants.length} variant{p.searchableVariants.length > 1 ? 's' : ''}
@@ -530,7 +550,7 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                                                                 {p.stockQuantity !== undefined && <span>Stock: {p.stockQuantity}</span>}
                                                             </div>
                                                         </div>
-                                                        {isClickable && <div className="text-sm font-semibold text-gray-700">${p.price || '0.00'}</div>}
+                                                        {isClickable && <div className="text-sm font-semibold text-gray-700">${p.cogs || p.price || '0.00'}</div>}
                                                     </button>
 
                                                     {/* Variant sub-options */}
