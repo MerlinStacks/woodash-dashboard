@@ -1,5 +1,6 @@
 import { WidgetProps } from './WidgetRegistry';
 import { Logger } from '../../utils/logger';
+import { formatCurrency } from '../../utils/format';
 import { BarChart3, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -138,7 +139,7 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
                     const date = params[0].axisValue;
                     let html = `<div style="font-weight:600;margin-bottom:4px">${date}</div>`;
                     params.forEach((p: any) => {
-                        const value = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(p.value || 0);
+                        const value = formatCurrency(p.value || 0);
                         html += `<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${p.color}"></span>${p.seriesName}: ${value}</div>`;
                     });
                     return html;

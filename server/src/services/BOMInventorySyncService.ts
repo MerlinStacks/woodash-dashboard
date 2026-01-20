@@ -349,13 +349,15 @@ export class BOMInventorySyncService {
                 // Update variation stock via WooCommerce variations API
                 await wooService.updateProductVariation(parentProduct.wooId, variationId, {
                     stock_quantity: calculation.effectiveStock,
-                    manage_stock: true
+                    manage_stock: true,
+                    stock_status: calculation.effectiveStock > 0 ? 'instock' : 'outofstock'
                 });
             } else {
                 // Update main product stock
                 await wooService.updateProduct(calculation.wooId, {
                     stock_quantity: calculation.effectiveStock,
-                    manage_stock: true
+                    manage_stock: true,
+                    stock_status: calculation.effectiveStock > 0 ? 'instock' : 'outofstock'
                 });
             }
 

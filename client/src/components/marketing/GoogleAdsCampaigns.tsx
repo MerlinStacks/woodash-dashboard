@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { AdContextModal } from './AdContextModal';
 import { CampaignProductsPanel } from './CampaignProductsPanel';
+import { formatCurrency, formatCompact } from '../../utils/format';
 
 interface CampaignInsight {
     campaignId: string;
@@ -162,10 +163,7 @@ export function GoogleAdsCampaigns({ adAccountId, accountName, onBack, hideBackB
         conversionsValue: acc.conversionsValue + (c.conversionsValue || 0)
     }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionsValue: 0 });
 
-    const formatCurrency = (v: number, currency = 'USD') =>
-        new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(v);
-    const formatNumber = (v: number) =>
-        new Intl.NumberFormat('en-US', { notation: 'compact' }).format(v);
+    const formatNumber = (v: number) => formatCompact(v);
 
     if (isLoading) {
         return (

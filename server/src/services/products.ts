@@ -430,7 +430,22 @@ export class ProductsService {
                     where,
                     skip,
                     take: limit,
-                    orderBy: { createdAt: 'desc' }
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        wooId: true,
+                        name: true,
+                        sku: true,
+                        stockStatus: true,
+                        price: true,
+                        cogs: true,
+                        mainImage: true,
+                        images: true,
+                        seoScore: true,
+                        merchantCenterScore: true,
+                        rawData: true,
+                        createdAt: true
+                    }
                 })
             ]);
 

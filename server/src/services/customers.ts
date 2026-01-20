@@ -120,27 +120,19 @@ export class CustomersService {
         const orders = await prisma.wooOrder.findMany({
             where: {
                 accountId,
-                // Match by email as a fallback, but ideally we have a link. 
-                // Since we don't have a direct relation in schema yet, we use rawData or email match.
-                // For this implementation, let's try to match by email if available.
-                // NOTE: In a real woo sync, we might want to link them properly.
-                // For now, let's assume we can query by rawData->billing->email? 
-                // Or much simpler: We don't have a direct link in Prisma Schema 'WooOrder' to 'WooCustomer'.
-                // So we will do a pragmatic lookup by email since WooCommerce links them weakly.
-                // Actually, let's just query where rawData path matches or do a robust search?
-                // Wait, WooOrder has `rawData`. 
-                // Let's rely on Prisma's `findMany` but we need to match broadly.
-                // BETTER: We can use the 'customerId' stored in WooOrder usually?
-                // Looking at schema, WooOrder doesn't expose customerId field.
-                // Let's fast-path: match rawData -> customer_id == customer.wooId OR generic search.
-                // Actually, let's just assume for v1 we fetch orders where generic search matches email.
-                // But `WooOrder` schema is: id, wooId, rawData...
-                // Let's use `path` filtering or just fetch all and filter in memory? NO.
-                // Let's modify the query to use `rawData` filtering if supported by Prisma JSON filter (Postgres).
                 rawData: {
                     path: ['customer_id'],
                     equals: customer.wooId
                 }
+            },
+            select: {
+                id: true,
+                wooId: true,
+                number: true,
+                status: true,
+                total: true,
+                currency: true,
+                dateCreated: true
             },
             orderBy: { dateCreated: 'desc' },
             take: 10
@@ -159,18 +151,29 @@ export class CustomersService {
             take: 20
         });
 
-        // 4. Live Activity (Analytics)
+        // 4. Live Activity (Analytics) - select only needed fields
         const activitySessions = await prisma.analyticsSession.findMany({
             where: {
                 accountId,
-                // Linked by wooCustomerId or email
                 OR: [
                     { wooCustomerId: customer.wooId },
                     { email: customer.email }
                 ]
             },
-            include: {
+            select: {
+                id: true,
+                visitorId: true,
+                currentPath: true,
+                lastActiveAt: true,
+                country: true,
+                city: true,
+                deviceType: true,
                 events: {
+                    select: {
+                        id: true,
+                        type: true,
+                        createdAt: true
+                    },
                     orderBy: { createdAt: 'desc' },
                     take: 5
                 }

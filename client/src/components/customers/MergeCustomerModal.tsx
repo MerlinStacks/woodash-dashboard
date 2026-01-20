@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Users, ArrowRight, AlertTriangle, Check, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../ui/Modal';
+import { formatCurrency } from '../../utils/format';
 
 interface Customer {
     id: string;
@@ -85,9 +86,6 @@ export function MergeCustomerModal({ isOpen, onClose, customerId, onMergeComplet
         }
     };
 
-    const formatCurrency = (value: number) =>
-        new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Merge Duplicate Customers" maxWidth="max-w-2xl">
             <div className="space-y-4">
@@ -130,8 +128,8 @@ export function MergeCustomerModal({ isOpen, onClose, customerId, onMergeComplet
                                     key={dup.id}
                                     onClick={() => setSelectedSource(dup)}
                                     className={`w-full border rounded-lg p-4 text-left transition-colors ${selectedSource?.id === dup.id
-                                            ? 'border-red-300 bg-red-50'
-                                            : 'border-gray-200 hover:border-gray-300'
+                                        ? 'border-red-300 bg-red-50'
+                                        : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between">

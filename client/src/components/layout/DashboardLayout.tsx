@@ -3,7 +3,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { AIChatWidget } from '../ai/AIChatWidget';
 import { ChatNotifications } from '../chat/ChatNotifications';
-import { OrderNotifications } from '../notifications/OrderNotifications';
+
 import { CommandPalette } from '../ui/CommandPalette';
 import { ThemeInjector } from './ThemeInjector';
 import { useMobile } from '../../hooks/useMobile';
@@ -21,7 +21,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <ThemeInjector />
             <CommandPalette />
             <ChatNotifications />
-            <OrderNotifications />
+
 
             {/* Desktop Sidebar - CSS hides on mobile via hidden lg:flex */}
             <Sidebar />
@@ -41,7 +41,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     showMenuButton={isMobile}
                 />
 
-                <main className="flex-1 overflow-x-hidden bg-gray-50 relative">
+                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 relative">
                     <AIChatWidget />
                     <div className="max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8">
                         {children}

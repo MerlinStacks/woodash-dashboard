@@ -1,6 +1,6 @@
 import { X, ExternalLink, Package } from 'lucide-react';
 import { Logger } from '../../utils/logger';
-import { formatDate } from '../../utils/format';
+import { formatDate, formatCurrency } from '../../utils/format';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -125,12 +125,12 @@ export function OrderPreviewModal({ orderId, isOpen, onClose }: OrderPreviewModa
                                                 <div className="min-w-0 flex-1">
                                                     <div className="font-medium text-gray-900 text-sm leading-tight line-clamp-2">{item.name}</div>
                                                     <div className="text-xs text-gray-500 mt-1">
-                                                        {item.quantity} × {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(item.price)}
+                                                        {item.quantity} × {formatCurrency(item.price, order.currency)}
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="font-semibold text-gray-900 text-sm shrink-0">
-                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(item.total)}
+                                                {formatCurrency(item.total, order.currency)}
                                             </div>
                                         </div>
                                     ))}
@@ -140,7 +140,7 @@ export function OrderPreviewModal({ orderId, isOpen, onClose }: OrderPreviewModa
                                 <div className="px-4 py-3.5 bg-linear-to-r from-gray-800 to-slate-900 flex items-center justify-between">
                                     <span className="text-sm font-medium text-gray-300 uppercase tracking-wide">Total</span>
                                     <span className="text-xl font-bold text-white">
-                                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency || 'USD' }).format(Number(order.total))}
+                                        {formatCurrency(Number(order.total), order.currency || 'USD')}
                                     </span>
                                 </div>
                             </div>

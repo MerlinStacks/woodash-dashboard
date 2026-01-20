@@ -482,6 +482,7 @@ model WooOrder {
 
   @@unique([accountId, wooId])
   @@index([accountId, dateCreated])
+  @@index([accountId, status, dateCreated(sort: Desc)])  // Order list with status filter
 }
 
 model WooProduct {
@@ -539,6 +540,9 @@ model WooProduct {
   purchaseOrderItems PurchaseOrderItem[]
 
   @@unique([accountId, wooId])
+  @@index([accountId, sku])                   // SKU search/lookup
+  @@index([accountId, stockStatus])           // Stock filter (out of stock view)
+  @@index([accountId, updatedAt(sort: Desc)]) // Recent products list
 }
 
 model ProductVariation {
@@ -575,6 +579,7 @@ model ProductVariation {
   updatedAt DateTime @updatedAt
 
   @@unique([productId, wooId])
+  @@index([productId, stockStatus])           // Variant inventory queries
 }
 
 // --------------------------------------

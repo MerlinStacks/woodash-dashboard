@@ -1,5 +1,6 @@
 import { WidgetProps } from './WidgetRegistry';
 import { Logger } from '../../utils/logger';
+import { formatCurrency } from '../../utils/format';
 import { ShoppingBag, Loader2 } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
@@ -69,7 +70,7 @@ export function RecentOrdersWidget({ className }: WidgetProps) {
                                 <p className="text-xs text-slate-400 dark:text-slate-500">{order.line_items?.length || 0} items</p>
                             </div>
                             <span className="font-semibold text-slate-900 dark:text-white">
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency || 'USD' }).format(order.total)}
+                                {formatCurrency(order.total, order.currency || 'USD')}
                             </span>
                         </div>
                     ))

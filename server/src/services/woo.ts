@@ -144,13 +144,39 @@ export class WooService {
         return this.requestWithRetry('get', 'products/reviews', { ...params, per_page: params.per_page || 20 });
     }
 
+    /**
+     * Get a single product with Redis caching.
+     * Cache TTL: 30 seconds to balance freshness with API savings.
+     */
     async getProduct(id: number) {
         if (this.isDemo) {
             const product = MOCK_PRODUCTS.find(p => p.id === id);
             if (!product) throw new Error("Product not found (Demo)");
             return product;
         }
+
+        // Try cache first
+        const { redisClient } = await import('../utils/redis');
+        const cacheKey = `woo:product:${this.accountId}:${id}`;
+
+        try {
+            const cached = await redisClient.get(cacheKey);
+            if (cached) {
+                return JSON.parse(cached);
+            }
+        } catch (e) {
+            // Cache miss or Redis error - continue to API
+        }
+
         const response = await this.requestWithRetry('get', `products/${id}`);
+
+        // Cache the result for 30 seconds
+        try {
+            await redisClient.setex(cacheKey, 30, JSON.stringify(response.data));
+        } catch (e) {
+            // Cache write failure is non-fatal
+        }
+
         return response.data;
     }
 
@@ -259,6 +285,94 @@ export class WooService {
                 'PRODUCT_VARIATION',
                 `${productId}/${variationId}`,
                 data
+            );
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Batch update multiple products in a single API call.
+     * WooCommerce supports up to 100 items per batch request.
+     * @param updates - Array of { id, ...data } objects
+     * @returns Batch response with created, updated, deleted arrays
+     */
+    async batchUpdateProducts(updates: Array<{ id: number;[key: string]: any }>, userId?: string) {
+        if (this.isDemo) {
+            Logger.debug(`[Demo] Batch updated ${updates.length} products`);
+            return { update: updates };
+        }
+
+        // WooCommerce batch API expects { update: [...] }
+        const response = await this.api.post('products/batch', { update: updates });
+
+        if (this.accountId && userId) {
+            const { AuditService } = await import('./AuditService');
+            await AuditService.log(
+                this.accountId,
+                userId,
+                'BATCH_UPDATE',
+                'PRODUCT',
+                updates.map(u => u.id).join(','),
+                { count: updates.length }
+            );
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Batch update multiple orders in a single API call.
+     * Useful for bulk status changes (e.g., mark multiple as completed).
+     * @param updates - Array of { id, ...data } objects  
+     * @returns Batch response with created, updated, deleted arrays
+     */
+    async batchUpdateOrders(updates: Array<{ id: number;[key: string]: any }>, userId?: string) {
+        if (this.isDemo) {
+            Logger.debug(`[Demo] Batch updated ${updates.length} orders`);
+            return { update: updates };
+        }
+
+        const response = await this.api.post('orders/batch', { update: updates });
+
+        if (this.accountId && userId) {
+            const { AuditService } = await import('./AuditService');
+            await AuditService.log(
+                this.accountId,
+                userId,
+                'BATCH_UPDATE',
+                'ORDER',
+                updates.map(u => u.id).join(','),
+                { count: updates.length }
+            );
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Batch update product variations in a single API call.
+     * Used by BOM sync to update stock levels efficiently.
+     * @param productId - Parent product ID
+     * @param updates - Array of { id: variationId, ...data } objects
+     */
+    async batchUpdateVariations(productId: number, updates: Array<{ id: number;[key: string]: any }>, userId?: string) {
+        if (this.isDemo) {
+            Logger.debug(`[Demo] Batch updated ${updates.length} variations for product ${productId}`);
+            return { update: updates };
+        }
+
+        const response = await this.api.post(`products/${productId}/variations/batch`, { update: updates });
+
+        if (this.accountId && userId) {
+            const { AuditService } = await import('./AuditService');
+            await AuditService.log(
+                this.accountId,
+                userId,
+                'BATCH_UPDATE',
+                'PRODUCT_VARIATION',
+                `${productId}/${updates.map(u => u.id).join(',')}`,
+                { count: updates.length }
             );
         }
 

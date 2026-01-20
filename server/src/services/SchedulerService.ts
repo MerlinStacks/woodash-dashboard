@@ -251,12 +251,6 @@ export class SchedulerService {
             jobId: 'orchestrator' // Singleton
         });
 
-        QueueFactory.createWorker('scheduler', async (job) => {
-            if (job.name === 'orchestrate-sync') {
-                await this.dispatchToAllAccounts();
-            }
-        });
-
         Logger.info('Scheduled Global Sync Orchestrator (Every 5 mins)');
 
         // Schedule Inventory Alerts (Daily at 08:00 UTC)

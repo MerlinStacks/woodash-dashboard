@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock, MapPin, User, Mail, Phone, CreditCard, Copy, ExternalLink, X, TrendingUp, Globe, Smartphone, Monitor, Tablet, Tag } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import { fixMojibake } from '../../utils/format';
+import { fixMojibake, formatCurrency, formatDateTime } from '../../utils/format';
 
 interface OrderApiLineItem {
     id: string;
@@ -159,8 +159,8 @@ export function MobileOrderDetail() {
         }
     };
 
-    const formatCurrency = (amount: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: currentAccount?.currency || 'USD' }).format(amount);
-    const formatDate = (date: string) => new Date(date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const formatMoney = (amount: number) => formatCurrency(amount, currentAccount?.currency || 'USD');
+    const formatDate = (date: string) => formatDateTime(date);
     const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); if ('vibrate' in navigator) navigator.vibrate(10); };
 
     const removeTag = async (tag: string) => {

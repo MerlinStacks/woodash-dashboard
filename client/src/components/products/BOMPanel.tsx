@@ -450,15 +450,15 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                                                     <button
                                                         disabled={!isClickable}
                                                         className={`w-full text-left p-3 transition-colors flex items-center gap-3 ${isClickable
-                                                                ? 'hover:bg-blue-50 cursor-pointer'
-                                                                : 'bg-gray-50/50 cursor-default'
+                                                            ? 'hover:bg-blue-50 cursor-pointer'
+                                                            : 'bg-gray-50/50 cursor-default'
                                                             }`}
                                                         onClick={() => {
                                                             if (isClickable) handleAddProduct(p);
                                                         }}
                                                     >
                                                         {p.mainImage && (
-                                                            <img src={p.mainImage} alt="" className="w-10 h-10 object-cover rounded-lg border border-gray-100" />
+                                                            <img src={p.mainImage} alt="" className="w-10 h-10 object-cover rounded-lg border border-gray-100" loading="lazy" />
                                                         )}
                                                         <div className="flex-1 min-w-0">
                                                             <div className="font-medium text-gray-900 text-sm truncate">

@@ -72,6 +72,24 @@ export async function getLiveVisitors(accountId: string) {
                         not: null
                     }
                 },
+                select: {
+                    // Only select fields needed for live visitor display
+                    id: true,
+                    visitorId: true,
+                    userAgent: true,
+                    country: true,
+                    city: true,
+                    deviceType: true,
+                    browser: true,
+                    os: true,
+                    currentPath: true,
+                    lastActiveAt: true,
+                    referrer: true,
+                    utmSource: true,
+                    utmCampaign: true,
+                    email: true,
+                    wooCustomerId: true
+                },
                 orderBy: {
                     lastActiveAt: 'desc'
                 },
@@ -112,6 +130,19 @@ export async function getLiveCarts(accountId: string): Promise<LiveCartSession[]
             lastActiveAt: {
                 gte: oneHourAgo
             }
+        },
+        select: {
+            // Only select fields needed for cart display
+            id: true,
+            visitorId: true,
+            email: true,
+            cartValue: true,
+            cartItems: true,
+            currency: true,
+            lastActiveAt: true,
+            country: true,
+            city: true,
+            wooCustomerId: true
         },
         orderBy: {
             cartValue: 'desc'

@@ -1,5 +1,6 @@
 import { WidgetProps } from './WidgetRegistry';
 import { Logger } from '../../utils/logger';
+import { formatCurrency } from '../../utils/format';
 import { TrendingUp, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -32,7 +33,7 @@ export function AdSpendWidget({ className }: WidgetProps) {
                         <div className="mt-2"><Loader2 className="animate-spin text-gray-400" size={24} /></div>
                     ) : (
                         <p className="text-3xl font-bold text-gray-900 mt-2">
-                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: data?.currency || 'USD' }).format(data?.spend || 0)}
+                            {formatCurrency(data?.spend || 0, data?.currency || 'USD')}
                         </p>
                     )}
                 </div>

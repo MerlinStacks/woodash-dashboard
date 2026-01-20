@@ -174,6 +174,7 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
                                                     src={getVariantImage(v)!}
                                                     alt=""
                                                     className="w-12 h-12 object-cover rounded-lg border border-gray-100"
+                                                    loading="lazy"
                                                 />
                                             ) : (
                                                 <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">

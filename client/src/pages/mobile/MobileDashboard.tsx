@@ -234,7 +234,8 @@ export function MobileDashboard() {
         { label: 'Inventory', icon: Package, path: '/m/inventory', color: 'from-orange-500 to-amber-600' },
     ];
 
-    const getStatusColor = (status?: string) => {
+    // Dark-mode activity status colors - different from standard light-mode utility
+    const getDarkStatusColor = (status?: string) => {
         switch (status?.toLowerCase()) {
             case 'completed': return 'bg-emerald-500/20 text-emerald-400';
             case 'processing': return 'bg-blue-500/20 text-blue-400';
@@ -402,7 +403,7 @@ export function MobileDashboard() {
                                 <div className="flex flex-col items-end gap-1 ml-2">
                                     <span className="text-xs text-slate-500">{activity.time}</span>
                                     {activity.status && (
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${getStatusColor(activity.status)}`}>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${getDarkStatusColor(activity.status)}`}>
                                             {activity.status}
                                         </span>
                                     )}

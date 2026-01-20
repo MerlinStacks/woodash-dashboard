@@ -3,7 +3,7 @@ import { useLocation, Outlet } from 'react-router-dom';
 import { RefreshCw, WifiOff, Download, X } from 'lucide-react';
 import { MobileNav } from './MobileNav';
 import { MobileErrorBoundary } from '../mobile/MobileErrorBoundary';
-import { OrderNotifications } from '../notifications/OrderNotifications';
+
 import { PWAUpdateModal, usePWAUpdate, PWAUpdateBanner } from '../mobile/PWAUpdateModal';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
@@ -201,8 +201,7 @@ export function MobileLayout({ children }: MobileLayoutProps) {
                 paddingBottom: 'calc(env(safe-area-inset-bottom) + 64px)'
             }}
         >
-            {/* Real-time order notifications via socket */}
-            <OrderNotifications />
+
 
             {/* Offline Banner */}
             {!isOnline && (

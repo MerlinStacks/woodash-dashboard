@@ -4,6 +4,8 @@ import { ShoppingCart, ExternalLink, ChevronLeft, ChevronRight, Loader2 } from '
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { format } from 'date-fns';
+import { formatCurrency } from '../../utils/format';
+import { getStatusBadgeClasses } from '../../utils/orderStatus';
 
 interface SaleRecord {
     orderId: number;
@@ -65,31 +67,6 @@ export function ProductSalesHistory({ productWooId }: ProductSalesHistoryProps) 
 
         fetchSalesHistory();
     }, [productWooId, currentAccount, token, page]);
-
-    /**
-     * Returns the appropriate badge styling based on order status.
-     */
-    const getStatusBadge = (status: string) => {
-        const styles: Record<string, string> = {
-            completed: 'bg-green-100 text-green-700 border-green-200',
-            processing: 'bg-blue-100 text-blue-700 border-blue-200',
-            'on-hold': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-            pending: 'bg-gray-100 text-gray-600 border-gray-200',
-            cancelled: 'bg-red-100 text-red-700 border-red-200',
-            refunded: 'bg-purple-100 text-purple-700 border-purple-200'
-        };
-        return styles[status] || 'bg-gray-100 text-gray-600 border-gray-200';
-    };
-
-    /**
-     * Formats currency value for display.
-     */
-    const formatCurrency = (amount: number, currency: string) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: currency
-        }).format(amount);
-    };
 
     if (loading) {
         return (
@@ -182,7 +159,7 @@ export function ProductSalesHistory({ productWooId }: ProductSalesHistoryProps) 
                                     {formatCurrency(sale.orderTotal, sale.currency)}
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full border capitalize ${getStatusBadge(sale.status)}`}>
+                                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full border capitalize ${getStatusBadgeClasses(sale.status)}`}>
                                         {sale.status.replace('-', ' ')}
                                     </span>
                                 </td>

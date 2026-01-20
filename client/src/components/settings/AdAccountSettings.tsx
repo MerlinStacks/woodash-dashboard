@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Logger } from '../../utils/logger';
+import { formatCurrency, formatCompact, formatNumber } from '../../utils/format';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { useAccountFeature } from '../../hooks/useAccountFeature';
@@ -626,7 +627,7 @@ export function AdAccountSettings() {
                                         <div>
                                             <p className="text-xs text-gray-500 uppercase">Spend (30d)</p>
                                             <p className="font-semibold">
-                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: ins.currency || 'USD' }).format(ins.spend)}
+                                                {formatCurrency(ins.spend, ins.currency || 'USD')}
                                             </p>
                                         </div>
                                         <div>
@@ -636,13 +637,13 @@ export function AdAccountSettings() {
                                         <div>
                                             <p className="text-xs text-gray-500 uppercase">Impressions</p>
                                             <p className="font-medium text-gray-700">
-                                                {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(ins.impressions)}
+                                                {formatCompact(ins.impressions)}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-xs text-gray-500 uppercase">Clicks</p>
                                             <p className="font-medium text-gray-700">
-                                                {new Intl.NumberFormat('en-US').format(ins.clicks)}
+                                                {formatNumber(ins.clicks)}
                                             </p>
                                         </div>
                                     </div>

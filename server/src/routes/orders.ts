@@ -429,33 +429,56 @@ const ordersRoutes: FastifyPluginAsync = async (fastify) => {
             const { WooService } = await import('../services/woo');
             const woo = await WooService.forAccount(accountId);
 
+            // Use WooCommerce Batch API for efficient bulk update (single API call)
+            const updates = body.orderIds.map(id => ({ id, status: body.status }));
+
             let updated = 0;
             let failed = 0;
             const errors: string[] = [];
 
-            // Process orders in parallel with limited concurrency
-            const batchSize = 5;
-            for (let i = 0; i < body.orderIds.length; i += batchSize) {
-                const batch = body.orderIds.slice(i, i + batchSize);
+            try {
+                // Single batch API call instead of N individual calls
+                const batchResult = await woo.batchUpdateOrders(updates, request.user?.id);
 
-                await Promise.all(batch.map(async (orderId) => {
+                // Process batch response
+                if (batchResult.update) {
+                    for (const result of batchResult.update) {
+                        if (result.error) {
+                            failed++;
+                            errors.push(`Order #${result.id}: ${result.error.message}`);
+                        } else {
+                            updated++;
+                        }
+                    }
+                }
+
+                // Sync successful updates to local database
+                if (updated > 0) {
+                    await prisma.wooOrder.updateMany({
+                        where: {
+                            accountId,
+                            wooId: { in: body.orderIds }
+                        },
+                        data: { status: body.status }
+                    });
+                }
+            } catch (batchError: any) {
+                // Fallback to individual updates if batch fails (older WooCommerce versions)
+                Logger.warn('Batch API failed, falling back to individual updates', { error: batchError.message });
+
+                for (const orderId of body.orderIds) {
                     try {
-                        // Update in WooCommerce
                         await woo.updateOrder(orderId, { status: body.status });
-
-                        // Update local database
                         await prisma.wooOrder.updateMany({
                             where: { accountId, wooId: orderId },
                             data: { status: body.status }
                         });
-
                         updated++;
                     } catch (err: any) {
                         failed++;
                         errors.push(`Order #${orderId}: ${err.message}`);
-                        Logger.warn('Failed to update order status', { orderId, error: err.message });
                     }
-                }));
+                }
             }
 
             Logger.info('Bulk order status update completed', {
@@ -463,7 +486,8 @@ const ordersRoutes: FastifyPluginAsync = async (fastify) => {
                 status: body.status,
                 updated,
                 failed,
-                total: body.orderIds.length
+                total: body.orderIds.length,
+                usedBatchApi: errors.length === 0
             });
 
             return {

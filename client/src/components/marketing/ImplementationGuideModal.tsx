@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { formatCurrency } from '../../utils/format';
 import {
     X,
     Clock,
@@ -38,18 +39,6 @@ interface ImplementationGuideModalProps {
     onClose: () => void;
     recommendation: ActionableRecommendation;
     onApply?: () => void;
-}
-
-/**
- * Format currency for display
- */
-function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    }).format(value);
 }
 
 /**

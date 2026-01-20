@@ -1,6 +1,7 @@
 
 import { useState, useCallback } from 'react';
 import { Logger } from '../../utils/logger';
+import { formatCurrency } from '../../utils/format';
 import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Users, ShoppingCart, Activity, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -82,7 +83,7 @@ export function LiveAnalyticsWidget() {
                         <span className="text-xs font-medium text-gray-600">Potential Revenue</span>
                     </div>
                     <p className="text-lg font-bold text-gray-900">
-                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalCartValue)}
+                        {formatCurrency(totalCartValue)}
                     </p>
                 </div>
             </div>

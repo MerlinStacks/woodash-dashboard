@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useVisibilityPolling } from '../../hooks/useVisibilityPolling';
 import { Logger } from '../../utils/logger';
+import { formatCurrency } from '../../utils/format';
 import { ShoppingCart, Clock, User as UserIcon, Loader2, Package, Flame } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
@@ -143,7 +144,7 @@ const LiveCartsWidget = ({ className }: WidgetProps) => {
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-1.5">
                                                 <span className="text-sm font-semibold text-gray-900">
-                                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: cart.currency || 'USD' }).format(cart.cartValue)}
+                                                    {formatCurrency(cart.cartValue, cart.currency || 'USD')}
                                                 </span>
                                                 {/* Purchase intent indicator */}
                                                 {cart.purchaseIntentScore >= 70 && (

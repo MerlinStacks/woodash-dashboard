@@ -3,12 +3,13 @@ import { Logger } from '../utils/logger';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { formatDate } from '../utils/format';
+import { formatDate, formatCurrency } from '../utils/format';
 import { Loader2, RefreshCw, Search, Tag, TrendingUp, Filter, X, Eye } from 'lucide-react';
 import { Pagination } from '../components/ui/Pagination';
 import { OrderPreviewModal } from '../components/orders/OrderPreviewModal';
 import { FraudIcon } from '../components/orders/FraudIcon';
 import { printPicklist } from '../utils/printPicklist';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 interface Order {
     id: number;
@@ -80,18 +81,21 @@ export function OrdersPage() {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
 
+    // Debounce search query to prevent API calls on every keystroke
+    const debouncedSearch = useDebouncedValue(searchQuery, 400);
+
     // Sync filter state to URL
     useEffect(() => {
         const params: Record<string, string> = {};
         if (selectedTags.length > 0) params.tags = selectedTags.join(',');
-        if (searchQuery) params.q = searchQuery;
+        if (debouncedSearch) params.q = debouncedSearch;
         if (selectedStatus && selectedStatus !== 'all') params.status = selectedStatus;
         setSearchParams(params, { replace: true });
-    }, [selectedTags, searchQuery, selectedStatus, setSearchParams]);
+    }, [selectedTags, debouncedSearch, selectedStatus, setSearchParams]);
 
     useEffect(() => {
         fetchOrders();
-    }, [currentAccount, token, searchQuery, page, limit, selectedTags, selectedStatus]);
+    }, [currentAccount, token, debouncedSearch, page, limit, selectedTags, selectedStatus]);
 
 
     // Fetch available tags and colors
@@ -149,7 +153,7 @@ export function OrdersPage() {
     // Reset page on search, tag, or status change
     useEffect(() => {
         setPage(1);
-    }, [searchQuery, selectedTags, selectedStatus]);
+    }, [debouncedSearch, selectedTags, selectedStatus]);
 
     // Fetch attributions for visible orders
     useEffect(() => {
@@ -477,7 +481,7 @@ export function OrdersPage() {
                                             )}
                                         </td>
                                         <td className="px-3 md:px-6 py-3 md:py-4 text-sm font-medium">
-                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(order.total)}
+                                            {formatCurrency(order.total, order.currency)}
                                         </td>
                                         <td className="px-3 md:px-6 py-3 md:py-4">
                                             <div className="flex flex-wrap gap-1 max-w-[180px]">

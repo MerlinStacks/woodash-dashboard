@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { Loader2, Package, TrendingUp, TrendingDown } from 'lucide-react';
+import { formatCurrency, formatCompact } from '../../utils/format';
 
 interface ShoppingProduct {
     campaignId: string;
@@ -70,11 +71,8 @@ export function CampaignProductsPanel({ adAccountId, campaignId, days }: Campaig
         }
     }
 
-    const formatCurrency = (v: number, currency = 'USD') =>
-        new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(v);
-
     const formatNumber = (v: number) =>
-        new Intl.NumberFormat('en-US', { notation: 'compact' }).format(v);
+        formatCompact(v);
 
     if (isLoading) {
         return (
@@ -144,7 +142,7 @@ export function CampaignProductsPanel({ adAccountId, campaignId, days }: Campaig
                             </div>
                             <div className="text-right w-16">
                                 <p className={`font-medium flex items-center justify-end gap-1 ${product.roas >= 3 ? 'text-green-600' :
-                                        product.roas >= 1 ? 'text-yellow-600' : 'text-red-600'
+                                    product.roas >= 1 ? 'text-yellow-600' : 'text-red-600'
                                     }`}>
                                     {product.roas >= 3 ? <TrendingUp size={12} /> :
                                         product.roas < 1 ? <TrendingDown size={12} /> : null}

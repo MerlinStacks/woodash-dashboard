@@ -1,6 +1,7 @@
 
 import { WidgetProps } from './WidgetRegistry';
 import { Logger } from '../../utils/logger';
+import { formatCurrency } from '../../utils/format';
 import { DollarSign, Loader2, TrendingUp, TrendingDown, Minus, Zap } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -85,7 +86,7 @@ export function TotalSalesWidget({ className, dateRange, comparison }: WidgetPro
                     ) : (
                         <>
                             <p className="text-3xl font-bold text-slate-900 dark:text-white mt-3 tracking-tight">
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(sales || 0)}
+                                {formatCurrency(sales || 0)}
                             </p>
                             {orderCount !== null && (
                                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">

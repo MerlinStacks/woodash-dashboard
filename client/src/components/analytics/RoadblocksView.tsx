@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { AlertTriangle, TrendingDown, DollarSign, ExternalLink } from 'lucide-react';
 import { getDateRange } from '../../utils/dateUtils';
+import { formatCurrency } from '../../utils/format';
 
 interface RoadblockPage {
     url: string;
@@ -64,10 +65,6 @@ export const RoadblocksView = ({ dateRange }: RoadblocksViewProps) => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
     };
 
     if (loading) {

@@ -6,6 +6,7 @@ import { Star, RefreshCw, Search, Loader2, CheckCircle, ExternalLink, Link2 } fr
 import { Pagination } from '../components/ui/Pagination';
 import { formatDate } from '../utils/format';
 import { useNavigate } from 'react-router-dom';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 export const ReviewsPage = () => {
     const { currentAccount } = useAccount();
@@ -121,15 +122,18 @@ export const ReviewsPage = () => {
         }
     };
 
+    // Debounce search query to prevent API calls on every keystroke
+    const debouncedSearch = useDebouncedValue(searchQuery, 400);
+
     // Reset page when filters change
     useEffect(() => {
         setPage(1);
-    }, [searchQuery, statusFilter]);
+    }, [debouncedSearch, statusFilter]);
 
     // Fetch on changes
     useEffect(() => {
         fetchReviews();
-    }, [currentAccount, token, page, limit, searchQuery, statusFilter]);
+    }, [currentAccount, token, page, limit, debouncedSearch, statusFilter]);
 
     return (
         <div className="p-6 space-y-6">

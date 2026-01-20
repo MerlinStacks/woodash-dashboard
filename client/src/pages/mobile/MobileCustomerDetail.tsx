@@ -5,6 +5,7 @@ import { ArrowLeft, Mail, Phone, MapPin, ShoppingBag, Calendar, RefreshCw, Packa
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { formatCurrency, formatDate } from '../../utils/format';
+import { getStatusColor } from '../../utils/orderStatus';
 
 interface OrderApiResponse {
     id: string;
@@ -122,17 +123,6 @@ export function MobileCustomerDetail() {
     // Currency formatting helper using centralized utility
     const formatAccountCurrency = (amount: number) =>
         formatCurrency(amount, currentAccount?.currency || 'USD');
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'completed': return 'bg-green-100 text-green-700';
-            case 'processing': return 'bg-blue-100 text-blue-700';
-            case 'pending': return 'bg-yellow-100 text-yellow-700';
-            case 'cancelled':
-            case 'failed': return 'bg-red-100 text-red-700';
-            default: return 'bg-gray-100 text-gray-700';
-        }
-    };
 
     if (loading) {
         return (

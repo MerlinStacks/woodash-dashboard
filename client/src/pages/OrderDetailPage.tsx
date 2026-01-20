@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { usePermissions } from '../hooks/usePermissions';
-import { formatDate, fixMojibake } from '../utils/format';
+import { formatDate, fixMojibake, formatCurrency } from '../utils/format';
 import { ArrowLeft, User, MapPin, Mail, Phone, Package, CreditCard, RefreshCw, Printer, TrendingUp, Globe, Smartphone, Monitor, Tablet, Tag, X, ChevronDown, ChevronUp, Palette, FileText, Image as ImageIcon, Settings } from 'lucide-react';
 import { generateInvoicePDF } from '../utils/InvoiceGenerator';
 import { Modal } from '../components/ui/Modal';
@@ -220,13 +220,13 @@ export function OrderDetailPage() {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-right text-gray-600">
-                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(item.price)}
+                                                {formatCurrency(item.price, order.currency)}
                                             </td>
                                             <td className="px-6 py-4 text-center text-gray-600 bg-gray-50/30">
                                                 {item.quantity}
                                             </td>
                                             <td className="px-6 py-4 text-right font-medium text-gray-900">
-                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(item.total)}
+                                                {formatCurrency(item.total, order.currency)}
                                             </td>
                                         </tr>
                                     ))}
@@ -235,7 +235,7 @@ export function OrderDetailPage() {
                                     <tr>
                                         <td colSpan={3} className="px-6 py-3 text-right text-sm text-gray-500">Subtotal</td>
                                         <td className="px-6 py-3 text-right font-medium text-gray-800">
-                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(Number(order.total) - Number(order.total_tax) - Number(order.shipping_total))}
+                                            {formatCurrency(Number(order.total) - Number(order.total_tax) - Number(order.shipping_total), order.currency)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -248,19 +248,19 @@ export function OrderDetailPage() {
                                             )}
                                         </td>
                                         <td className="px-6 py-2 text-right font-medium text-gray-800">
-                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(order.shipping_total)}
+                                            {formatCurrency(order.shipping_total, order.currency)}
                                         </td>
                                     </tr>
                                     <tr>
                                         <td colSpan={3} className="px-6 py-2 text-right text-sm text-gray-500">Tax</td>
                                         <td className="px-6 py-2 text-right font-medium text-gray-800">
-                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(order.total_tax)}
+                                            {formatCurrency(order.total_tax, order.currency)}
                                         </td>
                                     </tr>
                                     <tr className="border-t border-gray-200 bg-gray-100">
                                         <td colSpan={3} className="px-6 py-4 text-right font-bold text-gray-900 text-lg">Total</td>
                                         <td className="px-6 py-4 text-right font-bold text-blue-600 text-lg">
-                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency }).format(order.total)}
+                                            {formatCurrency(order.total, order.currency)}
                                         </td>
                                     </tr>
                                 </tfoot>
