@@ -9,6 +9,7 @@ import { Server } from 'http';
 import { Logger } from './logger';
 import { prisma } from './prisma';
 import { redisClient } from './redis';
+import { SCHEDULER_LIMITS } from '../config/limits';
 
 type ShutdownCallback = () => Promise<void>;
 
@@ -16,6 +17,7 @@ const shutdownCallbacks: ShutdownCallback[] = [];
 
 /**
  * Register a callback to run during shutdown.
+ * Use this to drain queues, close connections, etc.
  */
 export function onShutdown(callback: ShutdownCallback): void {
     shutdownCallbacks.push(callback);
@@ -34,12 +36,18 @@ export function initGracefulShutdown(server: Server): void {
 
         Logger.info(`[Shutdown] Received ${signal}, starting graceful shutdown...`);
 
+        // Set a hard timeout to force exit if shutdown takes too long
+        const forceExitTimeout = setTimeout(() => {
+            Logger.warn('[Shutdown] Forced exit due to timeout');
+            process.exit(1);
+        }, SCHEDULER_LIMITS.SHUTDOWN_TIMEOUT_MS);
+
         // Stop accepting new connections
         server.close(() => {
             Logger.info('[Shutdown] HTTP server closed');
         });
 
-        // Run all registered callbacks
+        // Run all registered callbacks (e.g., queue draining)
         for (const callback of shutdownCallbacks) {
             try {
                 await callback();
@@ -64,6 +72,7 @@ export function initGracefulShutdown(server: Server): void {
             Logger.error('[Shutdown] Failed to close Redis', { error });
         }
 
+        clearTimeout(forceExitTimeout);
         Logger.info('[Shutdown] Graceful shutdown complete');
         process.exit(0);
     };
@@ -74,3 +83,4 @@ export function initGracefulShutdown(server: Server): void {
 
     Logger.info('[Shutdown] Graceful shutdown handlers registered');
 }
+

@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { appPromise, app } from './app';
-import { SchedulerService } from './services/SchedulerService';
+import { SchedulerService } from './services/scheduler';
 import { startWorkers } from './workers';
 import { IndexingService } from './services/search/IndexingService';
 import { esClient } from './utils/elastic';

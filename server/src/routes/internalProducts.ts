@@ -7,9 +7,55 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
 import { InternalProductsService } from '../services/InternalProductsService';
+import { validateFastify } from '../middleware/validate';
+
+// === Zod Schemas ===
+
+const createInternalProductSchema = z.object({
+    body: z.object({
+        name: z.string().min(1, 'Name is required'),
+        sku: z.string().optional(),
+        description: z.string().optional(),
+        stockQuantity: z.number().int().optional(),
+        cogs: z.number().optional(),
+        binLocation: z.string().optional(),
+        mainImage: z.string().url().optional().or(z.literal('')),
+        images: z.array(z.string().url()).optional(),
+        supplierId: z.string().uuid().optional(),
+    }),
+});
+
+const updateInternalProductSchema = z.object({
+    params: z.object({
+        id: z.string().uuid(),
+    }),
+    body: z.object({
+        name: z.string().min(1).optional(),
+        sku: z.string().optional(),
+        description: z.string().optional(),
+        stockQuantity: z.number().int().optional(),
+        cogs: z.number().optional(),
+        binLocation: z.string().optional(),
+        mainImage: z.string().url().optional().or(z.literal('')),
+        images: z.array(z.string().url()).optional(),
+        supplierId: z.string().uuid().optional().nullable(),
+    }),
+});
+
+const adjustStockSchema = z.object({
+    params: z.object({
+        id: z.string().uuid(),
+    }),
+    body: z.object({
+        adjustment: z.number().int(),
+        reason: z.string().min(1, 'Reason is required'),
+    }),
+});
 
 export default async function internalProductsRoutes(fastify: FastifyInstance) {
+
 
     // List internal products
     fastify.get('/', async (req: FastifyRequest<{
@@ -61,7 +107,7 @@ export default async function internalProductsRoutes(fastify: FastifyInstance) {
     });
 
     // Create internal product
-    fastify.post('/', async (req: FastifyRequest<{
+    fastify.post('/', { preHandler: [validateFastify(createInternalProductSchema)] }, async (req: FastifyRequest<{
         Body: {
             name: string;
             sku?: string;
@@ -81,10 +127,6 @@ export default async function internalProductsRoutes(fastify: FastifyInstance) {
         }
 
         const { name, sku, description, stockQuantity, cogs, binLocation, mainImage, images, supplierId } = req.body;
-
-        if (!name) {
-            return reply.status(400).send({ error: 'Name is required' });
-        }
 
         try {
             const item = await InternalProductsService.create(accountId, {
@@ -109,7 +151,7 @@ export default async function internalProductsRoutes(fastify: FastifyInstance) {
     });
 
     // Update internal product
-    fastify.put('/:id', async (req: FastifyRequest<{
+    fastify.put('/:id', { preHandler: [validateFastify(updateInternalProductSchema)] }, async (req: FastifyRequest<{
         Params: { id: string };
         Body: {
             name?: string;
@@ -171,20 +213,12 @@ export default async function internalProductsRoutes(fastify: FastifyInstance) {
     });
 
     // Adjust stock quantity
-    fastify.post('/:id/adjust-stock', async (req: FastifyRequest<{
+    fastify.post('/:id/adjust-stock', { preHandler: [validateFastify(adjustStockSchema)] }, async (req: FastifyRequest<{
         Params: { id: string };
         Body: { adjustment: number; reason: string }
     }>, reply: FastifyReply) => {
         const { id } = req.params;
         const { adjustment, reason } = req.body;
-
-        if (typeof adjustment !== 'number') {
-            return reply.status(400).send({ error: 'Adjustment must be a number' });
-        }
-
-        if (!reason) {
-            return reply.status(400).send({ error: 'Reason is required' });
-        }
 
         try {
             const item = await InternalProductsService.adjustStock(id, adjustment, reason, 'USER');

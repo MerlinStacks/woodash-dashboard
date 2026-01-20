@@ -25,6 +25,16 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 api_logs.txt
+api-logs.txt
+
+# Debug & Build Output (development artifacts)
+build_output*.txt
+*_errors.txt
+tsc*.txt
+*_lint.txt
+vite_error.txt
+repro*.txt
+reproduce_*.ts
 
 # Environment
 .env

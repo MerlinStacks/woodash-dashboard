@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import { createRequire } from 'module'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 // Force restart
 
@@ -13,7 +14,14 @@ export default defineConfig(({ mode }) => {
         plugins: [
             react(),
             tailwindcss(),
-        ],
+            // Bundle analyzer - run with: ANALYZE=true npm run build
+            env.ANALYZE === 'true' && visualizer({
+                open: true,
+                filename: 'bundle-analysis.html',
+                gzipSize: true,
+                brotliSize: true,
+            }),
+        ].filter(Boolean),
         resolve: {
             dedupe: [
                 'react',

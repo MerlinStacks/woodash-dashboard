@@ -1,9 +1,10 @@
 import { Queue, Worker } from 'bullmq';
-import { redisClient } from '../../utils/redis';
+import { redisClient, createWorkerConnection } from '../../utils/redis';
 import { Logger } from '../../utils/logger';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { FastifyAdapter } from '@bull-board/fastify';
+import { QUEUE_LIMITS } from '../../config/limits';
 
 // Define Queue Names
 export const QUEUES = {
@@ -34,13 +35,13 @@ export class QueueFactory {
         const queue = new Queue(name, {
             connection: redisClient as any,
             defaultJobOptions: {
-                attempts: 3,
+                attempts: QUEUE_LIMITS.MAX_RETRIES,
                 backoff: {
                     type: 'exponential',
-                    delay: 2000,
+                    delay: QUEUE_LIMITS.RETRY_DELAY_MS,
                 },
-                removeOnComplete: { count: 100 },    // Keep last 100 completed
-                removeOnFail: { age: 86400 },        // Remove failed after 24 hours (prevents bloat)
+                removeOnComplete: { count: QUEUE_LIMITS.COMPLETED_JOBS_KEEP },
+                removeOnFail: { age: QUEUE_LIMITS.FAILED_JOBS_TTL_SECONDS },
             },
         });
 
@@ -58,8 +59,8 @@ export class QueueFactory {
             Logger.info(`Processing Job ${job.id}`, { jobId: job.id, accountId: job.data.accountId });
             await processor(job);
         }, {
-            connection: redisClient.duplicate() as any,
-            concurrency: 5, // Can perform 5 syncs in parallel per queue type
+            connection: createWorkerConnection() as any,
+            concurrency: QUEUE_LIMITS.WORKER_CONCURRENCY,
         });
 
         worker.on('completed', (job) => {

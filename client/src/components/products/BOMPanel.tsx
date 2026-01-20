@@ -8,11 +8,13 @@ interface BOMItem {
     id?: string;
     childProductId?: string;
     childVariationId?: number; // Added for variant persistence
+    internalProductId?: string; // For internal-only components
     supplierItemId?: string;
     displayName: string;
     quantity: number;
     wasteFactor: number;
     cost: number;
+    isInternal?: boolean; // Visual indicator
 }
 
 
@@ -66,17 +68,45 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
 
         const delayDebounceFn = setTimeout(async () => {
             try {
-                const res = await fetch(`/api/products?q=${encodeURIComponent(searchTerm)}&limit=8`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'x-account-id': currentAccount?.id || ''
-                    }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    // API returns 'products' not 'items'
-                    setSearchResults(data.products || []);
+                // Fetch both WooCommerce products and internal products in parallel
+                const [wooRes, internalRes] = await Promise.all([
+                    fetch(`/api/products?q=${encodeURIComponent(searchTerm)}&limit=8`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'x-account-id': currentAccount?.id || ''
+                        }
+                    }),
+                    fetch(`/api/inventory/internal-products?search=${encodeURIComponent(searchTerm)}&limit=8`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'x-account-id': currentAccount?.id || ''
+                        }
+                    })
+                ]);
+
+                let results: any[] = [];
+
+                if (wooRes.ok) {
+                    const wooData = await wooRes.json();
+                    results = [...(wooData.products || [])];
                 }
+
+                if (internalRes.ok) {
+                    const internalData = await internalRes.json();
+                    // Mark internal products for visual distinction
+                    const internalProducts = (internalData.items || []).map((ip: any) => ({
+                        ...ip,
+                        isInternalProduct: true,
+                        name: ip.name,
+                        mainImage: ip.mainImage,
+                        cogs: ip.cogs,
+                        stockQuantity: ip.stockQuantity,
+                        price: ip.cogs // Use COGS as display price for internal
+                    }));
+                    results = [...results, ...internalProducts];
+                }
+
+                setSearchResults(results);
             } catch (err) {
                 Logger.error('Failed to search products', { error: err });
             }
@@ -234,6 +264,7 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                 items: bomItems.map(item => ({
                     childProductId: item.childProductId,
                     childVariationId: item.childVariationId, // Include this!
+                    internalProductId: item.internalProductId, // For internal components
                     supplierItemId: item.supplierItemId,
                     quantity: item.quantity,
                     wasteFactor: item.wasteFactor
@@ -280,6 +311,30 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
     }), [bomItems, selectedScope, productId, token, currentAccount, handleSave]);
 
     const handleAddProduct = (product: any) => {
+        // Handle internal products
+        if (product.isInternalProduct) {
+            // Check if already exists
+            const alreadyExists = bomItems.some(i => i.internalProductId === product.id);
+            if (alreadyExists) {
+                alert('This component is already in the BOM.');
+                return;
+            }
+
+            const newItem: BOMItem = {
+                internalProductId: product.id,
+                displayName: `[Internal] ${product.name}`,
+                quantity: 1,
+                wasteFactor: 0,
+                cost: Number(product.cogs) || 0,
+                isInternal: true
+            };
+
+            setBomItems([...bomItems, newItem]);
+            setSearchTerm('');
+            setSearchResults([]);
+            return;
+        }
+
         // Check if self-linking (only for parent product, not variants)
         if (product.id === productId && !product.isVariant) {
             alert('Cannot add the product to its own BOM.');

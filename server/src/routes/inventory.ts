@@ -195,7 +195,8 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
                         include: {
                             supplierItem: { include: { supplier: true } },
                             childProduct: true,
-                            childVariation: true // Include variant details for name/COGS
+                            childVariation: true, // Include variant details for name/COGS
+                            internalProduct: true // Include internal product details
                         }
                     }
                 }
@@ -268,6 +269,7 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
                             supplierItemId: item.supplierItemId || null,
                             childProductId: item.childProductId || null,
                             childVariationId: item.childVariationId || (item.variationId ? Number(item.variationId) : null), // Support both formats
+                            internalProductId: item.internalProductId || null, // Support internal products as components
                             quantity: Number(item.quantity),
                             wasteFactor: Number(item.wasteFactor || 0)
                         }
@@ -282,7 +284,8 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
                         include: {
                             supplierItem: { include: { supplier: true } },
                             childProduct: true,
-                            childVariation: true // Include variant details
+                            childVariation: true, // Include variant details
+                            internalProduct: true // Include internal product details
                         }
                     }
                 }

@@ -30,5 +30,13 @@ README.md
 *.md
 !package.json
 
+# Test files
+**/__tests__
+**/*.test.ts
+**/*.bench.test.ts
+
+# Bundle analysis
+bundle-analysis.html
+
 # Client (not needed for API build - separate build)
 # client/

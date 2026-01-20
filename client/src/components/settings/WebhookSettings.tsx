@@ -63,8 +63,8 @@ export function WebhookSettings() {
         setSecretInput(data?.webhookSecret || '');
     }, [currentAccount]);
 
-    // Get the base API URL
-    const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    // Get the base API URL - prefer browser origin for correct public URL display
+    const apiUrl = window.location.origin;
 
     // Construct the webhook URL
     const webhookUrl = `${apiUrl}/api/webhooks/${currentAccount?.id || '{accountId}'}`;

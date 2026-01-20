@@ -49,6 +49,33 @@ export const SCHEDULER_LIMITS = {
     TICKER_INTERVAL_MS: 60_000,
     /** Graceful shutdown timeout in milliseconds */
     SHUTDOWN_TIMEOUT_MS: 10_000,
+    /** Fast order sync interval in milliseconds (30 seconds) */
+    FAST_SYNC_INTERVAL_MS: 30_000,
+    /** Full sync cron pattern (every 5 minutes) */
+    FULL_SYNC_CRON: '*/5 * * * *',
+    /** Email polling interval in milliseconds (2 minutes) */
+    EMAIL_POLL_INTERVAL_MS: 2 * 60_000,
+    /** Abandoned cart check interval in milliseconds (15 minutes) */
+    ABANDONED_CART_INTERVAL_MS: 15 * 60_000,
+    /** Report schedule check interval in milliseconds (15 minutes) */
+    REPORT_CHECK_INTERVAL_MS: 15 * 60_000,
+} as const;
+
+// ============================================================================
+// Queue Settings
+// ============================================================================
+
+export const QUEUE_LIMITS = {
+    /** Worker concurrency per queue */
+    WORKER_CONCURRENCY: 5,
+    /** Maximum retry attempts for failed jobs */
+    MAX_RETRIES: 3,
+    /** Retry backoff delay in milliseconds */
+    RETRY_DELAY_MS: 2_000,
+    /** Keep last N completed jobs per queue */
+    COMPLETED_JOBS_KEEP: 100,
+    /** Remove failed jobs after N seconds (24 hours) */
+    FAILED_JOBS_TTL_SECONDS: 86_400,
 } as const;
 
 // ============================================================================

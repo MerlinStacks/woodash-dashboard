@@ -3,7 +3,7 @@ import { Logger } from '../utils/logger';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { Search, Package, Loader2, Layers, Truck, Calculator, Plus } from 'lucide-react';
+import { Search, Package, Loader2, Layers, Truck, Calculator, Plus, Box } from 'lucide-react';
 import { SuppliersList } from '../components/inventory/SuppliersList';
 // import { BOMEditor } from '../components/inventory/BOMEditor';
 // import { BOMEditor } from '../components/inventory/BOMEditor';
@@ -12,6 +12,7 @@ import { PurchaseOrderList } from '../components/inventory/PurchaseOrderList';
 import { SeoScoreBadge } from '../components/Seo/SeoScoreBadge';
 
 import { Pagination } from '../components/ui/Pagination';
+import { InternalProductsList } from '../components/inventory/InternalProductsList';
 
 interface Product {
     // Updated Product Interface
@@ -47,7 +48,7 @@ export function InventoryPage() {
     const navigate = useNavigate();
     const { token } = useAuth();
     const { currentAccount } = useAccount();
-    const [activeTab, setActiveTab] = useState<'catalog' | 'suppliers' | 'purchasing'>('catalog');
+    const [activeTab, setActiveTab] = useState<'catalog' | 'suppliers' | 'purchasing' | 'components'>('catalog');
 
     // Catalog State
     const [products, setProducts] = useState<Product[]>([]);
@@ -162,6 +163,12 @@ export function InventoryPage() {
                     >
                         <Calculator size={18} /> Purchasing
                     </button>
+                    <button
+                        onClick={() => setActiveTab('components')}
+                        className={`flex items-center gap-2 pb-2 -mb-4 px-2 font-medium transition-colors border-b-2 ${activeTab === 'components' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <Box size={18} /> Components
+                    </button>
 
                 </div>
             </div>
@@ -171,7 +178,8 @@ export function InventoryPage() {
                     <SuppliersList />
                 ) : activeTab === 'purchasing' ? (
                     <PurchaseOrderList />
-
+                ) : activeTab === 'components' ? (
+                    <InternalProductsList />
                 ) : (
                     <>
                         <div className="flex justify-end mb-4">

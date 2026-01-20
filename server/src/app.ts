@@ -1,14 +1,14 @@
 require('dotenv').config();
 // Force Restart Trigger
 
-import Fastify, { FastifyRequest, FastifyReply, FastifyError } from 'fastify';
+import Fastify, { FastifyError } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import fastifyCompress from '@fastify/compress';
 import fastifyMultipart from '@fastify/multipart';
-import { Client } from '@elastic/elasticsearch';
+// Unused import removed: Client from '@elastic/elasticsearch'
 import path from 'path';
 import { prisma } from './utils/prisma';
 import { esClient } from './utils/elastic';
@@ -16,8 +16,7 @@ import { esClient } from './utils/elastic';
 import http from 'http';
 import { Server } from 'socket.io';
 import { ChatService } from './services/ChatService';
-import { TrackingService } from './services/TrackingService';
-import { QueueFactory, QUEUES } from './services/queue/QueueFactory';
+import { QueueFactory } from './services/queue/QueueFactory';
 import { EventBus, EVENTS } from './services/events';
 import { AutomationEngine } from './services/AutomationEngine';
 import { setIO } from './socket';
@@ -87,7 +86,10 @@ async function build() {
                 objectSrc: ["'none'"],
                 upgradeInsecureRequests: [],
             }
-        }
+        },
+        dnsPrefetchControl: { allow: false },
+        referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+        hsts: { maxAge: 31536000, includeSubDomains: true },
     });
 
     // Static file serving for uploads
@@ -98,11 +100,13 @@ async function build() {
     await fastify.register(fastifyStatic, {
         root: path.join(__dirname, '../uploads'),
         prefix: '/uploads/',
+        maxAge: '1h', // Cache uploaded files for 1 hour
     });
 
-    // Response compression (Brotli/gzip)
+    // Response compression (Brotli/gzip) - skip small responses
     await fastify.register(fastifyCompress, {
         encodings: ['br', 'gzip', 'deflate'],
+        threshold: 1024, // Only compress responses > 1KB
     });
 
     // Multipart file uploads (replaces multer)
@@ -121,7 +125,7 @@ async function build() {
     });
 
     // Request Logging (hook)
-    fastify.addHook('onRequest', async (request, reply) => {
+    fastify.addHook('onRequest', async (request, _reply) => {
         const start = Date.now();
         (request as any).startTime = start;
     });
@@ -249,7 +253,7 @@ async function build() {
     });
 
     // Native Fastify health check
-    fastify.get('/health-fastify', async (request, reply) => {
+    fastify.get('/health-fastify', async (_request, _reply) => {
         let esStatus = 'disconnected';
         try {
             const health = await esClient.cluster.health();
@@ -304,7 +308,7 @@ async function build() {
     });
 
     // Graceful Shutdown Hook
-    fastify.addHook('onClose', async (instance) => {
+    fastify.addHook('onClose', async (_instance) => {
         Logger.info('Graceful shutdown initiated...');
         await prisma.$disconnect();
         Logger.info('Prisma disconnected.');

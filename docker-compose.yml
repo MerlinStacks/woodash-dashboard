@@ -12,6 +12,7 @@ services:
     #   - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - postgres_backups:/backups # Backup volume for migrations
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U admin -d overseek" ]
       interval: 10s
@@ -28,7 +29,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.15
     environment:
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "ES_JAVA_OPTS=-Xms${ES_HEAP_MIN:-512m} -Xmx${ES_HEAP_MAX:-1g}"
       - xpack.security.enabled=false
     # Ports removed to prevent external access
     # ports:
@@ -79,7 +80,7 @@ services:
     env_file:
       - stack.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://admin:password@postgres:5432/overseek}
+      DATABASE_URL: postgres://admin:password@postgres:5432/overseek
       ELASTICSEARCH_URL: http://elasticsearch:9200
       PORT: 3000
       REDIS_HOST: redis
@@ -137,6 +138,7 @@ services:
 
 volumes:
   postgres_data:
+  postgres_backups: # Separate volume for database backups (survives data volume deletion)
   elasticsearch_data:
   redis_data:
   server_node_modules:

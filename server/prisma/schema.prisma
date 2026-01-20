@@ -190,6 +190,10 @@ model Account {
 
   // Internal Products (component-only, not synced to WooCommerce)
   internalProducts    InternalProduct[]
+
+  // Backup System
+  backupSettings      AccountBackupSettings?
+  storedBackups       StoredBackup[]
 }
 
 // --------------------------------------
@@ -453,6 +457,7 @@ model SyncLog {
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, startedAt])
+  @@index([accountId, entityType, status])  // Sync status dashboard queries
 }
 
 // --------------------------------------
@@ -1160,6 +1165,7 @@ model Message {
   createdAt DateTime @default(now())
   
   @@index([scheduledFor]) // For efficient scheduled message queries
+  @@index([conversationId, createdAt(sort: Desc)])  // Thread rendering with ORDER BY
 }
 
 model MessageReaction {
@@ -1588,6 +1594,7 @@ model AnalyticsEvent {
   visit   AnalyticsVisit?  @relation(fields: [visitId], references: [id], onDelete: SetNull)
 
   @@index([sessionId])
+  @@index([sessionId, type])  // Event type filtering within session
   @@index([visitId])
   @@index([createdAt]) // For time-based cleanup queries
 }
@@ -2022,3 +2029,52 @@ model NotificationDelivery {
   @@index([eventType, createdAt])
 }
 
+// --------------------------------------
+// Account Backup System
+// --------------------------------------
+
+/// Per-account backup configuration for scheduled auto-backups.
+model AccountBackupSettings {
+  id        String @id @default(uuid())
+  accountId String @unique
+
+  /// Whether scheduled backups are enabled
+  isEnabled     Boolean   @default(false)
+  /// Backup frequency: "DAILY", "EVERY_3_DAYS", "WEEKLY"
+  frequency     String    @default("WEEKLY")
+  /// Maximum number of backups to retain (auto-delete oldest)
+  maxBackups    Int       @default(5)
+  /// When the last backup was created
+  lastBackupAt  DateTime?
+  /// When the next scheduled backup should run
+  nextBackupAt  DateTime?
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Stored backup file metadata.
+model StoredBackup {
+  id        String @id @default(uuid())
+  accountId String
+
+  /// Filename on disk, e.g., "backup_2026-01-20_143000.json.gz"
+  filename    String
+  /// File size in bytes
+  sizeBytes   Int
+  /// Total number of records in the backup
+  recordCount Int
+  
+  /// Backup status: "COMPLETED", "FAILED", "RESTORING"
+  status      String @default("COMPLETED")
+  /// Backup type: "SCHEDULED", "MANUAL"
+  type        String @default("SCHEDULED")
+
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt(sort: Desc)])
+}
