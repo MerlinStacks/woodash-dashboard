@@ -3,9 +3,10 @@ import DOMPurify from 'dompurify';
 import { Logger } from '../utils/logger';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { User, Mail, Shield, Building, LogOut, Camera, Clock, Save, X, FileSignature, Loader2, Check } from 'lucide-react';
+import { User, Mail, Shield, Building, LogOut, Camera, Clock, Save, X, FileSignature, Loader2, Check, Lock } from 'lucide-react';
 import SessionManager from '../components/settings/SessionManager';
 import { RichTextEditor } from '../components/common/RichTextEditor';
+import { ChangePasswordModal } from '../components/settings/ChangePasswordModal';
 
 /**
  * User profile page with premium styling, dark mode support,
@@ -19,6 +20,7 @@ export function UserProfilePage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [uploadSuccess, setUploadSuccess] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -159,8 +161,8 @@ export function UserProfilePage() {
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={isUploadingAvatar}
                                     className={`absolute -bottom-1 -right-1 w-9 h-9 rounded-xl flex items-center justify-center shadow-lg transition-all duration-200 ${uploadSuccess
-                                            ? 'bg-emerald-500 text-white'
-                                            : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-500'
+                                        ? 'bg-emerald-500 text-white'
+                                        : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-500'
                                         }`}
                                 >
                                     {isUploadingAvatar ? (
@@ -284,6 +286,20 @@ export function UserProfilePage() {
                                         <div className="text-slate-500 dark:text-slate-400 font-mono text-sm truncate">{user.id}</div>
                                     </div>
                                 </div>
+
+                                {/* Change Password Button */}
+                                <button
+                                    onClick={() => setIsPasswordModalOpen(true)}
+                                    className="flex items-center gap-3 w-full p-3 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-xl transition-all duration-200 group"
+                                >
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
+                                        <Lock className="text-white" size={18} />
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="text-sm font-medium text-gray-900 dark:text-white">Change Password</div>
+                                        <div className="text-xs text-slate-500 dark:text-slate-400">Update your account password</div>
+                                    </div>
+                                </button>
                             </div>
                         </div>
 
@@ -398,6 +414,12 @@ export function UserProfilePage() {
             <div className="mt-8 animate-fade-slide-up animation-delay-200">
                 <SessionManager />
             </div>
+
+            {/* Change Password Modal */}
+            <ChangePasswordModal
+                isOpen={isPasswordModalOpen}
+                onClose={() => setIsPasswordModalOpen(false)}
+            />
         </div>
     );
 }

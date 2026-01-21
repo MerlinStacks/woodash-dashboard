@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Server, CheckCircle, XCircle, Loader2, Save, ChevronDown, ChevronUp, Send, Inbox } from 'lucide-react';
+import { Server, CheckCircle, XCircle, Loader2, Save, ChevronDown, ChevronUp, Send, Inbox, Globe } from 'lucide-react';
 
 /**
  * Unified Email Account - combines SMTP and IMAP in one record.
@@ -23,6 +23,9 @@ export interface EmailAccount {
     imapUsername?: string;
     imapPassword?: string;
     imapSecure?: boolean;
+    // HTTP Relay (WooCommerce Plugin)
+    relayEndpoint?: string;
+    relayApiKey?: string;
     // Meta
     isDefault?: boolean;
 }
@@ -57,7 +60,11 @@ export function EmailAccountForm({
     });
     const [smtpExpanded, setSmtpExpanded] = useState(formData.smtpEnabled);
     const [imapExpanded, setImapExpanded] = useState(formData.imapEnabled);
+    const [relayExpanded, setRelayExpanded] = useState(!!formData.relayEndpoint);
     const [testingProtocol, setTestingProtocol] = useState<'SMTP' | 'IMAP' | null>(null);
+
+    // Determine if using relay (endpoint configured) or SMTP
+    const useRelay = !!formData.relayEndpoint;
 
     const handleChange = (field: keyof EmailAccount, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -212,6 +219,73 @@ export function EmailAccountForm({
                                     {testingProtocol === 'SMTP' ? 'Testing...' : 'Test SMTP'}
                                 </button>
                             </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* WooCommerce Relay Section */}
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={() => setRelayExpanded(!relayExpanded)}
+                        className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${formData.relayEndpoint ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-400'}`}>
+                                <Globe size={18} />
+                            </div>
+                            <div className="text-left">
+                                <h3 className="font-medium text-gray-900">WooCommerce Relay</h3>
+                                <p className="text-sm text-gray-500">Send via WordPress plugin (bypasses SMTP blocks)</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {formData.relayEndpoint && (
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">Active</span>
+                            )}
+                            {relayExpanded ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                        </div>
+                    </button>
+
+                    {relayExpanded && (
+                        <div className="p-4 space-y-4 border-t border-gray-200">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                                <strong>How it works:</strong> Emails are sent via your WooCommerce store's WordPress plugin instead of direct SMTP.
+                                Use this if your server blocks outbound SMTP ports.
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Relay Endpoint URL</label>
+                                <input
+                                    type="url"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-hidden"
+                                    placeholder="https://yourstore.com/wp-json/overseek/v1/email-relay"
+                                    value={formData.relayEndpoint || ''}
+                                    onChange={(e) => handleChange('relayEndpoint', e.target.value)}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Found in WordPress: WooCommerce → OverSeek → Email Relay Settings</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Relay API Key</label>
+                                <input
+                                    type="password"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-hidden"
+                                    placeholder="••••••••"
+                                    value={formData.relayApiKey || ''}
+                                    onChange={(e) => handleChange('relayApiKey', e.target.value)}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Must match the key set in your WordPress plugin</p>
+                            </div>
+                            {formData.relayEndpoint && (
+                                <div className="flex items-center gap-2 text-sm text-purple-700 bg-purple-50 p-3 rounded-lg">
+                                    <CheckCircle size={16} />
+                                    <span>Relay configured. Emails will be sent via WooCommerce instead of SMTP.</span>
+                                </div>
+                            )}
+                            {formData.relayEndpoint && formData.smtpEnabled && (
+                                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg">
+                                    <span>⚠️ Both relay and SMTP are configured. Relay will be used first, SMTP as fallback.</span>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

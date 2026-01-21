@@ -35,6 +35,18 @@ const resetPasswordSchema = z.object({
     newPassword: z.string().min(8, 'Password must be at least 8 characters')
 });
 
+const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string()
+        .min(8, 'Password must be at least 8 characters')
+        .regex(/[a-zA-Z]/, 'Password must contain at least one letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
+    confirmPassword: z.string()
+}).refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword']
+});
+
 // Simple in-memory rate limiter (per IP) as fallback if Redis is unavailable.
 const loginAttempts = new Map<string, { count: number; firstAttempt: number }>();
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -388,6 +400,48 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             return { message: 'Password has been reset successfully' };
         } catch (error) {
             Logger.error('Reset password error', { error });
+            return reply.code(500).send({ error: 'Internal server error' });
+        }
+    });
+
+    // CHANGE PASSWORD (Authenticated)
+    fastify.post('/change-password', { preHandler: requireAuthFastify }, async (request, reply) => {
+        try {
+            const parsed = changePasswordSchema.safeParse(request.body);
+            if (!parsed.success) {
+                return reply.code(400).send({ error: parsed.error.issues[0].message });
+            }
+            const { currentPassword, newPassword } = parsed.data;
+            const userId = request.user!.id;
+
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (!user) {
+                return reply.code(404).send({ error: 'User not found' });
+            }
+
+            // Verify current password
+            const isCurrentValid = await comparePassword(currentPassword, user.passwordHash);
+            if (!isCurrentValid) {
+                return reply.code(401).send({ error: 'Current password is incorrect' });
+            }
+
+            // Ensure new password is different from current
+            const isSamePassword = await comparePassword(newPassword, user.passwordHash);
+            if (isSamePassword) {
+                return reply.code(400).send({ error: 'New password cannot be the same as current password' });
+            }
+
+            // Hash and save new password
+            const newPasswordHash = await hashPassword(newPassword);
+            await prisma.user.update({
+                where: { id: userId },
+                data: { passwordHash: newPasswordHash }
+            });
+
+            Logger.info('Password changed successfully', { userId });
+            return { message: 'Password changed successfully' };
+        } catch (error) {
+            Logger.error('Change password error', { error });
             return reply.code(500).send({ error: 'Internal server error' });
         }
     });

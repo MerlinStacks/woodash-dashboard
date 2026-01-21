@@ -31,6 +31,9 @@ interface EmailAccountBody {
     imapUsername?: string;
     imapPassword?: string;
     imapSecure?: boolean;
+    // HTTP Relay
+    relayEndpoint?: string;
+    relayApiKey?: string;
 }
 
 /** Test connection request */
@@ -63,7 +66,8 @@ const emailRoutes: FastifyPluginAsync = async (fastify) => {
             const masked = accounts.map(a => ({
                 ...a,
                 smtpPassword: a.smtpPassword ? '••••••••' : null,
-                imapPassword: a.imapPassword ? '••••••••' : null
+                imapPassword: a.imapPassword ? '••••••••' : null,
+                relayApiKey: a.relayApiKey ? '••••••••' : null
             }));
 
             return masked;
@@ -105,14 +109,18 @@ const emailRoutes: FastifyPluginAsync = async (fastify) => {
                     imapPort: body.imapPort ? parseInt(String(body.imapPort)) : null,
                     imapUsername: body.imapUsername || null,
                     imapPassword: body.imapPassword ? encrypt(body.imapPassword) : null,
-                    imapSecure: body.imapSecure ?? true
+                    imapSecure: body.imapSecure ?? true,
+                    // HTTP Relay
+                    relayEndpoint: body.relayEndpoint || null,
+                    relayApiKey: body.relayApiKey ? encrypt(body.relayApiKey) : null
                 }
             });
 
             return {
                 ...account,
                 smtpPassword: account.smtpPassword ? '••••••••' : null,
-                imapPassword: account.imapPassword ? '••••••••' : null
+                imapPassword: account.imapPassword ? '••••••••' : null,
+                relayApiKey: account.relayApiKey ? '••••••••' : null
             };
         } catch (error) {
             Logger.error('Failed to create email account', { error });
@@ -150,6 +158,8 @@ const emailRoutes: FastifyPluginAsync = async (fastify) => {
                 imapPort: body.imapPort ? parseInt(String(body.imapPort)) : null,
                 imapUsername: body.imapUsername || null,
                 imapSecure: body.imapSecure ?? true,
+                // HTTP Relay
+                relayEndpoint: body.relayEndpoint || null,
                 updatedAt: new Date()
             };
 
@@ -160,6 +170,9 @@ const emailRoutes: FastifyPluginAsync = async (fastify) => {
             if (body.imapPassword && body.imapPassword !== '••••••••') {
                 updateData.imapPassword = encrypt(body.imapPassword);
             }
+            if (body.relayApiKey && body.relayApiKey !== '••••••••') {
+                updateData.relayApiKey = encrypt(body.relayApiKey);
+            }
 
             const updated = await prisma.emailAccount.update({
                 where: { id },
@@ -169,7 +182,8 @@ const emailRoutes: FastifyPluginAsync = async (fastify) => {
             return {
                 ...updated,
                 smtpPassword: updated.smtpPassword ? '••••••••' : null,
-                imapPassword: updated.imapPassword ? '••••••••' : null
+                imapPassword: updated.imapPassword ? '••••••••' : null,
+                relayApiKey: updated.relayApiKey ? '••••••••' : null
             };
         } catch (error) {
             Logger.error('Failed to update email account', { error });
