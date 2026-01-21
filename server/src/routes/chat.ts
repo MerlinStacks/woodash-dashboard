@@ -447,9 +447,14 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                                 }
                                 if (emailAccount) {
                                     const emailService = new EmailService();
-                                    // Extract subject from content if it starts with Subject:
-                                    let subject = 'Re: Your inquiry';
+
+                                    // Use conversation title (original email subject) for threading
+                                    let subject = conversation.title
+                                        ? (conversation.title.startsWith('Re:') ? conversation.title : `Re: ${conversation.title}`)
+                                        : 'Re: Your inquiry';
                                     let body = content;
+
+                                    // Override if content explicitly includes Subject:
                                     if (content.startsWith('Subject:')) {
                                         const lines = content.split('\n');
                                         subject = lines[0].replace('Subject:', '').trim();
