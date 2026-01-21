@@ -10,18 +10,27 @@ echo "[Startup] Running database migrations..."
 MAX_RETRIES=30
 COUNT=0
 
-until npx prisma db push --accept-data-loss --config ./prisma/prisma.config.ts; do
-  COUNT=$((COUNT+1))
-  if [ $COUNT -ge $MAX_RETRIES ]; then
-    echo "[Startup] Migration failed after $MAX_RETRIES attempts. Exiting."
-    exit 1
-  fi
-  echo "[Startup] Migration failed (attempt $COUNT/$MAX_RETRIES). Retrying in 5s..."
-  sleep 5
-done
+# Try prisma migrate deploy first (production-safe, uses migration files)
+# If this fails (e.g., no baseline exists), fall back to db push
+if npx prisma migrate deploy --config ./prisma/prisma.config.ts 2>/dev/null; then
+  echo "[Startup] Migrations applied via migrate deploy."
+else
+  echo "[Startup] migrate deploy failed, using db push to sync schema..."
+  until npx prisma db push --accept-data-loss --config ./prisma/prisma.config.ts; do
+    COUNT=$((COUNT+1))
+    if [ $COUNT -ge $MAX_RETRIES ]; then
+      echo "[Startup] Schema sync failed after $MAX_RETRIES attempts. Exiting."
+      exit 1
+    fi
+    echo "[Startup] Schema sync failed (attempt $COUNT/$MAX_RETRIES). Retrying in 5s..."
+    sleep 5
+  done
+  echo "[Startup] Schema synced via db push."
+fi
 
-echo "[Startup] Migrations applied successfully."
+echo "[Startup] Database ready."
 
 # Start the application
 echo "[Startup] Starting Node.js application..."
 exec npm start
+
