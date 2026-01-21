@@ -81,7 +81,7 @@ services:
     env_file:
       - stack.env
     environment:
-      DATABASE_URL: postgres://admin:password@postgres:5432/overseek
+      DATABASE_URL: postgres://admin:${POSTGRES_PASSWORD:-password}@postgres:5432/overseek
       ELASTICSEARCH_URL: http://elasticsearch:9200
       PORT: 3000
       REDIS_HOST: redis
