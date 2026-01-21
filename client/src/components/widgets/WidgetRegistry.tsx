@@ -56,25 +56,39 @@ function WidgetSkeleton() {
     );
 }
 
-export const WidgetRegistry: Record<string, { component: LazyWidget, label: string, defaultH: number, defaultW: number }> = {
-    'total-sales': { component: TotalSalesWidget, label: 'Total Sales', defaultW: 4, defaultH: 4 },
-    'recent-orders': { component: RecentOrdersWidget, label: 'Recent Orders', defaultW: 4, defaultH: 8 },
-    'marketing-roas': { component: AdSpendWidget, label: 'Marketing ROAS', defaultW: 4, defaultH: 4 },
+/**
+ * Widget permission requirements mapped to RBAC permissions.
+ * - view_finance: Revenue, sales, analytics data
+ * - view_marketing: Ad spend, ROAS, marketing AI features
+ * - view_products: Inventory, product performance
+ * - view_orders: Order-related data
+ * - undefined: No permission required (available to all users)
+ */
+export const WidgetRegistry: Record<string, {
+    component: LazyWidget,
+    label: string,
+    defaultH: number,
+    defaultW: number,
+    requiredPermission?: string
+}> = {
+    'total-sales': { component: TotalSalesWidget, label: 'Total Sales', defaultW: 4, defaultH: 4, requiredPermission: 'view_finance' },
+    'recent-orders': { component: RecentOrdersWidget, label: 'Recent Orders', defaultW: 4, defaultH: 8, requiredPermission: 'view_orders' },
+    'marketing-roas': { component: AdSpendWidget, label: 'Marketing ROAS', defaultW: 4, defaultH: 4, requiredPermission: 'view_marketing' },
     'live-analytics': { component: LiveAnalyticsWidget, label: 'Live Analytics', defaultW: 4, defaultH: 3 },
-    'top-products': { component: TopProductsWidget, label: 'Top Products', defaultW: 4, defaultH: 6 },
-    'customer-growth': { component: CustomerGrowthWidget, label: 'Customer Growth', defaultW: 6, defaultH: 6 },
-    'sales-chart': { component: SalesChartWidget, label: 'Sales Trend', defaultW: 6, defaultH: 6 },
-    'inventory-risk': { component: InventoryRiskWidget, label: 'Inventory Risk', defaultW: 4, defaultH: 4 },
-    'live-carts': { component: LiveCartsWidget, label: 'Live Carts', defaultW: 4, defaultH: 4 },
+    'top-products': { component: TopProductsWidget, label: 'Top Products', defaultW: 4, defaultH: 6, requiredPermission: 'view_finance' },
+    'customer-growth': { component: CustomerGrowthWidget, label: 'Customer Growth', defaultW: 6, defaultH: 6, requiredPermission: 'view_finance' },
+    'sales-chart': { component: SalesChartWidget, label: 'Sales Trend', defaultW: 6, defaultH: 6, requiredPermission: 'view_finance' },
+    'inventory-risk': { component: InventoryRiskWidget, label: 'Inventory Risk', defaultW: 4, defaultH: 4, requiredPermission: 'view_products' },
+    'live-carts': { component: LiveCartsWidget, label: 'Live Carts', defaultW: 4, defaultH: 4, requiredPermission: 'view_orders' },
     'visitor-log': { component: VisitorLogWidget, label: 'Visitor Log', defaultW: 6, defaultH: 6 },
-    'ecommerce-log': { component: EcommerceLogWidget, label: 'Ecommerce Stream', defaultW: 6, defaultH: 6 },
+    'ecommerce-log': { component: EcommerceLogWidget, label: 'Ecommerce Stream', defaultW: 6, defaultH: 6, requiredPermission: 'view_orders' },
     'hot-cache': { component: HotCacheWidget as any, label: 'Hot Cache', defaultW: 4, defaultH: 5 },
-    'quick-products': { component: QuickProductsWidget as any, label: 'Quick Products', defaultW: 4, defaultH: 6 },
+    'quick-products': { component: QuickProductsWidget as any, label: 'Quick Products', defaultW: 4, defaultH: 6, requiredPermission: 'view_products' },
     'visitor-count': { component: VisitorCountWidget, label: 'Live Visitors', defaultW: 3, defaultH: 2 },
     'open-inbox': { component: OpenInboxWidget, label: 'Open Inbox', defaultW: 3, defaultH: 2 },
-    'ad-suggestions': { component: AdSuggestionsWidget, label: 'Ad Suggestions', defaultW: 4, defaultH: 5 },
-    'cart-abandonment': { component: CartAbandonmentWidget, label: 'Cart Abandonment', defaultW: 4, defaultH: 6 },
-    'gold-price-margin': { component: GoldPriceMarginWidget, label: 'Gold Price Margins', defaultW: 4, defaultH: 5 }
+    'ad-suggestions': { component: AdSuggestionsWidget, label: 'Ad Suggestions', defaultW: 4, defaultH: 5, requiredPermission: 'view_marketing' },
+    'cart-abandonment': { component: CartAbandonmentWidget, label: 'Cart Abandonment', defaultW: 4, defaultH: 6, requiredPermission: 'view_finance' },
+    'gold-price-margin': { component: GoldPriceMarginWidget, label: 'Gold Price Margins', defaultW: 4, defaultH: 5, requiredPermission: 'view_finance' }
 };
 
 /**

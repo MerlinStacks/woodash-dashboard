@@ -6,6 +6,7 @@ import 'react-resizable/css/styles.css';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { renderWidget, WidgetRegistry } from '../components/widgets/WidgetRegistry';
+import { usePermissions } from '../hooks/usePermissions';
 import { Loader2, Plus, X, Lock, Unlock } from 'lucide-react';
 import { debounce, isEqual } from '../utils/debounce';
 import { useRef, useLayoutEffect, useState, useEffect, useMemo } from 'react';
@@ -62,6 +63,7 @@ interface WidgetInstance {
 export function DashboardPage() {
     const { token } = useAuth();
     const { currentAccount } = useAccount();
+    const { hasPermission } = usePermissions();
     const isMobile = useMobile();
     const [widgets, setWidgets] = useState<WidgetInstance[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -287,15 +289,17 @@ export function DashboardPage() {
                                     <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Available Widgets</span>
                                 </div>
                                 <div className="max-h-64 overflow-y-auto py-1">
-                                    {Object.entries(WidgetRegistry).map(([key, entry]) => (
-                                        <button
-                                            key={key}
-                                            onClick={() => addWidget(key)}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                                        >
-                                            {entry.label}
-                                        </button>
-                                    ))}
+                                    {Object.entries(WidgetRegistry)
+                                        .filter(([, entry]) => !entry.requiredPermission || hasPermission(entry.requiredPermission))
+                                        .map(([key, entry]) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => addWidget(key)}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                            >
+                                                {entry.label}
+                                            </button>
+                                        ))}
                                 </div>
                             </div>
                         )}
@@ -318,31 +322,37 @@ export function DashboardPage() {
                 compactType={null}
                 preventCollision={true}
             >
-                {widgets.map(w => (
-                    <div key={w.id} className="bg-transparent h-full relative group">
-                        {/* Widget Controls - hidden when locked */}
-                        {!isLayoutLocked && (
-                            <div className="absolute top-2 right-2 z-20 flex items-center gap-1 pointer-events-none">
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); removeWidget(w.id); }}
-                                    className="p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 rounded-sm hover:bg-red-50 hover:text-red-500 text-gray-400 pointer-events-auto shadow-xs"
-                                    title="Remove Widget"
-                                >
-                                    <X size={14} />
-                                </button>
-                                <div className="drag-handle p-1 cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 rounded-sm text-gray-500 pointer-events-auto shadow-xs hover:bg-white">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="12" r="1" /><circle cx="9" cy="5" r="1" /><circle cx="9" cy="19" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="15" cy="19" r="1" /></svg>
+                {widgets
+                    .filter(w => {
+                        const entry = WidgetRegistry[w.widgetKey];
+                        // Hide widget if user lacks required permission
+                        return !entry?.requiredPermission || hasPermission(entry.requiredPermission);
+                    })
+                    .map(w => (
+                        <div key={w.id} className="bg-transparent h-full relative group">
+                            {/* Widget Controls - hidden when locked */}
+                            {!isLayoutLocked && (
+                                <div className="absolute top-2 right-2 z-20 flex items-center gap-1 pointer-events-none">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); removeWidget(w.id); }}
+                                        className="p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 rounded-sm hover:bg-red-50 hover:text-red-500 text-gray-400 pointer-events-auto shadow-xs"
+                                        title="Remove Widget"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                    <div className="drag-handle p-1 cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 rounded-sm text-gray-500 pointer-events-auto shadow-xs hover:bg-white">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="12" r="1" /><circle cx="9" cy="5" r="1" /><circle cx="9" cy="19" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="15" cy="19" r="1" /></svg>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                        {renderWidget(w.widgetKey, {
-                            settings: w.settings,
-                            className: "h-full",
-                            dateRange,
-                            comparison: comparisonRange
-                        })}
-                    </div>
-                ))}
+                            )}
+                            {renderWidget(w.widgetKey, {
+                                settings: w.settings,
+                                className: "h-full",
+                                dateRange,
+                                comparison: comparisonRange
+                            })}
+                        </div>
+                    ))}
             </ResponsiveGridLayoutWithWidth>
         </div>
     );

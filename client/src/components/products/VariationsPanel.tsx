@@ -581,7 +581,39 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
                                                     {/* Profit Margin Calculator - Only show when user can view COGS */}
                                                     {canViewCogs && (() => {
                                                         const sellingPrice = parseFloat(v.salePrice || '') || parseFloat(v.price || '') || 0;
-                                                        const effectiveCogs = bomCogsMap[v.id] ?? (parseFloat(v.cogs || '') || 0);
+
+                                                        // Calculate gold price COGS for variants with gold pricing enabled
+                                                        // Priority: BOM > Gold Price > Manual COGS
+                                                        let effectiveCogs = 0;
+                                                        let cogsSource: 'bom' | 'gold' | 'manual' | 'none' = 'none';
+
+                                                        if (bomCogsMap[v.id] != null && bomCogsMap[v.id]! > 0) {
+                                                            // BOM COGS takes priority
+                                                            effectiveCogs = bomCogsMap[v.id]!;
+                                                            cogsSource = 'bom';
+                                                        } else if (v.isGoldPriceApplied && v.goldPriceType && currentAccount) {
+                                                            // Gold price COGS - calculate from weight * gold price per gram
+                                                            const weight = parseFloat(v.weight || '') || 0;
+                                                            const goldPriceMap: Record<string, number | undefined> = {
+                                                                '18ct': currentAccount.goldPrice18ct,
+                                                                '9ct': currentAccount.goldPrice9ct,
+                                                                '18ctWhite': currentAccount.goldPrice18ctWhite,
+                                                                '9ctWhite': currentAccount.goldPrice9ctWhite,
+                                                                'legacy': currentAccount.goldPrice
+                                                            };
+                                                            const goldPricePerGram = Number(goldPriceMap[v.goldPriceType]) || 0;
+                                                            if (weight > 0 && goldPricePerGram > 0) {
+                                                                effectiveCogs = weight * goldPricePerGram;
+                                                                cogsSource = 'gold';
+                                                            }
+                                                        }
+
+                                                        // Fallback to manual COGS
+                                                        if (effectiveCogs === 0) {
+                                                            effectiveCogs = parseFloat(v.cogs || '') || 0;
+                                                            if (effectiveCogs > 0) cogsSource = 'manual';
+                                                        }
+
                                                         const hasCogs = effectiveCogs > 0;
                                                         const hasPrice = sellingPrice > 0;
 
@@ -618,7 +650,8 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
                                                                 {hasCogs && hasPrice && (
                                                                     <p className="text-[10px] text-gray-500 mt-1">
                                                                         Based on {v.salePrice && parseFloat(v.salePrice) > 0 ? 'sale' : 'regular'} price of ${sellingPrice.toFixed(2)}
-                                                                        {bomCogsMap[v.id] !== null && bomCogsMap[v.id] !== undefined && ' • BOM-calculated COGS'}
+                                                                        {cogsSource === 'bom' && ' • BOM-calculated COGS'}
+                                                                        {cogsSource === 'gold' && ' • Gold price COGS'}
                                                                     </p>
                                                                 )}
                                                             </div>

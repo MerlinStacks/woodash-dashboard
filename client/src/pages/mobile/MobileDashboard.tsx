@@ -22,6 +22,7 @@ import { formatCurrency, formatTimeAgo } from '../../utils/format';
 import { RevenueAnomalyBanner } from '../../components/mobile/RevenueAnomalyBanner';
 import { DashboardSkeleton } from '../../components/mobile/MobileSkeleton';
 import { Sparkline, TrendBadge } from '../../components/mobile/Sparkline';
+import { usePermissions } from '../../hooks/usePermissions';
 
 /**
  * MobileDashboard - Premium dark dashboard for the PWA companion app.
@@ -81,6 +82,7 @@ export function MobileDashboard() {
     const navigate = useNavigate();
     const { token, user } = useAuth();
     const { currentAccount } = useAccount();
+    const { hasPermission } = usePermissions();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [activities, setActivities] = useState<RecentActivity[]>([]);
     const [anomaly, setAnomaly] = useState<AnomalyData | null>(null);
@@ -251,8 +253,8 @@ export function MobileDashboard() {
 
     return (
         <div className="space-y-6">
-            {/* Revenue Anomaly Alert Banner */}
-            <RevenueAnomalyBanner anomaly={anomaly} />
+            {/* Revenue Anomaly Alert Banner - only show if user has finance permission */}
+            {hasPermission('view_finance') && <RevenueAnomalyBanner anomaly={anomaly} />}
 
             {/* Greeting Header */}
             <div className="flex items-center justify-between animate-fade-slide-up">
@@ -290,22 +292,24 @@ export function MobileDashboard() {
                     <Sparkline data={sparklines.orders} color="#60a5fa" height={24} />
                 </div>
 
-                {/* Revenue Card */}
-                <div
-                    className="bg-slate-800/50 backdrop-blur-sm border border-white/10 rounded-2xl p-4 animate-fade-slide-up cursor-pointer active:scale-[0.98] transition-transform"
-                    style={{ animationDelay: '100ms' }}
-                    onClick={() => navigate('/m/analytics')}
-                >
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="p-2 rounded-xl bg-emerald-500/20">
-                            <DollarSign size={18} className="text-emerald-400" />
+                {/* Revenue Card - only show if user has finance permission */}
+                {hasPermission('view_finance') && (
+                    <div
+                        className="bg-slate-800/50 backdrop-blur-sm border border-white/10 rounded-2xl p-4 animate-fade-slide-up cursor-pointer active:scale-[0.98] transition-transform"
+                        style={{ animationDelay: '100ms' }}
+                        onClick={() => navigate('/m/analytics')}
+                    >
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="p-2 rounded-xl bg-emerald-500/20">
+                                <DollarSign size={18} className="text-emerald-400" />
+                            </div>
+                            {stats?.yesterdayRevenue !== undefined && <TrendBadge value={revenueTrend} />}
                         </div>
-                        {stats?.yesterdayRevenue !== undefined && <TrendBadge value={revenueTrend} />}
+                        <p className="text-2xl font-bold text-white mb-0.5">{formatAccountCurrency(stats?.todayRevenue || 0)}</p>
+                        <p className="text-xs text-slate-400 mb-2">Revenue today</p>
+                        <Sparkline data={sparklines.revenue} color="#34d399" height={24} />
                     </div>
-                    <p className="text-2xl font-bold text-white mb-0.5">{formatAccountCurrency(stats?.todayRevenue || 0)}</p>
-                    <p className="text-xs text-slate-400 mb-2">Revenue today</p>
-                    <Sparkline data={sparklines.revenue} color="#34d399" height={24} />
-                </div>
+                )}
 
                 {/* Messages Card */}
                 <div
