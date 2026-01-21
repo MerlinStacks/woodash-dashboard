@@ -107,7 +107,7 @@ export class EmailService {
         // Try HTTP relay first if configured
         if (emailAccount.relayEndpoint && emailAccount.relayApiKey) {
             try {
-                const result = await this.sendViaHttpRelay(emailAccount, accountId, to, subject, htmlWithTracking, options);
+                const result = await this.sendViaHttpRelay(emailAccount, accountId, to, subject, htmlWithTracking, attachments, options);
 
                 await prisma.emailLog.create({
                     data: {
@@ -314,6 +314,7 @@ export class EmailService {
         to: string,
         subject: string,
         html: string,
+        attachments?: any[],
         options?: { inReplyTo?: string; references?: string }
     ): Promise<{ success: boolean; message_id: string }> {
         if (!emailAccount.relayEndpoint || !emailAccount.relayApiKey) {
@@ -321,6 +322,23 @@ export class EmailService {
         }
 
         const decryptedApiKey = decrypt(emailAccount.relayApiKey);
+
+        // Convert attachments to base64 for JSON transport
+        const base64Attachments: Array<{ filename: string; content: string; contentType: string }> = [];
+        if (attachments && attachments.length > 0) {
+            for (const att of attachments) {
+                try {
+                    const fileBuffer = fs.readFileSync(att.path);
+                    base64Attachments.push({
+                        filename: att.filename || 'attachment',
+                        content: fileBuffer.toString('base64'),
+                        contentType: att.contentType || 'application/octet-stream'
+                    });
+                } catch (err) {
+                    Logger.warn('Failed to read attachment for relay', { path: att.path, error: err });
+                }
+            }
+        }
 
         const payload = {
             account_id: accountId,
@@ -330,7 +348,8 @@ export class EmailService {
             from_name: emailAccount.name,
             from_email: emailAccount.email,
             in_reply_to: options?.inReplyTo,
-            references: options?.references
+            references: options?.references,
+            attachments: base64Attachments.length > 0 ? base64Attachments : undefined
         };
 
         const response = await fetch(emailAccount.relayEndpoint, {

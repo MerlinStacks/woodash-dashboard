@@ -137,8 +137,48 @@ class OverSeek_API {
 			], 200 );
 		}
 
-		// Send via wp_mail.
-		$sent = wp_mail( $to, $subject, $html, $headers );
+		// Handle base64-encoded attachments.
+		$attachment_paths = [];
+		if ( ! empty( $params['attachments'] ) && is_array( $params['attachments'] ) ) {
+			$upload_dir = wp_upload_dir();
+			$temp_dir = trailingslashit( $upload_dir['basedir'] ) . 'overseek-temp/';
+			
+			// Ensure temp directory exists.
+			if ( ! file_exists( $temp_dir ) ) {
+				wp_mkdir_p( $temp_dir );
+			}
+			
+			foreach ( $params['attachments'] as $attachment ) {
+				if ( empty( $attachment['content'] ) || empty( $attachment['filename'] ) ) {
+					continue;
+				}
+				
+				// Decode base64 content.
+				$decoded = base64_decode( $attachment['content'] );
+				if ( false === $decoded ) {
+					continue;
+				}
+				
+				// Sanitize filename and create unique path.
+				$safe_filename = sanitize_file_name( $attachment['filename'] );
+				$temp_path = $temp_dir . uniqid() . '_' . $safe_filename;
+				
+				// Write to temp file.
+				if ( file_put_contents( $temp_path, $decoded ) !== false ) {
+					$attachment_paths[] = $temp_path;
+				}
+			}
+		}
+
+		// Send via wp_mail (with attachments if any).
+		$sent = wp_mail( $to, $subject, $html, $headers, $attachment_paths );
+
+		// Cleanup temp attachment files.
+		foreach ( $attachment_paths as $path ) {
+			if ( file_exists( $path ) ) {
+				unlink( $path );
+			}
+		}
 
 		if ( $sent ) {
 			// Generate a pseudo message ID for tracking.

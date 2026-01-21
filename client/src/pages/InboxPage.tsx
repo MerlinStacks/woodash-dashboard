@@ -353,7 +353,12 @@ export function InboxPage() {
                             ordersCount: activeConversation.wooCustomer.ordersCount,
                             totalSpent: activeConversation.wooCustomer.totalSpent,
                             wooId: activeConversation.wooCustomer.wooId
-                        } : undefined}
+                        } : {
+                            // Fallback for guest conversations
+                            firstName: activeConversation?.guestName?.split(' ')[0],
+                            lastName: activeConversation?.guestName?.split(' ').slice(1).join(' '),
+                            email: activeConversation?.guestEmail
+                        }}
                         onStatusChange={async (newStatus, snoozeUntil) => {
                             const res = await fetch(`/api/chat/${selectedId}`, {
                                 method: 'PUT',

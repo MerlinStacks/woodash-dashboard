@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
-import { Layers, ChevronDown, ChevronRight, Package, DollarSign, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
+import { Layers, ChevronDown, ChevronRight, Package, DollarSign, Loader2, TrendingUp } from 'lucide-react';
 import { BOMPanel, BOMPanelRef } from './BOMPanel';
 import { useAccountFeature } from '../../hooks/useAccountFeature';
 import { useAuth } from '../../context/AuthContext';
@@ -70,6 +70,10 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
     // Store refs for all BOMPanels to enable batch save
     const bomPanelRefs = useRef<Map<number, BOMPanelRef | null>>(new Map());
 
+    // Track BOM COGS for each variant (keyed by variant ID)
+    // When a variant has BOM components, this stores the calculated total cost
+    const [bomCogsMap, setBomCogsMap] = useState<Record<number, number | null>>({});
+
     /**
      * Save all variant BOMs. Called by parent when saving the product.
      */
@@ -95,6 +99,70 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
         });
         setStockEditValues(stockValues);
     }, [variants]);
+
+    /**
+     * Fetches BOM COGS for all variants on mount.
+     * This allows displaying the BOM-calculated cost even before expanding a variant.
+     */
+    useEffect(() => {
+        if (!token || !currentAccount || !canViewCogs || variants.length === 0) return;
+
+        const fetchAllBomCogs = async () => {
+            const newBomCogsMap: Record<number, number | null> = {};
+
+            await Promise.all(variants.map(async (v) => {
+                try {
+                    const res = await fetch(`/api/inventory/products/${product.id}/bom?variationId=${v.id}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'x-account-id': currentAccount.id
+                        }
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.items && data.items.length > 0) {
+                            // Calculate total BOM cost
+                            const totalCost = data.items.reduce((sum: number, item: any) => {
+                                let unitCost = 0;
+                                if (item.internalProduct?.cogs) {
+                                    unitCost = Number(item.internalProduct.cogs);
+                                } else if (item.childVariation?.cogs) {
+                                    unitCost = Number(item.childVariation.cogs);
+                                } else if (item.childProduct?.cogs) {
+                                    unitCost = Number(item.childProduct.cogs);
+                                } else if (item.supplierItem?.cost) {
+                                    unitCost = Number(item.supplierItem.cost);
+                                }
+                                const quantity = Number(item.quantity);
+                                const waste = Number(item.wasteFactor || 0);
+                                return sum + (unitCost * quantity * (1 + waste));
+                            }, 0);
+                            newBomCogsMap[v.id] = totalCost;
+                        } else {
+                            newBomCogsMap[v.id] = null;
+                        }
+                    }
+                } catch (err) {
+                    Logger.error('Failed to fetch BOM for variant', { variantId: v.id, error: err });
+                    newBomCogsMap[v.id] = null;
+                }
+            }));
+
+            setBomCogsMap(newBomCogsMap);
+        };
+
+        fetchAllBomCogs();
+    }, [token, currentAccount, product.id, variants, canViewCogs]);
+
+    /**
+     * Callback for BOMPanel to update BOM COGS when components change.
+     */
+    const handleBomCogsUpdate = useCallback((variantId: number, cogs: number) => {
+        setBomCogsMap(prev => ({ ...prev, [variantId]: cogs }));
+        // Also update the variant's cogs field to keep in sync
+        handleFieldChange(variantId, 'cogs', cogs.toString());
+    }, []);
 
     // Support ATUM's custom variable types (e.g., 'variable-product-part') and any product with variations
     const hasVariations = product.type?.includes('variable') || (product.variations && product.variations.length > 0);
@@ -446,14 +514,29 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                                         {canViewCogs && (
                                                             <div>
-                                                                <label className="block text-xs font-medium text-gray-500 mb-1">COGS (Cost)</label>
-                                                                <input
-                                                                    type="number" step="0.01"
-                                                                    value={v.cogs || ''}
-                                                                    onChange={(e) => handleFieldChange(v.id, 'cogs', e.target.value)}
-                                                                    className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg"
-                                                                    placeholder="0.00"
-                                                                />
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                                                                    COGS (Cost)
+                                                                    {bomCogsMap[v.id] !== null && bomCogsMap[v.id] !== undefined && (
+                                                                        <span className="text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                                                                            BOM
+                                                                        </span>
+                                                                    )}
+                                                                </label>
+                                                                {bomCogsMap[v.id] !== null && bomCogsMap[v.id] !== undefined ? (
+                                                                    // BOM COGS - read-only display
+                                                                    <div className="w-full text-sm px-3 py-1.5 bg-purple-50/50 border border-purple-200 rounded-lg text-purple-800 font-medium">
+                                                                        ${bomCogsMap[v.id]!.toFixed(2)}
+                                                                    </div>
+                                                                ) : (
+                                                                    // Manual COGS input
+                                                                    <input
+                                                                        type="number" step="0.01"
+                                                                        value={v.cogs || ''}
+                                                                        onChange={(e) => handleFieldChange(v.id, 'cogs', e.target.value)}
+                                                                        className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg"
+                                                                        placeholder="0.00"
+                                                                    />
+                                                                )}
                                                             </div>
                                                         )}
                                                         <div>
@@ -493,6 +576,53 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
                                                         )}
                                                     </div>
 
+                                                    {/* Profit Margin Calculator - Only show when user can view COGS */}
+                                                    {canViewCogs && (() => {
+                                                        const sellingPrice = parseFloat(v.salePrice || '') || parseFloat(v.price || '') || 0;
+                                                        const effectiveCogs = bomCogsMap[v.id] ?? parseFloat(v.cogs || '') || 0;
+                                                        const hasCogs = effectiveCogs > 0;
+                                                        const hasPrice = sellingPrice > 0;
+
+                                                        if (!hasPrice && !hasCogs) return null;
+
+                                                        const profitDollar = sellingPrice - effectiveCogs;
+                                                        const profitPercent = sellingPrice > 0 ? ((profitDollar / sellingPrice) * 100) : 0;
+
+                                                        return (
+                                                            <div className="mb-4 p-3 bg-gray-50/80 rounded-lg border border-gray-100">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                                                                        <TrendingUp size={12} />
+                                                                        Profit Margin
+                                                                    </span>
+                                                                    {hasCogs && hasPrice ? (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className={`text-sm font-bold ${profitDollar >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                                ${profitDollar.toFixed(2)}
+                                                                            </span>
+                                                                            <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${profitPercent >= 0
+                                                                                ? 'bg-green-50 text-green-700 border border-green-200'
+                                                                                : 'bg-red-50 text-red-700 border border-red-200'
+                                                                                }`}>
+                                                                                {profitPercent >= 0 ? '+' : ''}{profitPercent.toFixed(1)}%
+                                                                            </span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-xs text-gray-400 italic">
+                                                                            {!hasCogs ? 'Enter COGS to calculate' : 'Enter price to calculate'}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {hasCogs && hasPrice && (
+                                                                    <p className="text-[10px] text-gray-500 mt-1">
+                                                                        Based on {v.salePrice && parseFloat(v.salePrice) > 0 ? 'sale' : 'regular'} price of ${sellingPrice.toFixed(2)}
+                                                                        {bomCogsMap[v.id] !== null && bomCogsMap[v.id] !== undefined && ' • BOM-calculated COGS'}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
+
                                                     <div className="border-l-2 border-blue-100 pl-4">
                                                         <h4 className="text-sm font-semibold text-gray-800 mb-2">Components (BOM)</h4>
                                                         <BOMPanel
@@ -505,6 +635,7 @@ export const VariationsPanel = forwardRef<VariationsPanelRef, VariationsPanelPro
                                                             }}
                                                             productId={product.id}
                                                             fixedVariationId={v.id}
+                                                            onCOGSUpdate={(cogs) => handleBomCogsUpdate(v.id, cogs)}
                                                         />
                                                     </div>
                                                 </div>
