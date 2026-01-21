@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Server, CheckCircle, XCircle, Loader2, Save, ChevronDown, ChevronUp, Send, Inbox, Globe } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useAccount } from '../../context/AccountContext';
 
 /**
  * Unified Email Account - combines SMTP and IMAP in one record.
@@ -49,6 +51,8 @@ export function EmailAccountForm({
     isTesting,
     testResult
 }: EmailAccountFormProps) {
+    const { token } = useAuth();
+    const { currentAccount } = useAccount();
     const [formData, setFormData] = useState<Partial<EmailAccount>>({
         smtpEnabled: false,
         imapEnabled: false,
@@ -302,7 +306,11 @@ export function EmailAccountForm({
                                                 try {
                                                     const response = await fetch('/api/email/test-relay', {
                                                         method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
+                                                        headers: {
+                                                            'Content-Type': 'application/json',
+                                                            'Authorization': `Bearer ${token}`,
+                                                            'x-account-id': currentAccount?.id || ''
+                                                        },
                                                         body: JSON.stringify({
                                                             relayEndpoint: formData.relayEndpoint,
                                                             relayApiKey: formData.relayApiKey
