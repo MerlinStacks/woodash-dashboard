@@ -293,6 +293,49 @@ const emailRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     /**
+     * Test HTTP relay connection (server-side to avoid CORS).
+     */
+    fastify.post<{ Body: { relayEndpoint: string } }>('/test-relay', async (request, reply) => {
+        try {
+            const { relayEndpoint } = request.body;
+
+            if (!relayEndpoint) {
+                return reply.code(400).send({ success: false, error: 'Relay endpoint is required' });
+            }
+
+            // SSRF protection: Only allow HTTPS URLs
+            if (!relayEndpoint.startsWith('https://')) {
+                return reply.code(400).send({ success: false, error: 'Relay endpoint must use HTTPS' });
+            }
+
+            // Validate URL format
+            try {
+                new URL(relayEndpoint);
+            } catch {
+                return reply.code(400).send({ success: false, error: 'Invalid URL format' });
+            }
+
+            // Test the health endpoint of the WooCommerce plugin
+            const healthUrl = relayEndpoint.replace('/email-relay', '/health');
+
+            const response = await fetch(healthUrl, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, message: 'Relay endpoint is reachable', data };
+            } else {
+                return { success: false, error: `Endpoint returned status ${response.status}` };
+            }
+        } catch (error: any) {
+            Logger.error('Relay test failed', { error: error.message });
+            return reply.code(400).send({ success: false, error: error.message });
+        }
+    });
+
+    /**
      * Manually sync all IMAP-enabled accounts.
      */
     fastify.post('/sync', async (request, reply) => {

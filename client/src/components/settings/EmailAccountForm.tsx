@@ -300,14 +300,19 @@ export function EmailAccountForm({
                                             onClick={async () => {
                                                 if (!formData.relayEndpoint) return;
                                                 try {
-                                                    const response = await fetch(formData.relayEndpoint.replace('/email-relay', '/health'));
-                                                    if (response.ok) {
+                                                    const response = await fetch('/api/email/test-relay', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ relayEndpoint: formData.relayEndpoint })
+                                                    });
+                                                    const result = await response.json();
+                                                    if (result.success) {
                                                         alert('Relay endpoint is reachable!');
                                                     } else {
-                                                        alert('Relay endpoint returned an error: ' + response.status);
+                                                        alert('Relay test failed: ' + (result.error || 'Unknown error'));
                                                     }
                                                 } catch (err: any) {
-                                                    alert('Cannot reach relay endpoint: ' + err.message);
+                                                    alert('Cannot test relay: ' + err.message);
                                                 }
                                             }}
                                             disabled={!formData.relayEndpoint}
