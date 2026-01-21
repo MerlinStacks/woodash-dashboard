@@ -4,8 +4,9 @@ import { Users, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import ReactECharts from 'echarts-for-react';
-import * as echarts from 'echarts';
+import ReactEChartsCore from 'echarts-for-react/lib/core';
+import { echarts, graphic, type EChartsOption } from '../../utils/echarts';
+
 
 export function CustomerGrowthWidget({ className, dateRange }: WidgetProps) {
     const { token } = useAuth();
@@ -25,7 +26,7 @@ export function CustomerGrowthWidget({ className, dateRange }: WidgetProps) {
             .finally(() => setLoading(false));
     }, [currentAccount, token, dateRange]);
 
-    const getChartOptions = (): echarts.EChartsOption => {
+    const getChartOptions = (): EChartsOption => {
         const dates = data.map(d => {
             const date = new Date(String(d.date));
             return isNaN(date.getTime()) ? String(d.date) : date.toLocaleDateString('en-US', { month: 'short' });
@@ -61,7 +62,7 @@ export function CustomerGrowthWidget({ className, dateRange }: WidgetProps) {
                 data: values,
                 lineStyle: { color: '#3b82f6', width: 2 },
                 areaStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    color: new graphic.LinearGradient(0, 0, 0, 1, [
                         { offset: 0, color: 'rgba(59, 130, 246, 0.1)' },
                         { offset: 1, color: 'rgba(59, 130, 246, 0)' }
                     ])
@@ -87,7 +88,8 @@ export function CustomerGrowthWidget({ className, dateRange }: WidgetProps) {
                 ) : data.length === 0 ? (
                     <div className="absolute inset-0 flex justify-center items-center text-slate-400 dark:text-slate-500 text-sm">No data available</div>
                 ) : (
-                    <ReactECharts
+                    <ReactEChartsCore
+                        echarts={echarts}
                         option={getChartOptions()}
                         style={{ height: '100%', width: '100%' }}
                         opts={{ renderer: 'svg' }}

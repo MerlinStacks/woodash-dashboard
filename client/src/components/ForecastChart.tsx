@@ -3,9 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { Logger } from '../utils/logger';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import ReactECharts from 'echarts-for-react';
-import * as echarts from 'echarts';
+import ReactEChartsCore from 'echarts-for-react/lib/core';
+import { echarts, graphic, type EChartsOption } from '../utils/echarts';
 import { Loader2, TrendingUp } from 'lucide-react';
+
 
 interface ForecastData {
     date: string;
@@ -83,7 +84,7 @@ export function ForecastChart({ dateRange }: ForecastProps) {
         }
     }
 
-    const getChartOptions = (): echarts.EChartsOption => {
+    const getChartOptions = (): EChartsOption => {
         const dates = data.map(d => {
             const str = String(d.date);
             return str.length > 5 ? str.slice(5) : str;
@@ -118,7 +119,7 @@ export function ForecastChart({ dateRange }: ForecastProps) {
                     data: historyValues,
                     lineStyle: { color: '#3b82f6', width: 2 },
                     areaStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        color: new graphic.LinearGradient(0, 0, 0, 1, [
                             { offset: 0, color: 'rgba(59, 130, 246, 0.8)' },
                             { offset: 1, color: 'rgba(59, 130, 246, 0)' }
                         ])
@@ -134,7 +135,7 @@ export function ForecastChart({ dateRange }: ForecastProps) {
                     data: forecastValues,
                     lineStyle: { color: '#a855f7', width: 2, type: 'dashed' },
                     areaStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        color: new graphic.LinearGradient(0, 0, 0, 1, [
                             { offset: 0, color: 'rgba(168, 85, 247, 0.8)' },
                             { offset: 1, color: 'rgba(168, 85, 247, 0)' }
                         ])
@@ -162,7 +163,8 @@ export function ForecastChart({ dateRange }: ForecastProps) {
             </div>
 
             <div className="w-full" style={{ height: '300px' }}>
-                <ReactECharts
+                <ReactEChartsCore
+                    echarts={echarts}
                     option={getChartOptions()}
                     style={{ height: '100%', width: '100%' }}
                     opts={{ renderer: 'svg' }}

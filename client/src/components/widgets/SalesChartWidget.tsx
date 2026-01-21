@@ -5,8 +5,9 @@ import { BarChart3, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
-import ReactECharts from 'echarts-for-react';
-import * as echarts from 'echarts';
+import ReactEChartsCore from 'echarts-for-react/lib/core';
+import { echarts, graphic, type EChartsOption, type SeriesOption } from '../../utils/echarts';
+
 
 export function SalesChartWidget({ className, dateRange, comparison }: WidgetProps) {
     const { token } = useAuth();
@@ -66,7 +67,7 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
 
     }, [currentAccount, token, dateRange, comparison]);
 
-    const getChartOptions = (): echarts.EChartsOption => {
+    const getChartOptions = (): EChartsOption => {
         const dates = data.map(d => {
             const s = String(d.date);
             if (s.startsWith('Day')) return s;
@@ -76,7 +77,7 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
         const salesValues = data.map(d => d.sales);
         const comparisonValues = comparison ? data.map(d => d.comparisonSales ?? 0) : [];
 
-        const series: echarts.SeriesOption[] = [
+        const series: SeriesOption[] = [
             {
                 name: 'Current Period',
                 type: 'line',
@@ -84,7 +85,7 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
                 data: salesValues,
                 lineStyle: { color: '#22c55e', width: 2 },
                 areaStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    color: new graphic.LinearGradient(0, 0, 0, 1, [
                         { offset: 0, color: 'rgba(34, 197, 94, 0.1)' },
                         { offset: 1, color: 'rgba(34, 197, 94, 0)' }
                     ])
@@ -102,7 +103,7 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
                 data: comparisonValues,
                 lineStyle: { color: '#9ca3af', width: 2, type: 'dashed' },
                 areaStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    color: new graphic.LinearGradient(0, 0, 0, 1, [
                         { offset: 0, color: 'rgba(156, 163, 175, 0.1)' },
                         { offset: 1, color: 'rgba(156, 163, 175, 0)' }
                     ])
@@ -166,7 +167,8 @@ export function SalesChartWidget({ className, dateRange, comparison }: WidgetPro
                 ) : data.length === 0 ? (
                     <div className="absolute inset-0 flex justify-center items-center text-slate-400 dark:text-slate-500 text-sm">No data available</div>
                 ) : (
-                    <ReactECharts
+                    <ReactEChartsCore
+                        echarts={echarts}
                         option={getChartOptions()}
                         style={{ height: '100%', width: '100%' }}
                         opts={{ renderer: 'svg' }}
