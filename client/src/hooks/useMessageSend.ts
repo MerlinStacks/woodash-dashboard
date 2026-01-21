@@ -21,6 +21,8 @@ interface UseMessageSendOptions {
 interface PendingSend {
     content: string;
     timeout: NodeJS.Timeout;
+    countdownInterval: NodeJS.Timeout;
+    remainingSeconds: number;
 }
 
 interface UseMessageSendReturn {
@@ -108,6 +110,7 @@ export function useMessageSend({
     const cancelPendingSend = useCallback(() => {
         if (pendingSend) {
             clearTimeout(pendingSend.timeout);
+            clearInterval(pendingSend.countdownInterval);
             setInput(pendingSend.content);
             setPendingSend(null);
         }
@@ -151,7 +154,9 @@ export function useMessageSend({
 
         const finalContent = prepareContent(input);
 
-        // Store content and start undo timer
+        // Store content and start undo timer with countdown
+        const startSeconds = Math.ceil(UNDO_DELAY_MS / 1000);
+
         const timeout = setTimeout(async () => {
             setIsSending(true);
             try {
@@ -163,7 +168,15 @@ export function useMessageSend({
             }
         }, UNDO_DELAY_MS);
 
-        setPendingSend({ content: input, timeout });
+        // Start countdown interval
+        const countdownInterval = setInterval(() => {
+            setPendingSend(prev => {
+                if (!prev || prev.remainingSeconds <= 1) return prev;
+                return { ...prev, remainingSeconds: prev.remainingSeconds - 1 };
+            });
+        }, 1000);
+
+        setPendingSend({ content: input, timeout, countdownInterval, remainingSeconds: startSeconds });
         setInput('');
         setQuotedMessage(null);
 

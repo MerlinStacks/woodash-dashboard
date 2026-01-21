@@ -395,7 +395,73 @@ const ordersRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
+    // Add a tag to an order
+    fastify.post<{ Params: { id: string }; Body: { tag: string } }>('/:id/tags', async (request, reply) => {
+        const { id } = orderIdParamSchema.parse(request.params);
+        const { tag } = request.body as { tag: string };
+        const accountId = request.user?.accountId;
+
+        if (!accountId) {
+            return reply.code(400).send({ error: 'accountId header is required' });
+        }
+
+        if (!tag || typeof tag !== 'string' || !tag.trim()) {
+            return reply.code(400).send({ error: 'tag is required' });
+        }
+
+        const cleanTag = tag.trim();
+
+        try {
+            let order;
+
+            // Try finding by internal UUID first
+            order = await prisma.wooOrder.findUnique({ where: { id } });
+
+            // If not found and ID is numeric, try finding by WooID
+            if (!order && !isNaN(Number(id))) {
+                order = await prisma.wooOrder.findUnique({
+                    where: { accountId_wooId: { accountId, wooId: Number(id) } }
+                });
+            }
+
+            if (!order || order.accountId !== accountId) {
+                return reply.code(404).send({ error: 'Order not found' });
+            }
+
+            // Get current rawData and add the tag (avoid duplicates)
+            const rawData = order.rawData as any;
+            const currentTags: string[] = rawData.tags || [];
+
+            if (currentTags.includes(cleanTag)) {
+                return { success: true, tags: currentTags, message: 'Tag already exists' };
+            }
+
+            const newTags = [...currentTags, cleanTag];
+
+            // Update rawData with new tags
+            const updatedRawData = { ...rawData, tags: newTags };
+
+            // Update the order in PostgreSQL
+            await prisma.wooOrder.update({
+                where: { id: order.id },
+                data: { rawData: updatedRawData }
+            });
+
+            // Reindex the order in Elasticsearch
+            const { IndexingService } = await import('../services/search/IndexingService');
+            await IndexingService.indexOrder(accountId, { ...updatedRawData, id: order.wooId }, newTags);
+
+            Logger.info('Tag added to order', { orderId: order.wooId, tag: cleanTag, allTags: newTags });
+
+            return { success: true, tags: newTags };
+        } catch (error) {
+            Logger.error('Failed to add tag to order', { error });
+            return reply.code(500).send({ error: 'Failed to add tag' });
+        }
+    });
+
     /**
+
      * Bulk update order status.
      * Updates status in WooCommerce and syncs back to local database.
      */

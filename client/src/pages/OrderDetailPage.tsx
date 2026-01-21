@@ -5,12 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { formatDate, fixMojibake, formatCurrency } from '../utils/format';
-import { ArrowLeft, User, MapPin, Mail, Phone, Package, CreditCard, RefreshCw, Printer, TrendingUp, Globe, Smartphone, Monitor, Tablet, Tag, X, ChevronDown, ChevronUp, Palette, FileText, Image as ImageIcon, Settings } from 'lucide-react';
+import { ArrowLeft, User, MapPin, Mail, Phone, Package, CreditCard, RefreshCw, Printer, TrendingUp, Globe, Smartphone, Monitor, Tablet, ChevronDown, ChevronUp, Palette, FileText, Image as ImageIcon, Settings } from 'lucide-react';
 import { generateInvoicePDF } from '../utils/InvoiceGenerator';
 import { Modal } from '../components/ui/Modal';
 import { HistoryTimeline } from '../components/shared/HistoryTimeline';
 import { Clock } from 'lucide-react';
 import { FraudBadge } from '../components/orders/FraudBadge';
+import { OrderTagPanel } from '../components/orders/OrderTagPanel';
 
 interface Attribution {
     firstTouchSource: string;
@@ -125,23 +126,9 @@ export function OrderDetailPage() {
         }
     };
 
-    async function removeTag(tag: string) {
-        if (!currentAccount || !token || !order) return;
-        try {
-            const res = await fetch(`/api/orders/${order.id}/tags/${encodeURIComponent(tag)}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'X-Account-ID': currentAccount.id
-                }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setOrder((prev: any) => ({ ...prev, tags: data.tags }));
-            }
-        } catch (err) {
-            Logger.error('Failed to remove tag', { error: err });
-        }
+    /** Callback when tags are updated via the OrderTagPanel */
+    function handleTagsChange(newTags: string[]) {
+        setOrder((prev: any) => ({ ...prev, tags: newTags }));
     }
 
 
@@ -365,32 +352,12 @@ export function OrderDetailPage() {
                         </div>
                     </div>
 
-                    {/* Tags Card */}
-                    {order.tags && order.tags.length > 0 && (
-                        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-5 space-y-4">
-                            <div className="font-semibold text-gray-900 flex items-center gap-2 border-b border-gray-100 pb-3">
-                                <Tag size={18} className="text-blue-500" />
-                                Tags
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {order.tags.map((tag: string) => (
-                                    <span
-                                        key={tag}
-                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-sm bg-gray-100 text-gray-700 group"
-                                    >
-                                        {tag}
-                                        <button
-                                            onClick={() => removeTag(tag)}
-                                            className="ml-1 p-0.5 rounded hover:bg-gray-200 opacity-60 hover:opacity-100 transition-opacity"
-                                            title="Remove tag"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    {/* Tags Panel */}
+                    <OrderTagPanel
+                        orderId={order.id || order.wooId?.toString() || id || ''}
+                        currentTags={order.tags || []}
+                        onTagsChange={handleTagsChange}
+                    />
 
                     {/* Attribution Card */}
                     <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-5 space-y-4">

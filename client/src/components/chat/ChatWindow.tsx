@@ -386,22 +386,40 @@ export function ChatWindow({
                 {/* Typing Indicator */}
                 {isCustomerTyping && <TypingIndicator name={recipientName} />}
 
+                {/* Pending Message Bubble with Undo */}
+                {messageSend.pendingSend && (
+                    <div className="mb-3 flex justify-end">
+                        <div className="flex gap-2 max-w-[85%] flex-row-reverse">
+                            {/* Avatar placeholder */}
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center self-end">
+                                <Loader2 size={16} className="animate-spin text-blue-600" />
+                            </div>
+                            {/* Pending bubble */}
+                            <div className="flex flex-col">
+                                <div className="rounded-2xl px-4 py-2.5 relative shadow-sm bg-blue-600/70 text-white rounded-br-md border-2 border-dashed border-blue-400">
+                                    <div
+                                        className="text-sm leading-relaxed opacity-90"
+                                        dangerouslySetInnerHTML={{ __html: messageSend.pendingSend.content }}
+                                    />
+                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-blue-400/40">
+                                        <span className="text-xs text-blue-200">
+                                            Sending in {messageSend.pendingSend.remainingSeconds}s...
+                                        </span>
+                                        <button
+                                            onClick={messageSend.cancelPendingSend}
+                                            className="text-sm font-semibold text-white bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors"
+                                        >
+                                            Undo
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div ref={bottomRef} />
             </div>
-
-            {/* Undo Send Toast */}
-            {messageSend.pendingSend && (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-3 z-30">
-                    <Loader2 size={16} className="animate-spin" />
-                    <span className="text-sm">Sending in {Math.ceil(messageSend.UNDO_DELAY_MS / 1000)}s...</span>
-                    <button
-                        onClick={messageSend.cancelPendingSend}
-                        className="text-sm font-medium text-blue-400 hover:text-blue-300"
-                    >
-                        Undo
-                    </button>
-                </div>
-            )}
 
             {/* Reply Composer */}
             <ChatComposer

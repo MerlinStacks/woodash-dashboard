@@ -10,6 +10,7 @@ import { ContactPanel } from '../components/chat/ContactPanel';
 import { NewEmailModal } from '../components/chat/NewEmailModal';
 import { KeyboardShortcutsHelp } from '../components/chat/KeyboardShortcutsHelp';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useVisibilityPolling } from '../hooks/useVisibilityPolling';
 import { MessageSquare } from 'lucide-react';
 import type { ConversationChannel } from '../components/chat/ChannelSelector';
 
@@ -76,29 +77,36 @@ export function InboxPage() {
         ? `${activeConversation.wooCustomer.firstName || ''} ${activeConversation.wooCustomer.lastName || ''}`.trim()
         : activeConversation?.guestName;
 
+    /**
+     * Fetch conversations list from API.
+     * Used for initial load and visibility-based polling fallback.
+     */
+    const fetchConversations = useCallback(async () => {
+        if (!currentAccount || !token) return;
+        try {
+            const res = await fetch('/api/chat/conversations', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount.id
+                }
+            });
+            const data = await res.json();
+            setConversations(data);
+            setIsLoading(false);
+        } catch (error) {
+            Logger.error('Failed to load chats', { error: error });
+            setIsLoading(false);
+        }
+    }, [currentAccount, token]);
+
     // Initial Load
     useEffect(() => {
-        if (!currentAccount || !token) return;
-
-        const fetchConversations = async () => {
-            try {
-                const res = await fetch('/api/chat/conversations', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'x-account-id': currentAccount.id
-                    }
-                });
-                const data = await res.json();
-                setConversations(data);
-                setIsLoading(false);
-            } catch (error) {
-                Logger.error('Failed to load chats', { error: error });
-                setIsLoading(false);
-            }
-        };
-
         fetchConversations();
-    }, [currentAccount, token]);
+    }, [fetchConversations]);
+
+    // Visibility-based polling fallback for when socket may have missed events
+    // Refreshes conversation list when tab regains focus (every 30s while visible)
+    useVisibilityPolling(fetchConversations, 30000, [fetchConversations], 'inbox-conversations');
 
     // Socket Listeners
     useEffect(() => {
@@ -249,18 +257,25 @@ export function InboxPage() {
     const handleSendMessage = async (content: string, type: 'AGENT' | 'SYSTEM', isInternal: boolean, channel?: ConversationChannel, emailAccountId?: string) => {
         if (!selectedId) return;
 
-        const res = await fetch(`/api/chat/${selectedId}/messages`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'x-account-id': currentAccount?.id || ''
-            },
-            body: JSON.stringify({ content, type, isInternal, channel, emailAccountId })
-        });
+        try {
+            const res = await fetch(`/api/chat/${selectedId}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-account-id': currentAccount?.id || ''
+                },
+                body: JSON.stringify({ content, type, isInternal, channel, emailAccountId })
+            });
 
-        if (!res.ok) {
-            alert('Failed to send');
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to send message');
+            }
+        } catch (error: any) {
+            Logger.error('Failed to send message', { error: error?.message || error });
+            alert(error?.message || 'Failed to send');
+            throw error; // Re-throw to prevent clearing the input
         }
     };
 

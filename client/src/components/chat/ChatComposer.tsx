@@ -387,20 +387,6 @@ export function ChatComposer({
                     </div>
 
                     <div className="flex items-center gap-1">
-                        {/* Undo Send Toast (inline) */}
-                        {pendingSend && (
-                            <div className="flex items-center gap-2 mr-2 text-sm text-gray-600">
-                                <Loader2 size={14} className="animate-spin" />
-                                <span>Sending in {Math.ceil(UNDO_DELAY_MS / 1000)}s...</span>
-                                <button
-                                    onClick={onCancelSend}
-                                    className="text-blue-600 hover:text-blue-700 font-medium"
-                                >
-                                    Undo
-                                </button>
-                            </div>
-                        )}
-
                         {/* Send Button with Schedule Option */}
                         <div className="flex flex-col items-end gap-1">
                             {selectedChannel === 'SMS' && (

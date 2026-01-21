@@ -562,147 +562,156 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
 
         // POST /:id/messages
         fastify.post<{ Params: { id: string } }>('/:id/messages', async (request, reply) => {
-            const { content, type, isInternal, channel, emailAccountId } = request.body as any;
-            const userId = request.user?.id;
-            const accountId = request.accountId;
+            try {
+                const { content, type, isInternal, channel, emailAccountId } = request.body as any;
+                const userId = request.user?.id;
+                const accountId = request.accountId;
 
-            // Store the message first
-            const msg = await chatService.addMessage(request.params.id, content, type || 'AGENT', userId, isInternal);
-
-            // If internal note, don't route externally
-            if (isInternal) {
-                return msg;
-            }
-
-            // Route to external channel if specified
-            if (channel) {
-                try {
-                    const conversation = await prisma.conversation.findUnique({
-                        where: { id: request.params.id },
-                        include: {
-                            wooCustomer: true,
-                            socialAccount: true,
-                            mergedFrom: { include: { socialAccount: true } }
-                        }
-                    });
-
-                    if (!conversation) {
-                        Logger.warn('[ChannelRouting] Conversation not found', { id: request.params.id });
-                        return msg;
-                    }
-
-                    if (channel === 'EMAIL') {
-                        // Route via email
-                        const recipientEmail = conversation.wooCustomer?.email || conversation.guestEmail;
-                        if (recipientEmail && accountId) {
-                            // Use provided emailAccountId or fall back to default SMTP account
-                            let emailAccount = null;
-                            if (emailAccountId) {
-                                emailAccount = await prisma.emailAccount.findUnique({
-                                    where: { id: emailAccountId }
-                                });
-                            }
-                            if (!emailAccount) {
-                                const { getDefaultEmailAccount } = await import('../utils/getDefaultEmailAccount');
-                                emailAccount = await getDefaultEmailAccount(accountId);
-                            }
-                            if (emailAccount) {
-                                const emailService = new EmailService();
-                                // Extract subject from content if it starts with Subject:
-                                let subject = 'Re: Your inquiry';
-                                let body = content;
-                                if (content.startsWith('Subject:')) {
-                                    const lines = content.split('\n');
-                                    subject = lines[0].replace('Subject:', '').trim();
-                                    body = lines.slice(2).join('\n');
-                                }
-
-                                // Get threading info from the conversation's email log
-                                // Look for the original incoming email's message ID
-                                const originalEmailLog = await prisma.emailLog.findFirst({
-                                    where: {
-                                        sourceId: conversation.id,
-                                        messageId: { not: null }
-                                    },
-                                    orderBy: { createdAt: 'asc' }
-                                });
-
-                                await emailService.sendEmail(accountId, emailAccount.id, recipientEmail, subject, body, undefined, {
-                                    source: 'INBOX',
-                                    sourceId: conversation.id,
-                                    inReplyTo: originalEmailLog?.messageId || undefined,
-                                    references: originalEmailLog?.messageId || undefined
-                                });
-                                Logger.info('[ChannelRouting] Email sent', { to: recipientEmail, conversationId: conversation.id });
-                            }
-                        }
-                    } else if (channel === 'FACEBOOK' || channel === 'INSTAGRAM') {
-                        // Route via Meta
-                        // Find the social account AND correct externalConversationId for this channel
-                        let socialAccount = conversation.socialAccount?.platform === channel ? conversation.socialAccount : null;
-                        let externalId = conversation.externalConversationId;
-
-                        if (!socialAccount) {
-                            const merged = conversation.mergedFrom.find(m => m.socialAccount?.platform === channel);
-                            socialAccount = merged?.socialAccount || null;
-                            externalId = merged?.externalConversationId || null;
-                        }
-
-                        if (socialAccount && externalId) {
-                            // externalConversationId typically contains the sender's ID for Meta
-                            const recipientId = externalId.split('_')[0];
-                            const result = await MetaMessagingService.sendMessage(socialAccount.id, {
-                                recipientId,
-                                message: content.replace(/<[^>]*>/g, ''), // Strip HTML
-                                messageType: 'RESPONSE'
-                            });
-                            if (result) {
-                                Logger.info('[ChannelRouting] Meta message sent', { channel, messageId: result.messageId });
-                            }
-                        }
-                    } else if (channel === 'TIKTOK') {
-                        // Route via TikTok
-                        // Find the social account AND correct externalConversationId for TikTok
-                        let socialAccount = conversation.socialAccount?.platform === 'TIKTOK' ? conversation.socialAccount : null;
-                        let externalId = conversation.externalConversationId;
-
-                        if (!socialAccount) {
-                            const merged = conversation.mergedFrom.find(m => m.socialAccount?.platform === 'TIKTOK');
-                            socialAccount = merged?.socialAccount || null;
-                            externalId = merged?.externalConversationId || null;
-                        }
-
-                        if (socialAccount && externalId) {
-                            const recipientOpenId = externalId.split('_')[0];
-                            const result = await TikTokMessagingService.sendMessage(socialAccount.id, {
-                                recipientOpenId,
-                                message: content.replace(/<[^>]*>/g, '')
-                            });
-                            if (result) {
-                                Logger.info('[ChannelRouting] TikTok message sent', { messageId: result.messageId });
-                            }
-                        }
-                    } else if (channel === 'SMS') {
-                        // Route via Twilio
-                        let externalId = conversation.channel === 'SMS' ? conversation.externalConversationId : null;
-
-                        if (!externalId) {
-                            const merged = conversation.mergedFrom.find(m => m.channel === 'SMS');
-                            externalId = merged?.externalConversationId || null;
-                        }
-
-                        if (externalId) {
-                            await TwilioService.sendSms(accountId, externalId, content.replace(/<[^>]*>/g, ''));
-                            Logger.info('[ChannelRouting] SMS sent', { to: externalId });
-                        }
-                    }
-                } catch (routingError: any) {
-                    Logger.error('[ChannelRouting] Failed to route message', { channel, error: routingError.message });
-                    // Don't fail the request - message is still stored
+                if (!content?.trim()) {
+                    return reply.code(400).send({ error: 'Message content is required' });
                 }
-            }
 
-            return msg;
+                // Store the message first
+                const msg = await chatService.addMessage(request.params.id, content, type || 'AGENT', userId, isInternal);
+
+                // If internal note, don't route externally
+                if (isInternal) {
+                    return msg;
+                }
+
+                // Route to external channel if specified
+                if (channel) {
+                    try {
+                        const conversation = await prisma.conversation.findUnique({
+                            where: { id: request.params.id },
+                            include: {
+                                wooCustomer: true,
+                                socialAccount: true,
+                                mergedFrom: { include: { socialAccount: true } }
+                            }
+                        });
+
+                        if (!conversation) {
+                            Logger.warn('[ChannelRouting] Conversation not found', { id: request.params.id });
+                            return msg;
+                        }
+
+                        if (channel === 'EMAIL') {
+                            // Route via email
+                            const recipientEmail = conversation.wooCustomer?.email || conversation.guestEmail;
+                            if (recipientEmail && accountId) {
+                                // Use provided emailAccountId or fall back to default SMTP account
+                                let emailAccount = null;
+                                if (emailAccountId) {
+                                    emailAccount = await prisma.emailAccount.findUnique({
+                                        where: { id: emailAccountId }
+                                    });
+                                }
+                                if (!emailAccount) {
+                                    const { getDefaultEmailAccount } = await import('../utils/getDefaultEmailAccount');
+                                    emailAccount = await getDefaultEmailAccount(accountId);
+                                }
+                                if (emailAccount) {
+                                    const emailService = new EmailService();
+                                    // Extract subject from content if it starts with Subject:
+                                    let subject = 'Re: Your inquiry';
+                                    let body = content;
+                                    if (content.startsWith('Subject:')) {
+                                        const lines = content.split('\n');
+                                        subject = lines[0].replace('Subject:', '').trim();
+                                        body = lines.slice(2).join('\n');
+                                    }
+
+                                    // Get threading info from the conversation's email log
+                                    // Look for the original incoming email's message ID
+                                    const originalEmailLog = await prisma.emailLog.findFirst({
+                                        where: {
+                                            sourceId: conversation.id,
+                                            messageId: { not: null }
+                                        },
+                                        orderBy: { createdAt: 'asc' }
+                                    });
+
+                                    await emailService.sendEmail(accountId, emailAccount.id, recipientEmail, subject, body, undefined, {
+                                        source: 'INBOX',
+                                        sourceId: conversation.id,
+                                        inReplyTo: originalEmailLog?.messageId || undefined,
+                                        references: originalEmailLog?.messageId || undefined
+                                    });
+                                    Logger.info('[ChannelRouting] Email sent', { to: recipientEmail, conversationId: conversation.id });
+                                }
+                            }
+                        } else if (channel === 'FACEBOOK' || channel === 'INSTAGRAM') {
+                            // Route via Meta
+                            // Find the social account AND correct externalConversationId for this channel
+                            let socialAccount = conversation.socialAccount?.platform === channel ? conversation.socialAccount : null;
+                            let externalId = conversation.externalConversationId;
+
+                            if (!socialAccount) {
+                                const merged = conversation.mergedFrom.find(m => m.socialAccount?.platform === channel);
+                                socialAccount = merged?.socialAccount || null;
+                                externalId = merged?.externalConversationId || null;
+                            }
+
+                            if (socialAccount && externalId) {
+                                // externalConversationId typically contains the sender's ID for Meta
+                                const recipientId = externalId.split('_')[0];
+                                const result = await MetaMessagingService.sendMessage(socialAccount.id, {
+                                    recipientId,
+                                    message: content.replace(/<[^>]*>/g, ''), // Strip HTML
+                                    messageType: 'RESPONSE'
+                                });
+                                if (result) {
+                                    Logger.info('[ChannelRouting] Meta message sent', { channel, messageId: result.messageId });
+                                }
+                            }
+                        } else if (channel === 'TIKTOK') {
+                            // Route via TikTok
+                            // Find the social account AND correct externalConversationId for TikTok
+                            let socialAccount = conversation.socialAccount?.platform === 'TIKTOK' ? conversation.socialAccount : null;
+                            let externalId = conversation.externalConversationId;
+
+                            if (!socialAccount) {
+                                const merged = conversation.mergedFrom.find(m => m.socialAccount?.platform === 'TIKTOK');
+                                socialAccount = merged?.socialAccount || null;
+                                externalId = merged?.externalConversationId || null;
+                            }
+
+                            if (socialAccount && externalId) {
+                                const recipientOpenId = externalId.split('_')[0];
+                                const result = await TikTokMessagingService.sendMessage(socialAccount.id, {
+                                    recipientOpenId,
+                                    message: content.replace(/<[^>]*>/g, '')
+                                });
+                                if (result) {
+                                    Logger.info('[ChannelRouting] TikTok message sent', { messageId: result.messageId });
+                                }
+                            }
+                        } else if (channel === 'SMS') {
+                            // Route via Twilio
+                            let externalId = conversation.channel === 'SMS' ? conversation.externalConversationId : null;
+
+                            if (!externalId) {
+                                const merged = conversation.mergedFrom.find(m => m.channel === 'SMS');
+                                externalId = merged?.externalConversationId || null;
+                            }
+
+                            if (externalId) {
+                                await TwilioService.sendSms(accountId, externalId, content.replace(/<[^>]*>/g, ''));
+                                Logger.info('[ChannelRouting] SMS sent', { to: externalId });
+                            }
+                        }
+                    } catch (routingError: any) {
+                        Logger.error('[ChannelRouting] Failed to route message', { channel, error: routingError.message });
+                        // Don't fail the request - message is still stored
+                    }
+                }
+
+                return msg;
+            } catch (error: any) {
+                Logger.error('Failed to send message', { conversationId: request.params.id, error: error?.message || error });
+                return reply.code(500).send({ error: error?.message || 'Failed to send message' });
+            }
         });
 
         // PUT /:id

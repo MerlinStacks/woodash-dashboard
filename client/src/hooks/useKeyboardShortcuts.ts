@@ -40,6 +40,9 @@ export function useKeyboardShortcuts({
 }: KeyboardShortcutsOptions) {
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
+        // Don't intercept browser shortcuts that use modifier keys
+        if (e.ctrlKey || e.metaKey) return;
+
         // Don't handle if user is typing in an input/textarea
         const target = e.target as HTMLElement;
         const isTyping = ['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable;
