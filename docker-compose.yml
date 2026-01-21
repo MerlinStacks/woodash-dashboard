@@ -103,6 +103,9 @@ services:
       start_period: 180s
     extra_hosts:
       - "host.docker.internal:host-gateway" # Allow container to reach host
+    networks:
+      - default
+      - proxy-net
     logging:
       driver: "json-file"
       options:
@@ -131,6 +134,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    networks:
+      - default
+      - proxy-net
     logging:
       driver: "json-file"
       options:
@@ -147,3 +153,6 @@ volumes:
   geoip_data:
 
 
+networks:
+  proxy-net:
+    external: true

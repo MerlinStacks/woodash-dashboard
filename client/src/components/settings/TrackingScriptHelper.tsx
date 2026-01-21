@@ -38,8 +38,10 @@ export function TrackingScriptHelper() {
     const [storeStatus, setStoreStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [storeResult, setStoreResult] = useState<StoreVerificationResult | null>(null);
 
-    // Get the base API URL (e.g. https://api.overseek.com or the current domain)
+    // Internal API URL for direct requests (may be Docker container name)
     const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    // Public API URL for external clients like WooCommerce plugin (must be publicly accessible)
+    const publicApiUrl = import.meta.env.VITE_PUBLIC_API_URL || import.meta.env.VITE_API_URL || window.location.origin;
 
     const sendTestEvent = async () => {
         setTestStatus('loading');
@@ -128,7 +130,7 @@ export function TrackingScriptHelper() {
     const [configCopied, setConfigCopied] = useState(false);
 
     const connectionConfig = JSON.stringify({
-        apiUrl: apiUrl,
+        apiUrl: publicApiUrl,
         accountId: currentAccount?.id || ''
     }, null, 2);
 
@@ -147,7 +149,7 @@ export function TrackingScriptHelper() {
                     <p>To enable Live View and abandoned cart tracking, install the OverSeek plugin and paste the configuration below.</p>
                     <div className="mt-3">
                         <a
-                            href={`${apiUrl}/uploads/plugins/overseek-wc-plugin.zip`}
+                            href={`${publicApiUrl}/uploads/plugins/overseek-wc-plugin.zip`}
                             download
                             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
                         >

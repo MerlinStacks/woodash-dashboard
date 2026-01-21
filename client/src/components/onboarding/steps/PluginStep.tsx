@@ -37,11 +37,14 @@ export function PluginStep({ draft, setDraft, onNext, onBack, onSkip, isSubmitti
     const [verifyStatus, setVerifyStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [verifyResult, setVerifyResult] = useState<StoreVerificationResult | null>(null);
 
+    // Internal API URL for direct requests (may be Docker container name)
     const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    // Public API URL for external clients like WooCommerce plugin (must be publicly accessible)
+    const publicApiUrl = import.meta.env.VITE_PUBLIC_API_URL || import.meta.env.VITE_API_URL || window.location.origin;
 
     // Generate the configuration JSON that users paste into the plugin
     const connectionConfig = JSON.stringify({
-        apiUrl: apiUrl,
+        apiUrl: publicApiUrl,
         accountId: currentAccount?.id || draft.store.name || 'pending'
     }, null, 2);
 
@@ -125,7 +128,7 @@ export function PluginStep({ draft, setDraft, onNext, onBack, onSkip, isSubmitti
                                 Download the OverSeek plugin ZIP file and install it on your WordPress site via Plugins → Add New → Upload Plugin.
                             </p>
                             <a
-                                href={`${apiUrl}/uploads/plugins/overseek-wc-plugin.zip`}
+                                href={`${publicApiUrl}/uploads/plugins/overseek-wc-plugin.zip`}
                                 download
                                 onClick={handleDownload}
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -157,8 +160,8 @@ export function PluginStep({ draft, setDraft, onNext, onBack, onSkip, isSubmitti
                                 <button
                                     onClick={handleCopyConfig}
                                     className={`absolute top-2 right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${configCopied
-                                            ? 'bg-green-100 text-green-700 border border-green-200'
-                                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                                        ? 'bg-green-100 text-green-700 border border-green-200'
+                                        : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
                                         }`}
                                 >
                                     {configCopied ? <Check size={14} /> : <Copy size={14} />}
@@ -199,8 +202,8 @@ export function PluginStep({ draft, setDraft, onNext, onBack, onSkip, isSubmitti
                             {/* Verification Result */}
                             {verifyResult && (
                                 <div className={`mt-4 p-4 rounded-lg border ${verifyResult.success
-                                        ? 'bg-green-100 border-green-300'
-                                        : 'bg-amber-100 border-amber-300'
+                                    ? 'bg-green-100 border-green-300'
+                                    : 'bg-amber-100 border-amber-300'
                                     }`}>
                                     <div className="flex items-start gap-3">
                                         {verifyResult.success ? (
