@@ -79,7 +79,7 @@ export class OrderSync extends BaseSync {
                                     status: order.status.toLowerCase(),
                                     total: order.total === '' ? '0' : order.total,
                                     currency: order.currency,
-                                    dateModified: new Date(order.date_modified || new Date()),
+                                    dateModified: new Date(order.date_modified_gmt || order.date_modified || new Date()),
                                     rawData: order as any
                                 },
                                 create: {
@@ -89,8 +89,8 @@ export class OrderSync extends BaseSync {
                                     status: order.status.toLowerCase(),
                                     total: order.total === '' ? '0' : order.total,
                                     currency: order.currency,
-                                    dateCreated: new Date(order.date_created || new Date()),
-                                    dateModified: new Date(order.date_modified || new Date()),
+                                    dateCreated: new Date(order.date_created_gmt || order.date_created || new Date()),
+                                    dateModified: new Date(order.date_modified_gmt || order.date_modified || new Date()),
                                     rawData: order as any
                                 }
                             });
@@ -122,7 +122,7 @@ export class OrderSync extends BaseSync {
                 const isNew = !existingStatus;
                 const isStatusChanged = existingStatus && existingStatus !== order.status;
 
-                const orderDate = new Date(order.date_created || new Date());
+                const orderDate = new Date(order.date_created_gmt || order.date_created || new Date());
                 const isRecent = (new Date().getTime() - orderDate.getTime()) < 24 * 60 * 60 * 1000;
 
                 if (isNew && isRecent) {

@@ -139,7 +139,9 @@ export const WooOrderSchema = z.object({
     shipping: WooShippingSchema.optional(),
     line_items: z.array(WooLineItemSchema).optional(),
     date_created: z.string().optional(),
+    date_created_gmt: z.string().optional(),
     date_modified: z.string().optional(),
+    date_modified_gmt: z.string().optional(),
     date_completed: z.string().nullable().optional(),
     payment_method: z.string().optional(),
     payment_method_title: z.string().optional()
@@ -159,6 +161,7 @@ export const WooReviewSchema = z.object({
     rating: z.number().min(1).max(5),
     status: z.string(),
     date_created: z.string(),
+    date_created_gmt: z.string().optional(),
     verified: z.boolean().optional()
 }).passthrough();
 

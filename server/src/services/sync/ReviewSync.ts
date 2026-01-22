@@ -117,7 +117,8 @@ export class ReviewSync extends BaseSync {
 
                 // 2. Find Order - Improved matching algorithm
                 let wooOrderId: string | null = null;
-                const reviewDate = new Date(r.date_created);
+                // Use date_created_gmt for accurate UTC timestamp
+                const reviewDate = new Date(reviewData.date_created_gmt || r.date_created);
                 const lookbackDate = new Date(reviewDate);
                 lookbackDate.setDate(lookbackDate.getDate() - 180); // 180-day lookback window
 
@@ -239,7 +240,8 @@ export class ReviewSync extends BaseSync {
                         rating: r.rating,
                         content: r.review,
                         status: r.status,
-                        dateCreated: new Date(r.date_created),
+                        // Use date_created_gmt for accurate UTC timestamp
+                        dateCreated: new Date((r as any).date_created_gmt || r.date_created),
                         rawData: r as any,
                         reviewerEmail: reviewerEmail || null,
                         wooCustomerId,
