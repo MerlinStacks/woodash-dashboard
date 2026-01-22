@@ -124,9 +124,11 @@ export function InboxPage() {
                 updated[idx] = {
                     ...updated[idx],
                     messages: [data.lastMessage],
-                    updatedAt: data.updatedAt
+                    updatedAt: data.updatedAt,
+                    isRead: selectedId === data.id // Mark as unread unless currently viewing
                 };
-                return updated.sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+                // Sort newest first (descending by updatedAt)
+                return updated.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
             });
 
             if (selectedId === data.id && data.lastMessage) {
@@ -162,9 +164,13 @@ export function InboxPage() {
         });
 
         const fetchNewConversation = async (id: string) => {
+            if (!currentAccount) return;
             try {
                 const res = await fetch(`/api/chat/${id}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'x-account-id': currentAccount.id
+                    }
                 });
                 if (res.ok) {
                     const newConv = await res.json();

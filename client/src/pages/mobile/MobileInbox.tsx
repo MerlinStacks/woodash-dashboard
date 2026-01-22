@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Mail, Instagram, Facebook, Music2, Search, Archive, CheckCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { useSocket } from '../../context/SocketContext';
 import { SwipeableRow } from '../../components/ui/SwipeableRow';
 import { formatTimeAgo } from '../../utils/format';
 import { getInitials } from '../../utils/string';
@@ -75,6 +76,28 @@ export function MobileInbox() {
         window.addEventListener('mobile-refresh', handleRefresh);
         return () => window.removeEventListener('mobile-refresh', handleRefresh);
     }, [currentAccount, token]);
+
+    // Socket listener for real-time updates
+    const { socket } = useSocket();
+    useEffect(() => {
+        if (!socket || !currentAccount) return;
+
+        /**
+         * Handle new/updated conversations from socket events.
+         * Refreshes conversation list to get full data.
+         */
+        const handleConversationUpdated = () => {
+            // Trigger haptic on incoming message
+            triggerHaptic(5);
+            fetchConversations();
+        };
+
+        socket.on('conversation:updated', handleConversationUpdated);
+
+        return () => {
+            socket.off('conversation:updated', handleConversationUpdated);
+        };
+    }, [socket, currentAccount]);
 
     const fetchConversations = async () => {
         if (!currentAccount || !token) {
