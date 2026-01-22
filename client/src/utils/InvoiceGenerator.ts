@@ -388,9 +388,18 @@ export const generateInvoicePDF = async (order: OrderData, grid: any[], items: a
             });
         }
         else if (type === 'order_table') {
+            // DEBUG: Log order data structure to diagnose metadata issue
+            console.log('[InvoiceGenerator] Order line_items count:', order.line_items?.length);
+            if (order.line_items?.[0]) {
+                console.log('[InvoiceGenerator] First line item keys:', Object.keys(order.line_items[0]));
+                console.log('[InvoiceGenerator] First line item meta_data:', order.line_items[0].meta_data);
+            }
+
             // Build table data with item metadata (SKU, variations, custom fields)
             const tableData = order.line_items.map(p => {
                 const itemMeta = getItemMeta(p);
+                console.log('[InvoiceGenerator] Item:', p.name, 'Meta count:', itemMeta.length, 'Meta:', itemMeta);
+
                 // Build description with product name and metadata
                 let description = p.name;
                 if (itemMeta.length > 0) {
