@@ -20,6 +20,11 @@ import analyticsReportsRoutes from './analyticsReports';
 import analyticsInventoryRoutes from './analyticsInventory';
 import cohortRoutes from './cohorts';
 import { AnomalyDetection } from '../services/analytics/AnomalyDetection';
+import { PermissionService } from '../services/PermissionService';
+
+// Simple in-memory cache for product view counts (5 minute TTL)
+const productViewsCache = new Map<string, { data: { views7d: number; views30d: number }; expiresAt: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.addHook('preHandler', requireAuthFastify);
@@ -220,6 +225,51 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
             return await AnomalyDetection.getRevenueAnomaly(request.accountId!);
         } catch (e: any) {
             Logger.error('Anomaly Detection Error', { error: e });
+            return reply.code(500).send({ error: e.message });
+        }
+    });
+
+    // --- Product-specific Page Views ---
+    fastify.get<{ Params: { productId: string } }>('/product-views/:productId', async (request, reply) => {
+        try {
+            const accountId = request.accountId!;
+            const userId = request.user!.id;
+            const { productId } = request.params;
+
+            // RBAC: Require view_products permission
+            const canView = await PermissionService.hasPermission(userId, accountId, 'view_products');
+            if (!canView) {
+                return reply.code(403).send({ error: 'You do not have permission to view product analytics' });
+            }
+
+            // Check cache first
+            const cacheKey = `${accountId}:${productId}`;
+            const cached = productViewsCache.get(cacheKey);
+            if (cached && cached.expiresAt > Date.now()) {
+                return cached.data;
+            }
+
+            // Get the product to find its permalink
+            const product = await prisma.wooProduct.findFirst({
+                where: { id: productId, accountId },
+                select: { permalink: true }
+            });
+
+            if (!product?.permalink) {
+                return { views7d: 0, views30d: 0 };
+            }
+
+            const viewData = await BehaviourAnalytics.getProductPageViews(accountId, product.permalink);
+
+            // Cache the result
+            productViewsCache.set(cacheKey, {
+                data: viewData,
+                expiresAt: Date.now() + CACHE_TTL_MS
+            });
+
+            return viewData;
+        } catch (e: any) {
+            Logger.error('Product Views Error', { error: e });
             return reply.code(500).send({ error: e.message });
         }
     });

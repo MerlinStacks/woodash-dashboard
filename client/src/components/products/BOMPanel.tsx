@@ -109,7 +109,50 @@ export const BOMPanel = forwardRef<BOMPanelRef, BOMPanelProps>(function BOMPanel
                     results = [...results, ...internalProducts];
                 }
 
-                setSearchResults(results);
+                // Smart sorting: prioritize products/variants that match the search term in name, SKU, or variant attributes
+                const searchLower = searchTerm.toLowerCase().trim();
+                const sortedResults = results.sort((a, b) => {
+                    /**
+                     * Calculates a relevance score for a product based on how well it matches the search term.
+                     * Lower scores = higher priority (sorted ascending).
+                     */
+                    const getRelevanceScore = (product: any): number => {
+                        const nameLower = (product.name || '').toLowerCase();
+                        const skuLower = (product.sku || '').toLowerCase();
+
+                        // Exact name/SKU match gets highest priority
+                        if (nameLower === searchLower || skuLower === searchLower) return 0;
+
+                        // Name starts with search term
+                        if (nameLower.startsWith(searchLower)) return 1;
+
+                        // SKU starts with search term
+                        if (skuLower.startsWith(searchLower)) return 2;
+
+                        // Check variant attributes for matches (e.g., "2XL" in size)
+                        if (product.searchableVariants?.length > 0) {
+                            const hasMatchingVariant = product.searchableVariants.some((v: any) => {
+                                const attrString = (v.attributeString || '').toLowerCase();
+                                const variantSku = (v.sku || '').toLowerCase();
+                                return attrString.includes(searchLower) || variantSku.includes(searchLower);
+                            });
+                            if (hasMatchingVariant) return 3;
+                        }
+
+                        // Name contains search term
+                        if (nameLower.includes(searchLower)) return 4;
+
+                        // SKU contains search term
+                        if (skuLower.includes(searchLower)) return 5;
+
+                        // Fallback
+                        return 10;
+                    };
+
+                    return getRelevanceScore(a) - getRelevanceScore(b);
+                });
+
+                setSearchResults(sortedResults);
             } catch (err) {
                 Logger.error('Failed to search products', { error: err });
             }

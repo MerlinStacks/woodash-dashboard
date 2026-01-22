@@ -28,7 +28,10 @@ export class CustomersService {
                 },
                 from,
                 size: limit,
-                sort: [{ totalSpent: { order: 'desc' } }],
+                sort: [
+                    { 'firstName.keyword': { order: 'asc' } },
+                    { 'lastName.keyword': { order: 'asc' } }
+                ],
                 track_total_hits: true
             });
 

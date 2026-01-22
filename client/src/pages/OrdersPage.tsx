@@ -4,9 +4,10 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { formatDate, formatCurrency } from '../utils/format';
-import { Loader2, RefreshCw, Search, Tag, TrendingUp, Filter, X, Eye } from 'lucide-react';
+import { Loader2, RefreshCw, Search, Tag, TrendingUp, X, Eye } from 'lucide-react';
 import { Pagination } from '../components/ui/Pagination';
 import { OrderPreviewModal } from '../components/orders/OrderPreviewModal';
+import { OrderStatusTabs } from '../components/orders/OrderStatusTabs';
 import { FraudIcon } from '../components/orders/FraudIcon';
 import { printPicklist } from '../utils/printPicklist';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -67,16 +68,8 @@ export function OrdersPage() {
 
     // Status filter
     const [selectedStatus, setSelectedStatus] = useState(statusFromUrl || 'all');
-    const statusOptions = [
-        { value: 'all', label: 'All Statuses' },
-        { value: 'pending', label: 'Pending' },
-        { value: 'processing', label: 'Processing' },
-        { value: 'on-hold', label: 'On Hold' },
-        { value: 'completed', label: 'Completed' },
-        { value: 'cancelled', label: 'Cancelled' },
-        { value: 'refunded', label: 'Refunded' },
-        { value: 'failed', label: 'Failed' },
-    ];
+    // Status counts trigger refetch key - increments when orders change
+    const [statusCountsKey, setStatusCountsKey] = useState(0);
 
     const { token } = useAuth();
     const { currentAccount } = useAccount();
@@ -383,19 +376,7 @@ export function OrdersPage() {
                         </div>
                     )}
 
-                    {/* Status Filter Dropdown */}
-                    <div className="relative">
-                        <select
-                            value={selectedStatus}
-                            onChange={(e) => setSelectedStatus(e.target.value)}
-                            className="appearance-none bg-white border border-gray-300 text-gray-700 pl-9 pr-8 py-2 rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                        >
-                            {statusOptions.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                        </select>
-                        <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    </div>
+
 
                     <button
                         onClick={handleSync}
@@ -408,6 +389,13 @@ export function OrdersPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Status Tab Filter */}
+            <OrderStatusTabs
+                key={statusCountsKey}
+                selectedStatus={selectedStatus}
+                onStatusChange={setSelectedStatus}
+            />
 
             <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">

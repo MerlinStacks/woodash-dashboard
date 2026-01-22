@@ -306,6 +306,23 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
+    // Get order status counts for tab filter
+    fastify.get('/orders/status-counts', async (request, reply) => {
+        const accountId = request.accountId;
+
+        if (!accountId) {
+            return reply.code(400).send({ error: 'accountId is required' });
+        }
+
+        try {
+            const result = await SearchQueryService.getOrderStatusCounts(accountId);
+            return result;
+        } catch (error) {
+            Logger.error('Failed to fetch order status counts', { error });
+            return reply.code(500).send({ error: 'Failed to fetch order status counts' });
+        }
+    });
+
     // Get Sync Status
     fastify.get('/status', async (request, reply) => {
         const accountId = request.accountId;

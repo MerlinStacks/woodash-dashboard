@@ -138,4 +138,48 @@ export class BehaviourAnalytics {
             return [];
         }
     }
+
+    /**
+     * Get page view counts for a specific product URL (7d and 30d)
+     */
+    static async getProductPageViews(accountId: string, productUrl: string) {
+        try {
+            const now = new Date();
+            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+            // Normalize URL by removing trailing slash for matching
+            const normalizedUrl = productUrl.replace(/\/$/, '');
+
+            const [views7d, views30d] = await Promise.all([
+                prisma.$queryRaw<[{ count: bigint }]>`
+                    SELECT COUNT(e.id) as count
+                    FROM "AnalyticsEvent" e
+                    JOIN "AnalyticsSession" s ON e."sessionId" = s.id
+                    WHERE s."accountId" = ${accountId}
+                    AND e."createdAt" >= ${sevenDaysAgo}
+                    AND e.type = 'pageview'
+                    AND (e.url = ${normalizedUrl} OR e.url = ${normalizedUrl + '/'})
+                `,
+                prisma.$queryRaw<[{ count: bigint }]>`
+                    SELECT COUNT(e.id) as count
+                    FROM "AnalyticsEvent" e
+                    JOIN "AnalyticsSession" s ON e."sessionId" = s.id
+                    WHERE s."accountId" = ${accountId}
+                    AND e."createdAt" >= ${thirtyDaysAgo}
+                    AND e.type = 'pageview'
+                    AND (e.url = ${normalizedUrl} OR e.url = ${normalizedUrl + '/'})
+                `
+            ]);
+
+            return {
+                views7d: Number(views7d[0]?.count || 0),
+                views30d: Number(views30d[0]?.count || 0)
+            };
+
+        } catch (error) {
+            Logger.error('Product Page Views Error', { error, productUrl });
+            return { views7d: 0, views30d: 0 };
+        }
+    }
 }

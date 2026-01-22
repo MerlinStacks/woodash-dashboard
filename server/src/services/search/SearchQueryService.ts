@@ -179,6 +179,38 @@ export class SearchQueryService {
     }
 
     /**
+     * Get order counts grouped by status using ES aggregation.
+     * Returns a map of status -> count, plus total.
+     */
+    static async getOrderStatusCounts(accountId: string): Promise<{ total: number; counts: Record<string, number> }> {
+        try {
+            const result = await esClient.search({
+                index: 'orders',
+                size: 0,
+                query: { term: { accountId } },
+                track_total_hits: true,
+                aggs: {
+                    status_counts: {
+                        terms: { field: 'status', size: 20 }
+                    }
+                }
+            });
+
+            const total = (result.hits.total as any)?.value || 0;
+            const buckets = (result.aggregations as any)?.status_counts?.buckets || [];
+            const counts: Record<string, number> = {};
+            for (const bucket of buckets) {
+                counts[bucket.key] = bucket.doc_count;
+            }
+
+            return { total, counts };
+        } catch (error) {
+            Logger.error('Get Order Status Counts Error', { error });
+            return { total: 0, counts: {} };
+        }
+    }
+
+    /**
      * Get all unique tags for orders in an account using ES aggregation
      */
     static async getOrderTags(accountId: string): Promise<string[]> {

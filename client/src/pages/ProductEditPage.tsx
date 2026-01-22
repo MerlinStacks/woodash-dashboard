@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, ExternalLink, RefreshCw, Box, Tag, Package, DollarSign, Layers, Search, FileText, Clock, ShoppingCart, ImageOff } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, ExternalLink, RefreshCw, Box, Tag, Package, DollarSign, Layers, Search, FileText, Clock, ShoppingCart, ImageOff, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { SeoScoreBadge } from '../components/Seo/SeoScoreBadge';
@@ -144,6 +144,7 @@ export function ProductEditPage() {
     const [suppliers, setSuppliers] = useState<any[]>([]);
     const [isLoadingVariants, setIsLoadingVariants] = useState(false);
     const [mainImageFailed, setMainImageFailed] = useState(false);
+    const [productViews, setProductViews] = useState<{ views7d: number; views30d: number } | null>(null);
 
     // Derived SEO Search - Real-time!
     const seoResult = calculateSeoScore({
@@ -162,6 +163,29 @@ export function ProductEditPage() {
     useEffect(() => {
         if (!currentAccount || !id) return;
         fetchProduct();
+    }, [currentAccount, id, token]);
+
+    // Fetch product page views on mount
+    useEffect(() => {
+        if (!currentAccount || !id || !token) return;
+
+        const fetchViews = async () => {
+            try {
+                const res = await fetch(`/api/analytics/product-views/${id}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'x-account-id': currentAccount.id
+                    }
+                });
+                if (res.ok) {
+                    setProductViews(await res.json());
+                }
+            } catch (e) {
+                Logger.error('Failed to fetch product views', { error: e });
+            }
+        };
+
+        fetchViews();
     }, [currentAccount, id, token]);
 
     const fetchProduct = async (background = false) => {
@@ -535,6 +559,16 @@ export function ProductEditPage() {
                                 <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
                                     <span className="font-mono bg-gray-100/80 px-2 py-0.5 rounded-sm text-xs text-gray-600">ID: {product.wooId}</span>
                                     {product.sku && <span className="flex items-center gap-1"><Tag size={12} /> {product.sku}</span>}
+                                    {productViews && (
+                                        <span className="flex items-center gap-1 text-purple-600" title={`${productViews.views30d} views in 30 days`}>
+                                            <Eye size={12} />
+                                            <span className="font-medium">{productViews.views7d}</span>
+                                            <span className="text-gray-400">7d</span>
+                                            <span className="text-gray-300">|</span>
+                                            <span className="font-medium">{productViews.views30d}</span>
+                                            <span className="text-gray-400">30d</span>
+                                        </span>
+                                    )}
                                     <span>•</span>
                                     <a
                                         href={product.permalink}

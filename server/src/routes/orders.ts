@@ -115,7 +115,7 @@ const ordersRoutes: FastifyPluginAsync = async (fastify) => {
             }
 
             // Lookup customer metadata for order count
-            const rawData = order.rawData as { customer_id?: number };
+            const rawData = order.rawData as { customer_id?: number; tags?: string[] };
             let customerMeta = null;
 
             if (rawData.customer_id && rawData.customer_id > 0) {
@@ -142,9 +142,18 @@ const ordersRoutes: FastifyPluginAsync = async (fastify) => {
                 }
             }
 
+            // Compute tags from product mappings (same as sync does)
+            const { OrderTaggingService } = await import('../services/OrderTaggingService');
+            const computedTags = await OrderTaggingService.extractTagsFromOrder(accountId, order.rawData);
+
+            // Merge computed tags with any manually-added tags from rawData
+            const manualTags = rawData.tags || [];
+            const allTags = [...new Set([...computedTags, ...manualTags])];
+
             // Return the raw data which contains all the nice Woo fields
             return {
                 ...order.rawData as object,
+                tags: allTags,
                 internal_id: order.id,
                 internal_status: order.status,
                 internal_updated_at: order.updatedAt,
