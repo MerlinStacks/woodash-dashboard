@@ -19,6 +19,8 @@ interface EffectiveStockResult {
     effectiveStock: number;
     currentWooStock: number | null;
     needsSync: boolean;
+    /** True if we couldn't fetch current stock from WooCommerce */
+    couldNotFetchStock?: boolean;
     components: {
         childProductId: string;
         childName: string;
@@ -231,8 +233,12 @@ export class BOMInventorySyncService {
         }
 
         const effectiveStock = minBuildableUnits;
-        // Only sync if stocks differ. Handle null case: if we can't fetch current stock, skip sync.
-        const needsSync = currentWooStock !== null && Number(currentWooStock) !== Number(effectiveStock);
+
+        // Sync is needed if:
+        // 1. We couldn't fetch current stock (null) - force sync to set it
+        // 2. Or if stocks differ
+        const couldNotFetchStock = currentWooStock === null;
+        const needsSync = couldNotFetchStock || Number(currentWooStock) !== Number(effectiveStock);
 
         return {
             productId: product.id,
@@ -240,6 +246,7 @@ export class BOMInventorySyncService {
             effectiveStock,
             currentWooStock,
             needsSync,
+            couldNotFetchStock,
             components
         };
     }

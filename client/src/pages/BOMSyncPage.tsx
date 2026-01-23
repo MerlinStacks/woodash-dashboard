@@ -109,13 +109,23 @@ export function BOMSyncPage() {
                 }
             });
             const data = await res.json();
+
             if (!res.ok) {
-                // Store error for this product
-                const errorMsg = data.error || data.result?.error || 'Sync failed';
+                // API returned an error
+                const errorMsg = data.error || data.result?.error || `Sync failed (HTTP ${res.status})`;
                 setSyncErrors(prev => ({ ...prev, [key]: errorMsg }));
-                Logger.error('Sync failed', { productId, variationId, error: errorMsg });
+                Logger.error('Sync failed', { productId, variationId, error: errorMsg, response: data });
+            } else if (data.previousStock === data.newStock) {
+                // Sync "succeeded" but no change - this is suspicious
+                setSyncErrors(prev => ({
+                    ...prev,
+                    [key]: `No change: Stock was ${data.previousStock ?? 'null'} → ${data.newStock ?? 'null'}. wooId=${data.wooId || 'missing'}`
+                }));
+            } else if (!data.success) {
+                // Sync returned success=false
+                setSyncErrors(prev => ({ ...prev, [key]: data.error || 'Sync returned success=false' }));
             } else {
-                // Success - clear any previous error
+                // Actual success with a change
                 setSyncErrors(prev => ({ ...prev, [key]: '' }));
                 await fetchPendingChanges();
                 await fetchSyncHistory();
