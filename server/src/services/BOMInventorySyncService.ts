@@ -38,6 +38,8 @@ interface SyncResult {
     previousStock: number | null;
     newStock: number;
     error?: string;
+    /** True if we updated local DB to match WooCommerce (stock already correct) */
+    localDbUpdated?: boolean;
 }
 
 export class BOMInventorySyncService {
@@ -402,12 +404,39 @@ export class BOMInventorySyncService {
 
         if (!calculation.needsSync) {
             Logger.info(`[BOMInventorySync] Product ${productId} already in sync (stock: ${calculation.effectiveStock})`, { accountId });
+
+            // Update local DB to match WooCommerce, so UI won't show as "needs sync"
+            try {
+                if (variationId > 0) {
+                    // Update variation stock in local DB
+                    await prisma.productVariation.updateMany({
+                        where: {
+                            wooId: variationId,
+                            product: { id: productId }
+                        },
+                        data: { stockQuantity: calculation.currentWooStock }
+                    });
+                } else {
+                    // Update product stock in local DB
+                    await prisma.wooProduct.update({
+                        where: { id: productId },
+                        data: { stockQuantity: calculation.currentWooStock }
+                    });
+                }
+                Logger.debug(`[BOMInventorySync] Updated local DB stock to match WooCommerce`, {
+                    productId, variationId, stock: calculation.currentWooStock
+                });
+            } catch (dbErr) {
+                Logger.warn(`[BOMInventorySync] Failed to update local DB stock`, { error: dbErr });
+            }
+
             return {
                 success: true,
                 productId: calculation.productId,
                 wooId: calculation.wooId,
                 previousStock: calculation.currentWooStock,
-                newStock: calculation.effectiveStock
+                newStock: calculation.effectiveStock,
+                localDbUpdated: true
             };
         }
 
