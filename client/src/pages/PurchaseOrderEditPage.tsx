@@ -3,8 +3,11 @@ import { Logger } from '../utils/logger';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { ArrowLeft, Save, Plus, Trash2, Loader2, Calendar } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Loader2, Calendar, Copy } from 'lucide-react';
 import { CreateSupplierModal } from '../components/inventory/CreateSupplierModal';
+import { ProductSearchInput, ProductSelection } from '../components/inventory/ProductSearchInput';
+import { SupplierSearchInput } from '../components/inventory/SupplierSearchInput';
+import { POStatusStepper } from '../components/inventory/POStatusStepper';
 
 interface POItem {
     id?: string;
@@ -15,6 +18,8 @@ interface POItem {
     unitCost: number;
     totalCost: number;
     sku?: string;
+    wooId?: number;          // WooCommerce product ID for tracking
+    variationWooId?: number; // Variant ID if applicable
 }
 
 interface Supplier {
@@ -181,6 +186,21 @@ export function PurchaseOrderEditPage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    {!isNew && (
+                        <button
+                            onClick={() => {
+                                // Duplicate this PO as new draft
+                                navigate('/inventory/purchase-orders/new', {
+                                    state: { duplicateFrom: { supplierId, items, notes } }
+                                });
+                            }}
+                            className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200"
+                            title="Duplicate this order"
+                        >
+                            <Copy size={18} />
+                            Duplicate
+                        </button>
+                    )}
                     <button
                         onClick={handleSave}
                         disabled={isLoading}
@@ -191,6 +211,14 @@ export function PurchaseOrderEditPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Status Stepper */}
+            {!isNew && (
+                <POStatusStepper
+                    status={status as any}
+                    onStatusChange={(newStatus) => setStatus(newStatus)}
+                />
+            )}
 
             <div className="grid grid-cols-3 gap-6">
                 <div className="col-span-2 space-y-6">
@@ -208,13 +236,34 @@ export function PurchaseOrderEditPage() {
                                 <div key={idx} className="flex gap-3 items-end p-3 bg-gray-50 rounded-lg border border-gray-100">
                                     <div className="flex-1">
                                         <label className="text-xs font-medium text-gray-500">Item Name / SKU</label>
-                                        <input
-                                            type="text"
-                                            value={item.name}
-                                            onChange={(e) => updateItem(idx, 'name', e.target.value)}
-                                            placeholder="Product Name"
-                                            className="w-full text-sm p-2 border border-gray-300 rounded-sm"
+                                        <ProductSearchInput
+                                            initialValue={item.name}
+                                            placeholder="Search products..."
+                                            onSelect={(product: ProductSelection) => {
+                                                const newItems = [...items];
+                                                newItems[idx] = {
+                                                    ...newItems[idx],
+                                                    productId: product.productId,
+                                                    wooId: product.wooId,
+                                                    variationWooId: product.variationWooId,
+                                                    name: product.name,
+                                                    sku: product.sku,
+                                                    unitCost: product.cogs || product.price || newItems[idx].unitCost,
+                                                    totalCost: newItems[idx].quantity * (product.cogs || product.price || newItems[idx].unitCost)
+                                                };
+                                                setItems(newItems);
+                                            }}
                                         />
+                                        {item.productId && (
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-xs text-green-600">✓ Linked</span>
+                                                {item.sku && (
+                                                    <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">
+                                                        {item.sku}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="w-24">
                                         <label className="text-xs font-medium text-gray-500">Qty</label>
@@ -265,24 +314,14 @@ export function PurchaseOrderEditPage() {
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-                            <select
+                            <SupplierSearchInput
                                 value={supplierId}
-                                onChange={(e) => {
-                                    if (e.target.value === '__new__') {
-                                        setShowCreateSupplier(true);
-                                    } else {
-                                        setSupplierId(e.target.value);
-                                    }
-                                }}
+                                suppliers={suppliers.map(s => ({ id: s.id, name: s.name, currency: s.currency }))}
+                                onChange={(id) => setSupplierId(id)}
+                                onCreateNew={() => setShowCreateSupplier(true)}
                                 disabled={!isNew}
-                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-hidden focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">Select Supplier...</option>
-                                {suppliers.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name} ({s.currency})</option>
-                                ))}
-                                {isNew && <option value="__new__" className="text-blue-600 font-medium">+ New Supplier</option>}
-                            </select>
+                                placeholder="Search suppliers..."
+                            />
                         </div>
 
                         <div>

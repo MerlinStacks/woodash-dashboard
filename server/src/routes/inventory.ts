@@ -272,11 +272,25 @@ const inventoryRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.put<{ Params: { id: string } }>('/purchase-orders/:id', async (request, reply) => {
         const accountId = request.accountId!;
         const { id } = request.params;
+        const { status } = request.body as { status?: string };
+
         try {
+            // Check if transitioning to RECEIVED
+            const existingPO = await poService.getPurchaseOrder(accountId, id);
+            const wasNotReceived = existingPO?.status !== 'RECEIVED';
+
             await poService.updatePurchaseOrder(accountId, id, request.body as any);
+
+            // If status changed to RECEIVED, increment stock for linked products
+            if (status === 'RECEIVED' && wasNotReceived) {
+                const result = await poService.receiveStock(accountId, id);
+                Logger.info('Stock received from PO', { poId: id, ...result });
+            }
+
             const updated = await poService.getPurchaseOrder(accountId, id);
             return updated;
         } catch (error) {
+            Logger.error('Error updating PO', { error, poId: id });
             return reply.code(500).send({ error: 'Failed to update PO' });
         }
     });

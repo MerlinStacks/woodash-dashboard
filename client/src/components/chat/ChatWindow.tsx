@@ -3,6 +3,7 @@
  * Delegates compose, typing, and send logic to extracted hooks and components.
  */
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import DOMPurify from 'dompurify';
 import { Logger } from '../../utils/logger';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -241,7 +242,12 @@ export function ChatWindow({
                                 <div className="rounded-2xl px-4 py-2.5 relative shadow-sm bg-blue-600/70 text-white rounded-br-md border-2 border-dashed border-blue-400">
                                     <div
                                         className="text-sm leading-relaxed opacity-90"
-                                        dangerouslySetInnerHTML={{ __html: messageSend.pendingSend.content }}
+                                        dangerouslySetInnerHTML={{
+                                            __html: DOMPurify.sanitize(messageSend.pendingSend.content, {
+                                                ALLOWED_TAGS: ['b', 'i', 'strong', 'em', 'p', 'br', 'a', 'span', 'div', 'img'],
+                                                ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'class', 'style']
+                                            })
+                                        }}
                                     />
                                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-blue-400/40">
                                         <span className="text-xs text-blue-200">
