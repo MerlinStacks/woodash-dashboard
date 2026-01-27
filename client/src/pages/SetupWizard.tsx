@@ -38,7 +38,7 @@ export function SetupWizard() {
 
     // Hooks
     const { token, logout, isLoading: authLoading } = useAuth();
-    const { refreshAccounts, accounts, isLoading: accountsLoading } = useAccount();
+    const { refreshAccounts, accounts, isLoading: accountsLoading, currentAccount } = useAccount();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const isAddingNew = searchParams.get('addNew') === 'true';
@@ -145,7 +145,21 @@ export function SetupWizard() {
         setError(null);
 
         try {
-            // Create account with all collected data
+            // Check if account was already created in StoreStep
+            if (currentAccount?.id) {
+                // Account exists - just update additional settings if needed
+                Logger.info('SetupWizard: Account already exists, skipping creation', { accountId: currentAccount.id });
+
+                // Could add PATCH to update email/ads settings here if needed
+                // For now, just clear draft and navigate
+                clearDraftFromStorage();
+                await refreshAccounts();
+                navigate('/');
+                return;
+            }
+
+            // Fallback: Create account if it wasn't created in StoreStep
+            // This handles edge cases where early creation failed
             const res = await fetch('/api/accounts', {
                 method: 'POST',
                 headers: {
@@ -187,7 +201,7 @@ export function SetupWizard() {
         } finally {
             setIsSubmitting(false);
         }
-    }, [draft, token, logout, refreshAccounts, navigate]);
+    }, [draft, token, logout, refreshAccounts, navigate, currentAccount]);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Render

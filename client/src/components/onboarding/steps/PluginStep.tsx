@@ -12,6 +12,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useAccount } from '../../../context/AccountContext';
 import { api } from '../../../services/api';
 import { Logger } from '../../../utils/logger';
+import { getPublicApiUrl } from '../../../utils/url';
 
 interface StoreVerificationResult {
     success: boolean;
@@ -37,16 +38,19 @@ export function PluginStep({ draft, setDraft, onNext, onBack, onSkip, isSubmitti
     const [verifyStatus, setVerifyStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [verifyResult, setVerifyResult] = useState<StoreVerificationResult | null>(null);
 
-    // Internal API URL for direct requests (may be Docker container name)
-    const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
-    // Public API URL for external clients like WooCommerce plugin (must be publicly accessible)
-    const publicApiUrl = import.meta.env.VITE_PUBLIC_API_URL || import.meta.env.VITE_API_URL || window.location.origin;
+    // Public API URL for external clients (derived from browser location)
+    const publicApiUrl = getPublicApiUrl();
+
+    // Guard: Account must exist before showing plugin config
+    // Previously, accountId fallback used store name or 'pending' which broke APIs
+    const hasValidAccount = Boolean(currentAccount?.id);
 
     // Generate the configuration JSON that users paste into the plugin
-    const connectionConfig = JSON.stringify({
+    // Only valid when account exists (accountId must be a UUID, not store name)
+    const connectionConfig = hasValidAccount ? JSON.stringify({
         apiUrl: publicApiUrl,
-        accountId: currentAccount?.id || draft.store.name || 'pending'
-    }, null, 2);
+        accountId: currentAccount!.id
+    }, null, 2) : '';
 
     const handleDownload = () => {
         setDraft(prev => ({
@@ -156,21 +160,35 @@ export function PluginStep({ draft, setDraft, onNext, onBack, onSkip, isSubmitti
                             <p className="text-xs text-gray-600 mb-3">
                                 After activating the plugin, go to OverSeek settings and paste this configuration:
                             </p>
-                            <div className="relative group">
-                                <button
-                                    onClick={handleCopyConfig}
-                                    className={`absolute top-2 right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${configCopied
-                                        ? 'bg-green-100 text-green-700 border border-green-200'
-                                        : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-                                        }`}
-                                >
-                                    {configCopied ? <Check size={14} /> : <Copy size={14} />}
-                                    {configCopied ? 'Copied!' : 'Copy'}
-                                </button>
-                                <pre className="bg-slate-900 text-slate-100 p-4 pr-24 rounded-lg overflow-x-auto font-mono text-sm">
-                                    <code>{connectionConfig}</code>
-                                </pre>
-                            </div>
+
+                            {/* Guard: Only show config when account exists */}
+                            {hasValidAccount ? (
+                                <div className="relative group">
+                                    <button
+                                        onClick={handleCopyConfig}
+                                        className={`absolute top-2 right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${configCopied
+                                            ? 'bg-green-100 text-green-700 border border-green-200'
+                                            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                                            }`}
+                                    >
+                                        {configCopied ? <Check size={14} /> : <Copy size={14} />}
+                                        {configCopied ? 'Copied!' : 'Copy'}
+                                    </button>
+                                    <pre className="bg-slate-900 text-slate-100 p-4 pr-24 rounded-lg overflow-x-auto font-mono text-sm">
+                                        <code>{connectionConfig}</code>
+                                    </pre>
+                                </div>
+                            ) : (
+                                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <div className="flex items-center gap-2 text-amber-800">
+                                        <AlertCircle size={16} />
+                                        <span className="text-sm font-medium">Store setup required</span>
+                                    </div>
+                                    <p className="text-xs text-amber-700 mt-1">
+                                        Please complete the Store Setup step first to generate your configuration.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -188,7 +206,7 @@ export function PluginStep({ draft, setDraft, onNext, onBack, onSkip, isSubmitti
                             </p>
                             <button
                                 onClick={verifyStore}
-                                disabled={verifyStatus === 'loading'}
+                                disabled={verifyStatus === 'loading' || !hasValidAccount}
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
                             >
                                 {verifyStatus === 'loading' ? (

@@ -655,6 +655,8 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                 let isInternal = false;
                 let emailAccountId: string | undefined;
                 const attachmentLinks: string[] = [];
+                // Track attachments with full paths for email relay
+                const attachments: Array<{ filename: string; path: string; contentType: string }> = [];
 
                 if (request.isMultipart()) {
                     const parts = request.parts();
@@ -674,6 +676,13 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
 
                             const attachmentUrl = `/uploads/attachments/${filename}`;
                             attachmentLinks.push(`[${part.filename}](${attachmentUrl})`);
+
+                            // Track for email relay transport
+                            attachments.push({
+                                filename: part.filename || filename,
+                                path: filePath,
+                                contentType: part.mimetype || 'application/octet-stream'
+                            });
                         } else {
                             // Handle form fields
                             const value = (part as any).value as string;
@@ -703,6 +712,71 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
 
                 // Add message to conversation
                 const msg = await chatService.addMessage(conversationId, fullContent, type, userId, isInternal);
+
+                // Send via email if this is an EMAIL conversation and not internal
+                if (!isInternal && attachments.length > 0) {
+                    try {
+                        const conversation = await prisma.conversation.findUnique({
+                            where: { id: conversationId },
+                            include: { wooCustomer: true }
+                        });
+
+                        if (conversation?.channel === 'EMAIL') {
+                            const recipientEmail = conversation.wooCustomer?.email || conversation.guestEmail;
+
+                            if (recipientEmail) {
+                                // Get email account for sending
+                                let emailAccount = null;
+                                if (emailAccountId) {
+                                    emailAccount = await prisma.emailAccount.findUnique({
+                                        where: { id: emailAccountId }
+                                    });
+                                }
+                                if (!emailAccount) {
+                                    const { getDefaultEmailAccount } = await import('../utils/getDefaultEmailAccount');
+                                    emailAccount = await getDefaultEmailAccount(accountId);
+                                }
+
+                                if (emailAccount) {
+                                    const emailService = new EmailService();
+
+                                    // Use conversation title for subject threading
+                                    const subject = conversation.title
+                                        ? (conversation.title.startsWith('Re:') ? conversation.title : `Re: ${conversation.title}`)
+                                        : 'Re: Your inquiry';
+
+                                    // Get threading info
+                                    const originalEmailLog = await prisma.emailLog.findFirst({
+                                        where: {
+                                            sourceId: conversation.id,
+                                            messageId: { not: null }
+                                        },
+                                        orderBy: { createdAt: 'asc' }
+                                    });
+
+                                    await emailService.sendEmail(accountId, emailAccount.id, recipientEmail, subject, content, attachments, {
+                                        source: 'INBOX',
+                                        sourceId: conversation.id,
+                                        inReplyTo: originalEmailLog?.messageId || undefined,
+                                        references: originalEmailLog?.messageId || undefined
+                                    });
+
+                                    Logger.info('[message-with-attachments] Email sent with attachments', {
+                                        to: recipientEmail,
+                                        attachmentCount: attachments.length,
+                                        conversationId
+                                    });
+                                }
+                            }
+                        }
+                    } catch (emailError: any) {
+                        // Log but don't fail - message is already stored
+                        Logger.error('[message-with-attachments] Failed to send email', {
+                            error: emailError.message,
+                            conversationId
+                        });
+                    }
+                }
 
                 return {
                     success: true,
@@ -762,7 +836,7 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
         // POST /:id/messages/schedule - Schedule a message for later
         fastify.post<{ Params: { id: string } }>('/:id/messages/schedule', async (request, reply) => {
             try {
-                const { content, scheduledFor, isInternal } = request.body as any;
+                const { content, scheduledFor, isInternal, attachments } = request.body as any;
                 const userId = request.user?.id;
 
                 if (!content || !scheduledFor) {
@@ -774,6 +848,11 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                     return reply.code(400).send({ error: 'Scheduled time must be in the future' });
                 }
 
+                // attachments should be array of { filename, path, contentType }
+                const attachmentPaths = attachments && Array.isArray(attachments) && attachments.length > 0
+                    ? attachments
+                    : null;
+
                 const message = await prisma.message.create({
                     data: {
                         conversationId: request.params.id,
@@ -783,10 +862,15 @@ export const createChatRoutes = (chatService: ChatService): FastifyPluginAsync =
                         isInternal: isInternal || false,
                         scheduledFor: scheduledDate,
                         scheduledBy: userId,
+                        attachmentPaths, // Store for later sending
                     },
                 });
 
-                Logger.info('Message scheduled', { messageId: message.id, scheduledFor: scheduledDate });
+                Logger.info('Message scheduled', {
+                    messageId: message.id,
+                    scheduledFor: scheduledDate,
+                    attachmentCount: attachmentPaths?.length || 0
+                });
                 return { success: true, message };
             } catch (error) {
                 Logger.error('Failed to schedule message', { error });

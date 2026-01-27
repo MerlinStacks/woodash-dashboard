@@ -8,6 +8,7 @@
 import { prisma } from '../../utils/prisma';
 import { geoipLookupSync } from './GeoIPService';
 import { parseTrafficSource, isBot, maskIpAddress } from './TrafficAnalyzer';
+import { isExcludedIp } from './IpExclusionService';
 
 const UAParser = require('ua-parser-js');
 
@@ -66,6 +67,11 @@ export async function processEvent(data: TrackingEventPayload) {
     // Filter out bots/crawlers - they shouldn't be tracked
     if (data.userAgent && isBot(data.userAgent)) {
         return null; // Silently skip bot traffic
+    }
+
+    // Filter out excluded IPs (admins, team members, etc.)
+    if (data.ipAddress && await isExcludedIp(data.accountId, data.ipAddress)) {
+        return null; // Silently skip excluded IP traffic
     }
 
     // Filter out non-page URLs for pageview events (e.g. static assets)

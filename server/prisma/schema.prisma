@@ -102,6 +102,10 @@ model Account {
   // Format: [{ productTag: "engrave", orderTag: "Engraving", enabled: true }]
   orderTagMappings Json? @default("[]")
 
+  // Analytics IP Exclusion List - IPs to exclude from tracking (admins, team, etc.)
+  // Format: ["192.168.1.1", "10.0.0.0/24", "2001:db8::1"]
+  excludedIps Json? @default("[]")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1159,6 +1163,9 @@ model Message {
   // Message scheduling - if set, message won't send until this time
   scheduledFor   DateTime?
   scheduledBy    String?    // User ID who scheduled it
+  
+  // Stored attachments for scheduled messages (JSON array of { filename, path, contentType })
+  attachmentPaths Json?     // Attachment metadata preserved until message is sent
 
   conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   reactions       MessageReaction[]

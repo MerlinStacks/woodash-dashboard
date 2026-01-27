@@ -6,6 +6,7 @@ This document tracks planned enhancements, known bugs, and future feature ideas 
 
 ## Planned
 
+
 ### Marketplace Sync
 - [ ] **Amazon/eBay Inventory Sync**
   - Two-way stock sync
@@ -53,4 +54,6 @@ This document tracks planned enhancements, known bugs, and future feature ideas 
 - [ ] **Dynamic Email Content** — Personalized product recommendations in emails
 
 ---
+
+
 

@@ -18,6 +18,7 @@ import RoleManager from '../components/settings/RoleManager';
 import { WebhookSettings } from '../components/settings/WebhookSettings';
 import { AdAccountSettings } from '../components/settings/AdAccountSettings';
 import { CannedResponsesSettings } from '../components/settings/CannedResponsesSettings';
+import { TrackingExclusionSettings } from '../components/settings/TrackingExclusionSettings';
 import {
     LayoutGrid, Palette, MessageSquare, Bot, Activity, RefreshCw,
     Mail, Package, Tags, Coins, Bell, Share2, Users, ChevronRight, Webhook, Megaphone, Zap, Shield
@@ -132,9 +133,12 @@ export function SettingsPage() {
                 );
             case 'analytics':
                 return (
-                    <SettingsCard title="Analytics Configuration" description="Setup the tracking script to enable Live View and Real-time Cart tracking.">
-                        <TrackingScriptHelper />
-                    </SettingsCard>
+                    <div className="space-y-6">
+                        <SettingsCard title="Analytics Configuration" description="Setup the tracking script to enable Live View and Real-time Cart tracking.">
+                            <TrackingScriptHelper />
+                        </SettingsCard>
+                        <TrackingExclusionSettings />
+                    </div>
                 );
             case 'inventory':
                 return (

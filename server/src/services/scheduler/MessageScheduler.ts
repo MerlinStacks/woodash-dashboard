@@ -109,23 +109,37 @@ export class MessageScheduler {
                         const emailAccount = await getDefaultEmailAccount(message.conversation.accountId);
 
                         if (emailAccount) {
+                            // Parse stored attachments (JSON array of { filename, path, contentType })
+                            const attachments = message.attachmentPaths
+                                ? (message.attachmentPaths as Array<{ filename: string; path: string; contentType: string }>)
+                                : undefined;
+
+                            // Use conversation title for threading
+                            const subject = message.conversation.title
+                                ? (message.conversation.title.startsWith('Re:') ? message.conversation.title : `Re: ${message.conversation.title}`)
+                                : 'Re: Conversation';
+
                             await emailService.sendEmail(
                                 message.conversation.accountId,
                                 emailAccount.id,
                                 recipientEmail,
-                                `Re: Conversation`,
-                                message.content
+                                subject,
+                                message.content,
+                                attachments // Now passes attachments!
                             );
+
+                            Logger.info(`[Scheduler] Sent scheduled message ${message.id}`, {
+                                attachmentCount: attachments?.length || 0
+                            });
                         }
                     }
                 }
 
                 await prisma.message.update({
                     where: { id: message.id },
-                    data: { scheduledFor: null },
+                    data: { scheduledFor: null, attachmentPaths: null }, // Clear after sending
                 });
 
-                Logger.info(`[Scheduler] Sent scheduled message ${message.id}`);
             } catch (error) {
                 Logger.error(`[Scheduler] Failed to send scheduled message ${message.id}`, { error });
             }

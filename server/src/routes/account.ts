@@ -371,6 +371,131 @@ const accountRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: 'Failed to sync WooCommerce settings' });
         }
     });
+
+    // -------------------------
+    // Excluded IPs (Analytics Tracking)
+    // -------------------------
+
+    /**
+     * GET /:accountId/excluded-ips - Get list of excluded IPs
+     */
+    fastify.get<{ Params: { accountId: string } }>('/:accountId/excluded-ips', async (request, reply) => {
+        try {
+            const { accountId } = request.params;
+            const userId = request.user!.id;
+
+            const membership = await prisma.accountUser.findUnique({ where: { userId_accountId: { userId, accountId } } });
+            if (!membership) return reply.code(403).send({ error: 'Forbidden' });
+
+            const account = await prisma.account.findUnique({
+                where: { id: accountId },
+                select: { excludedIps: true }
+            });
+
+            const excludedIps = Array.isArray(account?.excludedIps) ? account.excludedIps : [];
+            return { excludedIps };
+        } catch (error) {
+            Logger.error('Failed to get excluded IPs', { accountId: request.params.accountId, error });
+            return reply.code(500).send({ error: 'Failed to get excluded IPs' });
+        }
+    });
+
+    /**
+     * POST /:accountId/excluded-ips - Add IP(s) to exclusion list
+     */
+    fastify.post<{ Params: { accountId: string }; Body: { ip?: string; ips?: string[] } }>('/:accountId/excluded-ips', async (request, reply) => {
+        try {
+            const { accountId } = request.params;
+            const { ip, ips } = request.body;
+            const userId = request.user!.id;
+
+            const membership = await prisma.accountUser.findUnique({ where: { userId_accountId: { userId, accountId } } });
+            if (!membership || (membership.role !== 'OWNER' && membership.role !== 'ADMIN')) {
+                return reply.code(403).send({ error: 'Forbidden' });
+            }
+
+            // Collect IPs to add
+            const ipsToAdd: string[] = [];
+            if (ip) ipsToAdd.push(ip.trim());
+            if (ips && Array.isArray(ips)) ipsToAdd.push(...ips.map(i => i.trim()));
+
+            if (ipsToAdd.length === 0) {
+                return reply.code(400).send({ error: 'No IP address provided' });
+            }
+
+            // Validate IP format (basic validation)
+            const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+            const ipv6Regex = /^([0-9a-fA-F:]+)(\/\d{1,3})?$/;
+            for (const ipAddr of ipsToAdd) {
+                if (!ipv4Regex.test(ipAddr) && !ipv6Regex.test(ipAddr)) {
+                    return reply.code(400).send({ error: `Invalid IP format: ${ipAddr}` });
+                }
+            }
+
+            // Get current list
+            const account = await prisma.account.findUnique({
+                where: { id: accountId },
+                select: { excludedIps: true }
+            });
+
+            const currentIps = Array.isArray(account?.excludedIps) ? account.excludedIps as string[] : [];
+            const newIps = [...new Set([...currentIps, ...ipsToAdd])]; // Dedupe
+
+            // Update
+            await prisma.account.update({
+                where: { id: accountId },
+                data: { excludedIps: newIps }
+            });
+
+            Logger.info('Added excluded IPs', { accountId, added: ipsToAdd, userId });
+            return { success: true, excludedIps: newIps };
+        } catch (error) {
+            Logger.error('Failed to add excluded IP', { accountId: request.params.accountId, error });
+            return reply.code(500).send({ error: 'Failed to add excluded IP' });
+        }
+    });
+
+    /**
+     * DELETE /:accountId/excluded-ips/:ip - Remove IP from exclusion list
+     */
+    fastify.delete<{ Params: { accountId: string; ip: string } }>('/:accountId/excluded-ips/:ip', async (request, reply) => {
+        try {
+            const { accountId, ip } = request.params;
+            const userId = request.user!.id;
+
+            const membership = await prisma.accountUser.findUnique({ where: { userId_accountId: { userId, accountId } } });
+            if (!membership || (membership.role !== 'OWNER' && membership.role !== 'ADMIN')) {
+                return reply.code(403).send({ error: 'Forbidden' });
+            }
+
+            // Get current list
+            const account = await prisma.account.findUnique({
+                where: { id: accountId },
+                select: { excludedIps: true }
+            });
+
+            const currentIps = Array.isArray(account?.excludedIps) ? account.excludedIps as string[] : [];
+            const decodedIp = decodeURIComponent(ip);
+            const newIps = currentIps.filter(i => i !== decodedIp);
+
+            if (newIps.length === currentIps.length) {
+                return reply.code(404).send({ error: 'IP not found in exclusion list' });
+            }
+
+            // Update
+            await prisma.account.update({
+                where: { id: accountId },
+                data: { excludedIps: newIps }
+            });
+
+            Logger.info('Removed excluded IP', { accountId, removed: decodedIp, userId });
+            return { success: true, excludedIps: newIps };
+        } catch (error) {
+            Logger.error('Failed to remove excluded IP', { accountId: request.params.accountId, error });
+            return reply.code(500).send({ error: 'Failed to remove excluded IP' });
+        }
+    });
 };
 
 export default accountRoutes;
+

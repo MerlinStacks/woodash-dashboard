@@ -29,3 +29,6 @@ export {
 
 // Cohort and LTV analysis
 export { getCohorts, getLTV, calculatePurchaseIntent } from './CohortLTVService';
+
+// IP Exclusion
+export { isExcludedIp, getExcludedIps, matchesExclusionList, normalizeIp } from './IpExclusionService';

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Logger } from '../../utils/logger';
+import { getPublicApiUrl } from '../../utils/url';
 import { Copy, Check, Info, Monitor, RefreshCw, AlertCircle, Zap, Store, ExternalLink } from 'lucide-react';
 import { useAccount } from '../../context/AccountContext';
 import { useAuth } from '../../context/AuthContext';
@@ -40,8 +41,9 @@ export function TrackingScriptHelper() {
 
     // Internal API URL for direct requests (may be Docker container name)
     const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
-    // Public API URL for external clients like WooCommerce plugin (must be publicly accessible)
-    const publicApiUrl = import.meta.env.VITE_PUBLIC_API_URL || import.meta.env.VITE_API_URL || window.location.origin;
+
+    // Public API URL for external clients (derived from browser location)
+    const publicApiUrl = getPublicApiUrl();
 
     const sendTestEvent = async () => {
         setTestStatus('loading');

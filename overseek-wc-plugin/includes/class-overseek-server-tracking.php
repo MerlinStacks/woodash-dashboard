@@ -581,6 +581,43 @@ class OverSeek_Server_Tracking
     }
 
     /**
+     * Get the current page URL with sanitization.
+     * Strips out data URI fragments and invalid path segments that can corrupt tracking.
+     *
+     * Data URIs (e.g. "image/svg+xml,%3...") can appear in REQUEST_URI when plugins
+     * or themes improperly handle image loading, causing malformed URLs like:
+     * "/order-confirmed/image/svg+xml,%3..."
+     *
+     * @return string Sanitized current page URL
+     */
+    private function get_sanitized_current_url()
+    {
+        $url = home_url(add_query_arg(array()));
+
+        // Detect and strip data URI fragments in the path
+        // Pattern: "image/" followed by mime-type indicators (svg+xml, png, jpeg, etc.)
+        // These appear when image sources leak into the URL path
+        $data_uri_patterns = array(
+            '/\/image\/svg\+xml[,%].*$/i',           // SVG data URIs
+            '/\/image\/png[,%].*$/i',                 // PNG data URIs
+            '/\/image\/jpeg[,%].*$/i',                // JPEG data URIs
+            '/\/image\/gif[,%].*$/i',                 // GIF data URIs
+            '/\/image\/webp[,%].*$/i',                // WebP data URIs
+            '/\/data:[^\/]*;base64[,%].*$/i',         // General base64 data URIs
+        );
+
+        foreach ($data_uri_patterns as $pattern) {
+            $cleaned = preg_replace($pattern, '', $url);
+            if ($cleaned !== $url) {
+                // URL was cleaned - return the sanitized version
+                return rtrim($cleaned, '/');
+            }
+        }
+
+        return $url;
+    }
+
+    /**
      * Get logged-in user data for event enrichment.
      * Enables session stitching for authenticated users.
      *
@@ -792,7 +829,7 @@ class OverSeek_Server_Tracking
             'accountId' => $this->account_id,
             'visitorId' => $visitor_id,
             'type' => $type,
-            'url' => home_url(add_query_arg(array())),
+            'url' => $this->get_sanitized_current_url(),
             'pageTitle' => wp_get_document_title(),
             'referrer' => $referrer_data['referrer'],
             'referrerDomain' => $referrer_data['referrerDomain'],
@@ -984,8 +1021,13 @@ class OverSeek_Server_Tracking
         }
 
         // Skip pages where more specific events will fire
-        // product_view, cart_view, checkout_view provide richer data
+        // product_view, cart_view, checkout_view, purchase provide richer data
         if (is_product() || (function_exists('is_cart') && is_cart()) || (function_exists('is_checkout') && is_checkout())) {
+            return;
+        }
+
+        // Skip order-received (thank-you) page - the 'purchase' event already tracks this
+        if (function_exists('is_wc_endpoint_url') && is_wc_endpoint_url('order-received')) {
             return;
         }
 
