@@ -264,10 +264,12 @@ export const bomSyncRoutes: FastifyPluginAsync = async (fastify) => {
     /**
      * DELETE /bom/sync-cancel
      * Cancel a stuck or running BOM sync job for this account.
+     * Uses aggressive cleanup for orphaned jobs.
      */
     fastify.delete('/bom/sync-cancel', async (request, reply) => {
         const accountId = request.accountId!;
         const { QueueFactory, QUEUES } = await import('../../services/queue/QueueFactory');
+        const { redisClient } = await import('../../utils/redis');
 
         const queue = QueueFactory.getQueue(QUEUES.BOM_SYNC);
         const jobId = `bom_sync_${accountId.replace(/:/g, '_')}`;
@@ -277,8 +279,7 @@ export const bomSyncRoutes: FastifyPluginAsync = async (fastify) => {
             if (existingJob) {
                 const state = await existingJob.getState();
 
-                // For active jobs, we need to use moveToFailed or just remove
-                // For waiting/delayed jobs, we can just remove them
+                // Try standard removal methods first
                 try {
                     await existingJob.remove();
                     Logger.info(`[BOMSync] Cancelled sync job`, { accountId, jobId, previousState: state });
@@ -288,17 +289,55 @@ export const bomSyncRoutes: FastifyPluginAsync = async (fastify) => {
                         previousState: state
                     };
                 } catch (removeErr: any) {
-                    // Job might be locked by a worker - try to move it to failed
-                    if (removeErr.message?.includes('locked')) {
+                    // Job is locked - try moveToFailed
+                    Logger.warn(`[BOMSync] Standard remove failed, trying moveToFailed`, {
+                        error: removeErr.message, jobId
+                    });
+
+                    try {
                         await existingJob.moveToFailed(new Error('Cancelled by user'), '0');
+                        // Try to remove again after moving to failed
+                        try { await existingJob.remove(); } catch (e) { /* ignore */ }
+
                         Logger.info(`[BOMSync] Force-failed locked sync job`, { accountId, jobId });
                         return {
                             success: true,
                             message: 'Sync job force-cancelled (was locked)',
                             previousState: state
                         };
+                    } catch (failErr: any) {
+                        // Last resort: directly remove from Redis
+                        Logger.warn(`[BOMSync] moveToFailed also failed, using Redis force-clean`, {
+                            error: failErr.message, jobId
+                        });
+
+                        // Force remove all traces of the job from Redis
+                        const queueName = QUEUES.BOM_SYNC;
+                        const keysToDelete = [
+                            `bull:${queueName}:${jobId}`,
+                            `bull:${queueName}:${jobId}:lock`,
+                            `bull:${queueName}:${jobId}:logs`,
+                        ];
+
+                        // Remove from all state sets
+                        await redisClient.zrem(`bull:${queueName}:active`, jobId);
+                        await redisClient.zrem(`bull:${queueName}:waiting`, jobId);
+                        await redisClient.zrem(`bull:${queueName}:delayed`, jobId);
+                        await redisClient.zrem(`bull:${queueName}:failed`, jobId);
+                        await redisClient.zrem(`bull:${queueName}:completed`, jobId);
+
+                        // Delete job keys
+                        for (const key of keysToDelete) {
+                            await redisClient.del(key);
+                        }
+
+                        Logger.info(`[BOMSync] Force-cleaned job from Redis`, { accountId, jobId });
+                        return {
+                            success: true,
+                            message: 'Sync job force-cleaned from Redis (orphaned job)',
+                            previousState: state
+                        };
                     }
-                    throw removeErr;
                 }
             }
 
@@ -306,11 +345,11 @@ export const bomSyncRoutes: FastifyPluginAsync = async (fastify) => {
                 success: true,
                 message: 'No active sync job found to cancel'
             };
-        } catch (err) {
-            Logger.error('Error cancelling BOM sync', { error: err, accountId });
+        } catch (err: any) {
+            Logger.error('Error cancelling BOM sync', { error: err.message, accountId });
             return reply.code(500).send({
                 success: false,
-                error: 'Failed to cancel sync job'
+                error: `Failed to cancel sync job: ${err.message}`
             });
         }
     });
