@@ -168,10 +168,17 @@ export class BOMInventorySyncService {
                         childWooId = bomItem.childVariation.wooId;
                         childName = `${childName} (Variant ${bomItem.childVariation.sku || '#' + childWooId})`;
 
-                        // Fetch variant stock from WooCommerce, fallback to local data
+                        // Fetch variant stock from WooCommerce via parent's variations endpoint
+                        // Note: WooCommerce variations require /products/{parentId}/variations endpoint
                         try {
-                            const variant = await wooService.getProduct(childWooId);
-                            childStock = variant.stock_quantity ?? 0;
+                            const parentWooId = bomItem.childProduct.wooId;
+                            const variations = await wooService.getProductVariations(parentWooId);
+                            const targetVariation = variations.find((v: any) => v.id === childWooId);
+                            childStock = targetVariation?.stock_quantity ?? bomItem.childVariation.stockQuantity ?? 0;
+
+                            if (!targetVariation) {
+                                Logger.warn(`[BOMInventorySync] Variation ${childWooId} not found in parent ${parentWooId}`, { accountId });
+                            }
                         } catch {
                             // Fallback to local data if live fetch fails
                             childStock = bomItem.childVariation.stockQuantity ?? 0;
