@@ -186,13 +186,36 @@ export const bomSyncRoutes: FastifyPluginAsync = async (fastify) => {
         if (existingJob) {
             const state = await existingJob.getState();
             if (['active', 'waiting', 'delayed'].includes(state)) {
-                return {
-                    status: 'already_running',
-                    message: `BOM sync is already ${state} for this account.`,
-                    estimatedProducts: bomCount
-                };
+                // Check if job is stale (active but not progressing for too long)
+                // This handles the "BullMQ Silence" scenario where a worker crashed
+                const processedOn = existingJob.processedOn;
+                const now = Date.now();
+                const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+
+                if (state === 'active' && processedOn && (now - processedOn > STALE_THRESHOLD_MS)) {
+                    // Job is stale - force remove it
+                    Logger.warn(`[BOMSync] Detected stale active job, force removing`, {
+                        accountId,
+                        jobId,
+                        processedOn: new Date(processedOn).toISOString(),
+                        staleDurationMs: now - processedOn
+                    });
+                    try {
+                        await existingJob.moveToFailed(new Error('Job stale - forcefully removed'), '0');
+                        await existingJob.remove();
+                    } catch (e) {
+                        Logger.warn(`[BOMSync] Failed to remove stale job, proceeding anyway`, { error: e });
+                    }
+                } else {
+                    return {
+                        status: 'already_running',
+                        message: `BOM sync is already ${state} for this account.`,
+                        estimatedProducts: bomCount
+                    };
+                }
+            } else {
+                try { await existingJob.remove(); } catch (e) { /* ignore */ }
             }
-            try { await existingJob.remove(); } catch (e) { /* ignore */ }
         }
 
         await queue.add(QUEUES.BOM_SYNC, { accountId }, {
