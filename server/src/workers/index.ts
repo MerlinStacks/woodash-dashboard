@@ -41,7 +41,8 @@ export async function startWorkers() {
     });
 
     // BOM Inventory Sync Worker
-    await import('../services/BOMInventorySyncService').then(({ BOMInventorySyncService }) => {
+    try {
+        const { BOMInventorySyncService } = await import('../services/BOMInventorySyncService');
         QueueFactory.createWorker(QUEUES.BOM_SYNC, async (job) => {
             const { accountId } = job.data;
             Logger.info(`[BOM Worker] Starting BOM sync for account ${accountId}`);
@@ -53,7 +54,10 @@ export async function startWorkers() {
                 failed: result.failed
             });
         });
-    });
+        Logger.info('[Workers] BOM Inventory Sync worker registered');
+    } catch (err: any) {
+        Logger.error('[Workers] FAILED to register BOM Inventory Sync worker', { error: err.message, stack: err.stack });
+    }
 
     // BOM Consumption on Order Creation/Sync
     // When an order is synced, check if it's in 'processing' status and consume BOM components
