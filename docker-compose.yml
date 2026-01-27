@@ -156,8 +156,6 @@ volumes:
 
 networks:
   proxy-net:
-    # For production behind a reverse proxy (Traefik, Nginx Proxy Manager), set:
-    #   external: true
-    # and create the network manually: docker network create proxy-net
-    # For local development, leave as auto-created:
-    driver: bridge
+    # External network for reverse proxy (Nginx Proxy Manager)
+    # Create once on host: docker network create proxy-net
+    external: true
