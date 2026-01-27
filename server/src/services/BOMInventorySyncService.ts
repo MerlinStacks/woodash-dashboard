@@ -454,7 +454,9 @@ export class BOMInventorySyncService {
         productId: string,
         variationId: number = 0
     ): Promise<SyncResult> {
+        console.log(`[DEBUG] syncProductToWoo: calculating effective stock for ${productId}`);
         const calculation = await this.calculateEffectiveStock(accountId, productId, variationId);
+        console.log(`[DEBUG] syncProductToWoo: calculation done, needsSync=${calculation?.needsSync}`);
 
         if (!calculation) {
             return {
