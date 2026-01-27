@@ -627,7 +627,12 @@ export class BOMInventorySyncService {
         let skipped = 0;
         let failed = 0;
 
-        for (const bom of bomsWithChildProducts) {
+        for (let i = 0; i < bomsWithChildProducts.length; i++) {
+            const bom = bomsWithChildProducts[i];
+            // Log every 100 products to track progress without flooding logs
+            if (i === 0 || i % 100 === 0) {
+                console.log(`[DEBUG] Processing BOM ${i + 1}/${bomsWithChildProducts.length}: productId=${bom.productId}, variationId=${bom.variationId}`);
+            }
             // Wrap each product sync in try/catch so one failure doesn't crash the entire job
             try {
                 const result = await this.syncProductToWoo(accountId, bom.productId, bom.variationId);
