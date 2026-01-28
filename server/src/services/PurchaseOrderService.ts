@@ -54,7 +54,10 @@ export class PurchaseOrderService {
             sku?: string;
         }[];
         notes?: string;
-        expectedDate?: string; // ISO Date string
+        orderDate?: string;
+        expectedDate?: string;
+        trackingNumber?: string;
+        trackingLink?: string;
     }) {
         // Calculate totals
         let totalAmount = 0;
@@ -65,7 +68,7 @@ export class PurchaseOrderService {
                 productId: item.productId,
                 supplierItemId: item.supplierItemId,
                 quantity: item.quantity,
-                unitCost: item.unitCost, // Decimal handling? Prisma handles primitive numbers to Decimal often, but better to be safe
+                unitCost: item.unitCost,
                 totalCost: lineTotal,
                 name: item.name,
                 sku: item.sku
@@ -78,7 +81,10 @@ export class PurchaseOrderService {
                 supplierId: data.supplierId,
                 status: 'DRAFT',
                 notes: data.notes,
+                orderDate: data.orderDate ? new Date(data.orderDate) : null,
                 expectedDate: data.expectedDate ? new Date(data.expectedDate) : null,
+                trackingNumber: data.trackingNumber || null,
+                trackingLink: data.trackingLink || null,
                 totalAmount,
                 items: {
                     create: itemsToCreate
@@ -88,20 +94,79 @@ export class PurchaseOrderService {
     }
 
     /**
-     * Update a Purchase Order (Status or Fields)
+     * Update a Purchase Order (Status, Fields, AND Items)
      */
     async updatePurchaseOrder(accountId: string, poId: string, data: {
         status?: string;
+        supplierId?: string;
         notes?: string;
+        orderDate?: string;
         expectedDate?: string;
+        trackingNumber?: string;
+        trackingLink?: string;
+        items?: {
+            productId?: string;
+            supplierItemId?: string;
+            quantity: number;
+            unitCost: number;
+            name: string;
+            sku?: string;
+        }[];
     }) {
-        return prisma.purchaseOrder.updateMany({ // Use updateMany for security (accountId check)
+        // Build update payload dynamically
+        const updateData: Record<string, unknown> = {};
+
+        if (data.status !== undefined) updateData.status = data.status;
+        if (data.supplierId !== undefined) updateData.supplierId = data.supplierId;
+        if (data.notes !== undefined) updateData.notes = data.notes;
+        if (data.orderDate !== undefined) updateData.orderDate = data.orderDate ? new Date(data.orderDate) : null;
+        if (data.expectedDate !== undefined) updateData.expectedDate = data.expectedDate ? new Date(data.expectedDate) : null;
+        if (data.trackingNumber !== undefined) updateData.trackingNumber = data.trackingNumber || null;
+        if (data.trackingLink !== undefined) updateData.trackingLink = data.trackingLink || null;
+
+        // If items are provided, recalculate totalAmount and replace items
+        if (data.items && data.items.length > 0) {
+            let totalAmount = 0;
+            const itemsToCreate = data.items.map(item => {
+                const lineTotal = item.quantity * item.unitCost;
+                totalAmount += lineTotal;
+                return {
+                    productId: item.productId || null,
+                    supplierItemId: item.supplierItemId || null,
+                    quantity: item.quantity,
+                    unitCost: item.unitCost,
+                    totalCost: lineTotal,
+                    name: item.name,
+                    sku: item.sku || null
+                };
+            });
+
+            updateData.totalAmount = totalAmount;
+
+            // Transaction to delete old items and create new ones
+            return prisma.$transaction(async (tx) => {
+                // Delete existing items
+                await tx.purchaseOrderItem.deleteMany({
+                    where: { purchaseOrderId: poId }
+                });
+
+                // Update PO and create new items
+                return tx.purchaseOrder.update({
+                    where: { id: poId },
+                    data: {
+                        ...updateData,
+                        items: {
+                            create: itemsToCreate
+                        }
+                    }
+                });
+            });
+        }
+
+        // No items update, just update fields
+        return prisma.purchaseOrder.updateMany({
             where: { id: poId, accountId },
-            data: {
-                ...(data.status ? { status: data.status } : {}),
-                ...(data.notes !== undefined ? { notes: data.notes } : {}),
-                ...(data.expectedDate ? { expectedDate: new Date(data.expectedDate) } : {})
-            }
+            data: updateData
         });
     }
 

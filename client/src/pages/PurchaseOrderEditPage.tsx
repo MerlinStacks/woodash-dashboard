@@ -3,7 +3,7 @@ import { Logger } from '../utils/logger';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
-import { ArrowLeft, Save, Plus, Trash2, Loader2, Calendar, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Loader2, Calendar, Copy, ExternalLink } from 'lucide-react';
 import { CreateSupplierModal } from '../components/inventory/CreateSupplierModal';
 import { ProductSearchInput, ProductSelection } from '../components/inventory/ProductSearchInput';
 import { SupplierSearchInput } from '../components/inventory/SupplierSearchInput';
@@ -43,7 +43,10 @@ export function PurchaseOrderEditPage() {
     const [supplierId, setSupplierId] = useState('');
     const [status, setStatus] = useState('DRAFT');
     const [notes, setNotes] = useState('');
+    const [orderDate, setOrderDate] = useState('');
     const [expectedDate, setExpectedDate] = useState('');
+    const [trackingNumber, setTrackingNumber] = useState('');
+    const [trackingLink, setTrackingLink] = useState('');
     const [items, setItems] = useState<POItem[]>([]);
     const [showCreateSupplier, setShowCreateSupplier] = useState(false);
 
@@ -79,7 +82,10 @@ export function PurchaseOrderEditPage() {
                 setSupplierId(data.supplierId);
                 setStatus(data.status);
                 setNotes(data.notes || '');
+                setOrderDate(data.orderDate ? data.orderDate.split('T')[0] : '');
                 setExpectedDate(data.expectedDate ? data.expectedDate.split('T')[0] : '');
+                setTrackingNumber(data.trackingNumber || '');
+                setTrackingLink(data.trackingLink || '');
                 setPoNumber(data.orderNumber || '');
 
                 // Map items
@@ -126,7 +132,10 @@ export function PurchaseOrderEditPage() {
             supplierId,
             status,
             notes,
+            orderDate: orderDate || null,
             expectedDate: expectedDate || null,
+            trackingNumber: trackingNumber || null,
+            trackingLink: trackingLink || null,
             items: items.map(i => ({
                 productId: i.productId,
                 supplierItemId: i.supplierItemId,
@@ -341,7 +350,20 @@ export function PurchaseOrderEditPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Expected Date</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Ordered Date</label>
+                            <div className="relative">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <input
+                                    type="date"
+                                    value={orderDate}
+                                    onChange={(e) => setOrderDate(e.target.value)}
+                                    className="pl-10 w-full border border-gray-300 rounded-lg p-2.5 outline-hidden focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Expected Delivery</label>
                             <div className="relative">
                                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                 <input
@@ -350,6 +372,46 @@ export function PurchaseOrderEditPage() {
                                     onChange={(e) => setExpectedDate(e.target.value)}
                                     className="pl-10 w-full border border-gray-300 rounded-lg p-2.5 outline-hidden focus:ring-2 focus:ring-blue-500"
                                 />
+                            </div>
+                        </div>
+
+                        {/* Tracking Section */}
+                        <div className="border-t pt-4">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Shipment Tracking</h3>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Tracking Number</label>
+                                    <input
+                                        type="text"
+                                        value={trackingNumber}
+                                        onChange={(e) => setTrackingNumber(e.target.value)}
+                                        placeholder="e.g. 1Z999AA10123456784"
+                                        className="w-full border border-gray-300 rounded-lg p-2.5 outline-hidden focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Tracking Link</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="url"
+                                            value={trackingLink}
+                                            onChange={(e) => setTrackingLink(e.target.value)}
+                                            placeholder="https://tracking.example.com/..."
+                                            className="flex-1 border border-gray-300 rounded-lg p-2.5 outline-hidden focus:ring-2 focus:ring-blue-500 text-sm"
+                                        />
+                                        {trackingLink && (
+                                            <a
+                                                href={trackingLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-center px-3 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                                                title="Open tracking link"
+                                            >
+                                                <ExternalLink size={18} />
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

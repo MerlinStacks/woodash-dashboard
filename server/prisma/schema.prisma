@@ -726,6 +726,10 @@ model PurchaseOrder {
   totalAmount Decimal? @db.Decimal(10, 2)
   notes       String?  @db.Text
 
+  // Shipment Tracking
+  trackingNumber String?
+  trackingLink   String?
+
   supplier Supplier @relation(fields: [supplierId], references: [id])
   account  Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
 

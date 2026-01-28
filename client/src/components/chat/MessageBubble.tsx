@@ -218,15 +218,17 @@ function parseQuotedContent(body: string): QuotedContentInfo {
     const textBody = stripHtmlForAnalysis(body);
 
     // Patterns that typically start quoted content
+    // IMPORTANT: These patterns must be precise to avoid hiding actual customer replies.
+    // Email structure is often: [Customer Reply] -> [Quoted Thread with Headers]
+    // We must only detect the quoted thread portion, not the customer's actual message.
     const quoteStartPatterns = [
         // iOS/Apple Mail: "On Jan 15, 2026, at 8:52 am, Name <email> wrote:"
         /On .+,\s*(at\s+)?\d{1,2}[:.]\d{2}\s*(am|pm)?,?\s*.+\s*wrote:/im,
         // Standard: "On Mon, Jan 15, 2026 at 8:52 AM Name <email> wrote:"
         /On .+ wrote:$/m,
-        // Outlook style headers block
+        // Outlook style headers block - MUST have From + Sent + To together
+        // This prevents matching a single "From:" line in the customer's message
         /From:\s*.+\n\s*Sent:\s*.+\n\s*To:/im,
-        // Outlook: "From: Name" followed by metadata
-        /^From:\s*.+<.+@.+>/m,
         // Original Message dividers
         /-{2,}\s*Original Message\s*-{2,}/im,
         /-{2,}\s*Forwarded message\s*-{2,}/im,
@@ -235,8 +237,6 @@ function parseQuotedContent(body: string): QuotedContentInfo {
         /^-{5,}$/m,
         // CAUTION/Warning banners (often precede forwarded content)
         /CAUTION:\s*This email originated from outside/i,
-        // Subject line in reply (often indicates quoted content)
-        /^Subject:\s*.+$/m,
     ];
 
     let splitIndex = -1;
