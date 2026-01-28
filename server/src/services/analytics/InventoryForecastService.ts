@@ -367,8 +367,24 @@ export class InventoryForecastService {
             // Check if product has a parent-level BOM with items (variationId=0)
             const hasParentBOM = p.boms.some(bom => bom.variationId === 0 && bom.items.length > 0);
 
-            // Parent products: only include if no parent BOM and has managed stock
-            if (!hasParentBOM) {
+            // Check if ANY variation has its own BOM with items
+            // If so, parent should be excluded (demand flows to components through variations)
+            const anyVariationHasBOM = p.variations.some(v =>
+                p.boms.some(bom => bom.variationId === v.wooId && bom.items.length > 0)
+            );
+
+            // Check if any variation manages its own stock
+            // If so, parent shouldn't appear (demand tracked at variation level)
+            const hasStockManagedVariations = p.variations.some(v => {
+                const varRaw = v.rawData as { manage_stock?: boolean } | null;
+                return v.manageStock || varRaw?.manage_stock;
+            });
+
+            // Parent products: only include if:
+            // 1. No parent-level BOM, AND
+            // 2. No variation has a BOM, AND
+            // 3. No variations manage their own stock (avoids double-counting)
+            if (!hasParentBOM && !anyVariationHasBOM && !hasStockManagedVariations) {
                 const raw = p.rawData as { manage_stock?: boolean; stock_quantity?: number };
                 if (raw.manage_stock && typeof raw.stock_quantity === 'number') {
                     result.push({
